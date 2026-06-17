@@ -49,7 +49,7 @@ How we build and test **Bound for the Road** on **Windows**, with an **iPhone** 
 Flow:
 
 ```text
-Laptop:  TeenDriver project  →  npx expo start  →  dev server + QR
+Laptop:  Bound for the Road project  →  npx expo start  →  dev server + QR
 Phone:   Expo Go scans QR     →  downloads bundle  →  runs your app UI
 ```
 
@@ -64,7 +64,7 @@ Expo Go **does** handle well for early development:
 - Fast refresh, logging, basic navigation
 - Proving layouts, flows, and local state before native customization
 
-Expo Go **does not** replace a production app. It is a **shared development container**, not your branded “TeenDriver” binary.
+Expo Go **does not** replace a production app. It is a **shared development container**, not your branded “Bound for the Road” binary.
 
 ### What Expo Go does *not* handle (you need a development or production build)
 
@@ -84,10 +84,10 @@ For those, you create a **development build** (`expo-dev-client`) or **productio
 |----------|---------|
 | **Starting the project**, shared screens, navigation, local DB, most business logic | **Yes — excellent** |
 | **Proving iOS + Android** without two store submissions | **Yes** |
-| **Shipping MVP to real users** with TeenDriver branding, full push, Live Activity | **No — move to dev/production builds** |
+| **Shipping MVP to real users** with Bound for the Road branding, full push, Live Activity | **No — move to dev/production builds** |
 | **Long-term “the product”** | **No** — ship your own binary |
 
-**Recommendation for TeenDriver:**
+**Recommendation for Bound for the Road:**
 
 1. **Phase 1:** Expo Go + iPhone + Android emulator (Windows).
 2. **Phase 2:** Development builds when implementing push, app identity, lock screen features.
@@ -139,7 +139,7 @@ Useful for real GPS, notification behavior, and OEM-specific quirks — add when
 | Android emulator | Yes | Yes | Yes |
 | iPhone physical | Yes | Yes | Yes |
 | iOS Simulator (Mac only) | Yes | Yes | Yes |
-| App name/icon as TeenDriver | No | Yes | Yes |
+| App name/icon as Bound for the Road | No | Yes | Yes |
 | Live Activity (iOS) | No | Yes | Yes |
 | Store-ready push (your bundle ID) | Limited | Yes | Yes |
 | TestFlight / Play Store | No | Via EAS | Yes |

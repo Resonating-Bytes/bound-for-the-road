@@ -49,11 +49,11 @@ This document captures platform-specific implementation decisions, known diverge
 
 All push notifications include a `deepLink` field. Deep links are how a notification tap opens the right screen.
 
-**Scheme:** `teendriver://`
+**Scheme:** `boundfortheroad://`
 
 **Required routes (MVP):**
-- `teendriver://sessions/{sessionId}` — open a specific session (for approval, review, etc.)
-- `teendriver://sessions/active` — open the current active session
+- `boundfortheroad://sessions/{sessionId}` — open a specific session (for approval, review, etc.)
+- `boundfortheroad://sessions/active` — open the current active session
 
 **iOS setup:**
 - Custom URL scheme in `app.json` `ios.bundleIdentifier` + `scheme`.

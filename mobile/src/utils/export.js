@@ -5,7 +5,7 @@ import { IL_RULES, hoursFromMinutes } from '../config/states/IL';
 
 export function renderExportTemplate(sessionRows, user) {
   const lines = [];
-  lines.push('TeenDriver — Illinois Supervised Driving Log');
+  lines.push('Bound for the Road — Illinois Supervised Driving Log');
   lines.push('==========================================');
   lines.push('');
   lines.push(`Driver: ${user.legalName}`);

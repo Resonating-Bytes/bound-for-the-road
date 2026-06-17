@@ -92,7 +92,7 @@ Legend: **Y** = clearly advertised · **P** = partial/unclear · **N** = not adv
 
 ## Comparison to our MVP workflow
 
-| Step | Moda / others | TeenDriver MVP |
+| Step | Moda / others | Bound for the Road MVP |
 |------|---------------|----------------|
 | Start | Teen/parent tap | **Teen only** |
 | Adult engaged | Pre-select supervisor or family view | **“I’m with the driver”** during session |

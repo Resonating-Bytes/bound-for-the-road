@@ -21,7 +21,7 @@ export function MockSignInScreen({ navigation }) {
 
   return (
     <Screen style={styles.container}>
-      <Text style={styles.title}>TeenDriver</Text>
+      <Text style={styles.title}>Bound for the Road</Text>
       <Text style={styles.subtitle}>Illinois supervised driving log</Text>
       <Text style={styles.body}>
         Phase 1 uses mock sign-in for Expo Go testing. Tap below to create or restore your local

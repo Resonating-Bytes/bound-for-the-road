@@ -35,7 +35,7 @@ export async function scheduleSessionNudge(sessionId, startedAt) {
     identifier: `session-nudge-${sessionId}`,
     content: {
       title: 'Still driving?',
-      body: `Your practice session has been running for ${IL_RULES.nudgeHours} hours. Open TeenDriver to stop or continue.`,
+      body: `Your practice session has been running for ${IL_RULES.nudgeHours} hours. Open Bound for the Road to stop or continue.`,
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -51,4 +51,17 @@ export async function cancelSessionNudge(sessionId) {
   } catch {
     // notification may not exist
   }
+}
+
+export async function notifyStaleSessionExpired(sessionId) {
+  configureNotificationHandler();
+  await ensureNotificationPermissions();
+  await Notifications.scheduleNotificationAsync({
+    identifier: `session-stale-${sessionId}`,
+    content: {
+      title: 'Session auto-stopped',
+      body: `Your practice session was running over ${IL_RULES.staleActiveHours} hours and was stopped. Review and save or discard.`,
+    },
+    trigger: null,
+  });
 }

@@ -26,7 +26,7 @@ import { cancelSessionNudge, scheduleSessionNudge } from '../utils/notifications
 import { Screen } from '../components/Screen';
 
 export function ReviewSessionScreen({ route, navigation }) {
-  const { sessionId, editing, editBackup } = route.params ?? {};
+  const { sessionId, editing, editBackup, staleExpired } = route.params ?? {};
   const { userId } = useAuth();
   const session = getSessionById(sessionId);
   const [notes, setNotes] = useState(session?.notes ?? '');
@@ -152,6 +152,13 @@ export function ReviewSessionScreen({ route, navigation }) {
             <Row label="Record hash" value={`${truncateHash(session.requestHash)}…`} />
           )}
         </View>
+
+        {staleExpired && (
+          <Text style={styles.warning}>
+            This session was running over {IL_RULES.staleActiveHours} hours and was automatically
+            stopped. Review the times, then save or discard.
+          </Text>
+        )}
 
         {curfewWarning && <Text style={styles.warning}>{curfewWarning}</Text>}
 

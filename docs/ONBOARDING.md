@@ -58,7 +58,7 @@ Shown to every new user immediately after first sign-in.
 
 **Screen 3 — Date of birth**
 - Date picker
-- Must be 13 or older to proceed (show error if under 13: "TeenDriver is for drivers aged 13 and up")
+- Must be 13 or older to proceed (show error if under 13: "Bound for the Road is for drivers aged 13 and up")
 - Stored for age verification only; not displayed elsewhere in MVP
 
 **Screen 4 — State**
@@ -97,7 +97,7 @@ Linking requires one side to initiate and the other to accept. Either side can g
 1. Teen taps **"Add a supervisor"** at end of onboarding (or later from Settings).
 2. App calls `POST /links/invite` → backend returns a **6-digit code** valid for 24 hours.
 3. Teen sees: "Share this code with your supervising adult: **482 916**" with a copy button and a share sheet option (SMS/iMessage is the natural channel).
-4. Adult opens TeenDriver, completes their own onboarding if needed, then taps **"I have an invite code"**.
+4. Adult opens Bound for the Road, completes their own onboarding if needed, then taps **"I have an invite code"**.
 5. Adult enters the 6-digit code.
 6. App calls `POST /links/accept` → link created with status `active`.
 7. Both sides see confirmation: "You're now linked with [Name]."

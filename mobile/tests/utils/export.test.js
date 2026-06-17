@@ -28,7 +28,7 @@ describe('export', () => {
 
     const text = renderExportTemplate(sessions, user);
 
-    expect(text).toContain('Illinois Supervised Driving Log');
+    expect(text).toContain('Bound for the Road — Illinois Supervised Driving Log');
     expect(text).toContain('Driver: Alex Driver');
     expect(text).toContain('Permit issue date:');
     expect(text).toContain('Earliest license eligibility (9 months):');

@@ -4,6 +4,7 @@ import { users, sessions, outbox } from './schema';
 import { generateId, nowISO, durationMinutes } from '../utils/time';
 import { classifyDayNight } from '../utils/dayNight';
 import { buildSavePayload, computeRequestHash, stableStringify } from '../utils/hash';
+import { IL_RULES } from '../config/states/IL';
 
 export function getUserById(userId) {
   const db = getDb();
@@ -73,6 +74,21 @@ export function getActiveSession(teenUserId) {
       .where(and(eq(sessions.teenUserId, teenUserId), eq(sessions.status, 'active')))
       .get() ?? null
   );
+}
+
+export function isActiveSessionStale(session, at = new Date()) {
+  if (!session || session.status !== 'active') return false;
+  const ageMs = at.getTime() - new Date(session.startedAt).getTime();
+  return ageMs >= IL_RULES.staleActiveHours * 60 * 60 * 1000;
+}
+
+/** If active session exceeds stale threshold, stop to draft. Returns draft row or null. */
+export function expireStaleActiveSession(teenUserId, endedAt = nowISO()) {
+  const active = getActiveSession(teenUserId);
+  if (!active || !isActiveSessionStale(active, new Date(endedAt))) {
+    return null;
+  }
+  return stopSession(active.id, endedAt);
 }
 
 export function getDraftSession(teenUserId) {

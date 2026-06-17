@@ -41,10 +41,11 @@ stateDiagram-v2
 
 1. **Start** — `status = active`; schedule 2-hour local nudge ([NOTIFICATIONS.md](./NOTIFICATIONS.md)).
 2. **Stop** — pause timer; `status = draft`; open Review screen.
-3. **Review** — show duration, day/night, notes; warn if &lt; 5 min on Save.
-4. **Save** — compute hash, `status = saved`; cancel nudge.
-5. **Discard** — delete draft row (never saved).
-6. **Edit** (from dashboard) — `saved` → `draft`; clear hash until re-save.
+3. **Stale active** — on app open, if active **&gt; 24 hours**, auto-stop to `draft`, notify teen, open Review.
+4. **Review** — show duration, day/night, notes; warn if &lt; 5 min on Save.
+5. **Save** — compute hash, `status = saved`; cancel nudge.
+6. **Discard** — delete draft row (never saved).
+7. **Edit** (from dashboard) — `saved` → `draft`; clear hash until re-save.
 
 ---
 

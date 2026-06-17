@@ -13,7 +13,7 @@ export function OnboardingDOBScreen({ navigation }) {
 
   function next() {
     if (!isAtLeastAge(dob, 13)) {
-      Alert.alert('Age requirement', 'You must be at least 13 to use TeenDriver.');
+      Alert.alert('Age requirement', 'You must be at least 13 to use Bound for the Road.');
       return;
     }
     saveProfile({

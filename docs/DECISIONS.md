@@ -32,7 +32,7 @@ All product and MVP technical choices live here. Other docs link here instead of
 | Edit saved | Reopen → `draft` → re-Save (new hash) |
 | Min duration | Warn if &lt; 5 min; **allow Save** |
 | Active nudge | **2-hour** elapsed local notification (no GPS stall in MVP) |
-| Stale active session | If `active` **&gt; 24 hours** on next app open → force to `draft`, notify teen (not yet implemented; nudge-only today) |
+| Stale active session | If `active` **&gt; 24 hours** on next app open → force to `draft`, notify teen |
 | Dashboard | Progress 50/10; session list; **Edit** per row; **Export all** (text/HTML) |
 
 ---
