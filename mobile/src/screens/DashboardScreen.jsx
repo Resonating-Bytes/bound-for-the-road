@@ -20,12 +20,17 @@ import {
   createActiveSession,
   reopenSavedSession,
   getSessionById,
+  expireStaleActiveSession,
 } from '../db/queries';
 import { IL_RULES } from '../config/states/IL';
 import { formatDate, formatDuration, addMonths } from '../utils/time';
 import { dayNightLabel } from '../utils/dayNight';
 import { renderExportTemplate } from '../utils/export';
-import { scheduleSessionNudge } from '../utils/notifications';
+import {
+  scheduleSessionNudge,
+  cancelSessionNudge,
+  notifyStaleSessionExpired,
+} from '../utils/notifications';
 
 export function DashboardScreen({ navigation }) {
   const { userId, user } = useAuth();
@@ -42,15 +47,33 @@ export function DashboardScreen({ navigation }) {
     useCallback(() => {
       if (!userId) return;
       refresh();
-      const active = getActiveSession(userId);
-      if (active) {
-        navigation.replace('ActiveSession', { sessionId: active.id });
-        return;
-      }
-      const draft = getDraftSession(userId);
-      if (draft) {
-        navigation.replace('ReviewSession', { sessionId: draft.id });
-      }
+
+      let cancelled = false;
+      (async () => {
+        const expired = expireStaleActiveSession(userId);
+        if (cancelled) return;
+        if (expired) {
+          await cancelSessionNudge(expired.id);
+          await notifyStaleSessionExpired(expired.id);
+          navigation.replace('ReviewSession', { sessionId: expired.id, staleExpired: true });
+          return;
+        }
+        const active = getActiveSession(userId);
+        if (cancelled) return;
+        if (active) {
+          navigation.replace('ActiveSession', { sessionId: active.id });
+          return;
+        }
+        const draft = getDraftSession(userId);
+        if (cancelled) return;
+        if (draft) {
+          navigation.replace('ReviewSession', { sessionId: draft.id });
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
     }, [userId, navigation, refresh]),
   );
 

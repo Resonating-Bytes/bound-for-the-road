@@ -102,4 +102,4 @@ No tab bar required for MVP; optional later.
 
 ## Deep links (Phase 2)
 
-Scheme: `teendriver://` — see [CROSS_PLATFORM.md](./CROSS_PLATFORM.md).
+Scheme: `boundfortheroad://` — see [CROSS_PLATFORM.md](./CROSS_PLATFORM.md).

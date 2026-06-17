@@ -1,4 +1,4 @@
-# TeenDriver — Project TODO
+# Bound for the Road — Project TODO
 
 **Last updated:** 2026-06-17  
 **Current phase:** Phase 1 implementation (teen-only, local DB) — **automated testing gate before Phase 2**
@@ -56,6 +56,7 @@
 - [x] Soft-delete saved session
 - [x] 2-hour local notification nudge (expo-notifications)
 - [x] Curfew warning on review (IL)
+- [x] Stale active session → draft on app open (>24h)
 
 ### Settings & data
 - [x] Edit name, permit date
@@ -72,9 +73,8 @@
 - [x] Unit tests: queries (session state machine, progress, edit restore)
 - [x] Component tests: Review Resume/Edit/Cancel rules
 - [x] GitHub Actions: `npm test` on PR
-- [ ] Maestro E2E happy path (optional same pass)
 
-See [TESTING.md](./TESTING.md). **User sign-off on Phase 1 features first**, then implement this block before Supabase/Phase 2.
+See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production build — not Expo Go).
 
 ---
 
@@ -86,6 +86,7 @@ See [TESTING.md](./TESTING.md). **User sign-off on Phase 1 features first**, the
 - [ ] Submit for approval, adult approve, attestation
 - [ ] Push + Edge Function relay
 - [ ] Outbox sync to BACKEND endpoints
+- [ ] Maestro E2E happy path (dev/production build — not Expo Go)
 - [ ] Live Activity + Android foreground service
 - [ ] Deep links
 

@@ -21,6 +21,9 @@ import {
   getProgress,
   listSavedSessions,
   getSessionById,
+  getActiveSession,
+  expireStaleActiveSession,
+  isActiveSessionStale,
 } from '../../src/db/queries';
 
 const TEEN_ID = 'teen-001';
@@ -100,6 +103,22 @@ describe('queries', () => {
     expect(restored.status).toBe('saved');
     expect(restored.requestHash).toBe(backup.requestHash);
     expect(restored.notes).toBe('Original');
+  });
+
+  test('expireStaleActiveSession stops session older than 24 hours', () => {
+    const active = createActiveSession(TEEN_ID);
+    jest.setSystemTime(new Date('2026-06-02T15:00:00.000Z'));
+    expect(isActiveSessionStale(active)).toBe(true);
+    const draft = expireStaleActiveSession(TEEN_ID, '2026-06-02T15:00:00.000Z');
+    expect(draft.status).toBe('draft');
+    expect(draft.endedAt).toBe('2026-06-02T15:00:00.000Z');
+    expect(getActiveSession(TEEN_ID)).toBeNull();
+  });
+
+  test('expireStaleActiveSession ignores recent active session', () => {
+    createActiveSession(TEEN_ID);
+    jest.setSystemTime(new Date('2026-06-01T16:00:00.000Z'));
+    expect(expireStaleActiveSession(TEEN_ID)).toBeNull();
   });
 
   test('getProgress excludes soft-deleted saved sessions', async () => {

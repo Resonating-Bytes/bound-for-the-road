@@ -1,7 +1,7 @@
 # Automated testing plan
 
 **Last updated:** 2026-06-17  
-**Status:** In progress — Jest harness + unit/component tests + CI; Maestro E2E still optional
+**Status:** In progress — Jest harness + unit/component tests + CI; Maestro E2E deferred to Phase 2 (dev/production build)
 
 Decisions: [DECISIONS.md](./DECISIONS.md)
 
@@ -57,12 +57,14 @@ Screen behavior without a device:
 
 Mock `AuthContext`, `navigation`, and `queries.js` at module boundary.
 
-### 3. Integration / E2E (later in Phase 1 test pass)
+### 3. Integration / E2E (Phase 2 — dev/production build)
+
+Maestro does not work well with **Expo Go** (shared container, not your app binary). Defer E2E until **EAS dev client** or TestFlight builds.
 
 | Option | When | Notes |
 |--------|------|-------|
-| **Maestro** | Preferred for Expo | YAML flows: onboarding → start → stop → save → export |
-| **Detox** | Phase 2+ if dev build | Heavier; needs EAS dev client, not Expo Go |
+| **Maestro** | Phase 2+ with dev/production build | YAML flows: onboarding → start → stop → save → export |
+| **Detox** | Phase 2+ if dev build | Heavier; needs EAS dev client |
 
 First E2E flow: **happy path teen session** on iOS simulator or device.
 
@@ -75,7 +77,7 @@ on: pull_request
   → optional: lint
 ```
 
-E2E in CI is optional initially (simulator cost/complexity); run Maestro locally before release.
+E2E in CI is optional initially (simulator cost/complexity); run Maestro on dev builds before store release.
 
 ---
 

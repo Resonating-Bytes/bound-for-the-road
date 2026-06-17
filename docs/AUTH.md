@@ -1,6 +1,6 @@
 # Authentication
 
-How TeenDriver authenticates users across iOS and Android, what the backend receives, and how an auth identity maps to an app User record.
+How Bound for the Road authenticates users across iOS and Android, what the backend receives, and how an auth identity maps to an app User record.
 
 Read this before writing any auth-related code or backend endpoints.
 
@@ -28,10 +28,10 @@ Read this before writing any auth-related code or backend endpoints.
    - `email` — user's email, **only provided on first sign-in**. On subsequent sign-ins Apple does not re-send it. The backend must store it on first receipt.
    - `email_verified` — boolean
 4. Apple also returns a **full name** (given + family) — again, **only on first sign-in**. Store it immediately.
-5. The app sends the identity token to the TeenDriver backend.
+5. The app sends the identity token to the Bound for the Road backend.
 6. The backend verifies the token's signature against Apple's public keys (fetched from `https://appleid.apple.com/auth/keys`).
 7. Backend looks up or creates a User record keyed on `apple_sub`.
-8. Backend returns a TeenDriver session token.
+8. Backend returns a Bound for the Road session token.
 
 **Important:** Apple's email relay — users can choose "Hide My Email," in which case Apple provides a relay address (`@privaterelay.appleid.com`). The app should accept this and not require a real email for core functionality.
 
@@ -44,17 +44,17 @@ Read this before writing any auth-related code or backend endpoints.
    - `email` — always present and reliable
    - `name`, `given_name`, `family_name` — always present
    - `picture` — profile photo URL (not used in MVP)
-4. The app sends the ID token to the TeenDriver backend.
+4. The app sends the ID token to the Bound for the Road backend.
 5. Backend verifies the token by calling `https://oauth2.googleapis.com/tokeninfo?id_token=TOKEN` or using Google's public keys directly.
 6. Backend looks up or creates a User record keyed on `google_sub`.
-7. Backend returns a TeenDriver session token.
+7. Backend returns a Bound for the Road session token.
 
 ---
 
 ## Backend flow (both providers)
 
 ```
-App                          TeenDriver Backend
+App                          Bound for the Road Backend
  |                                   |
  |-- POST /auth/signin ------------> |
  |   { provider, identity_token,     |
@@ -63,7 +63,7 @@ App                          TeenDriver Backend
  |                                   |-- Look up User by (provider, sub)
  |                                   |-- If not found: create User record
  |                                   |-- If found: update last_seen
- |                                   |-- Issue TeenDriver session token (JWT)
+ |                                   |-- Issue Bound for the Road session token (JWT)
  |                                   |
  |<-- { session_token, user_id, ---- |
  |      is_new_user }                |
@@ -73,7 +73,7 @@ App                          TeenDriver Backend
 
 ---
 
-## TeenDriver session token
+## Bound for the Road session token
 
 - Format: JWT signed with a server secret (HS256 or RS256).
 - Payload: `{ user_id, role, iat, exp }`
@@ -148,7 +148,7 @@ This sets `role` on the User record. The role cannot be changed after onboarding
 ## Security notes
 
 - Never log or store raw identity tokens beyond the verification step.
-- Never store the TeenDriver session token in AsyncStorage — use SecureStore only.
+- Never store the Bound for the Road session token in AsyncStorage — use SecureStore only.
 - The `role` field on the backend is the authoritative source. The app should re-fetch user profile on session resume and not trust a locally cached role for approval eligibility checks.
 - Device clock manipulation affects token expiry checks locally but not on the backend (the backend uses server time to issue and validate session tokens).
 

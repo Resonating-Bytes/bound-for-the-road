@@ -6,6 +6,7 @@ export const IL_RULES = {
   holdingMonths: 9,
   minSessionWarnMinutes: 5,
   nudgeHours: 2,
+  staleActiveHours: 24,
   curfew: {
     weekdayStart: 22,
     weekdayEnd: 6,

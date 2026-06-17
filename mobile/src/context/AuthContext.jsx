@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateId } from '../utils/time';
 import { getUserById, upsertUser, deleteAllUserData, isProfileComplete } from '../db/queries';
 
-const AUTH_USER_KEY = '@teendriver/authUserId';
+const AUTH_USER_KEY = '@boundfortheroad/authUserId';
 
 const AuthContext = createContext(null);
 

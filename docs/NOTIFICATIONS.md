@@ -9,6 +9,7 @@ Decisions: [DECISIONS.md](./DECISIONS.md)
 | Event | Type | Recipients | Notes |
 |-------|------|------------|-------|
 | Session running ≥ 2 hours | **Local notification** | Teen | "Still driving?" — open app to stop or continue |
+| Active session ≥ 24 hours on app open | **Local notification** + Review screen | Teen | Auto-stop to draft; review and save or discard |
 | Session stop / save / discard | Cancel scheduled nudge | — | Cancel by session id |
 
 - Implemented with `expo-notifications` (local schedule only).

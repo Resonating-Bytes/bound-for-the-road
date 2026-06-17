@@ -1,10 +1,10 @@
-# TeenDriver
+# Bound for the Road
 
 Design and implementation workspace for a cross-platform teen permit supervised-driving log app (Illinois first).
 
 ## Status
 
-**Phase 1 in progress** — docs consolidated ([DECISIONS.md](./DECISIONS.md), [SCREENS.md](./SCREENS.md)); mobile DB foundation pending in `mobile/src/`.
+**Phase 1 complete** — mock auth, session log, export, local DB, automated tests. Phase 2 (Supabase, real auth) not started.
 
 ### Run on your iPhone (Expo Go)
 

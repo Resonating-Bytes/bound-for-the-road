@@ -16,7 +16,7 @@ export function getSqlite() {
 }
 
 export function initDb() {
-  const sqlite = openDatabaseSync('teendriver.db');
+  const sqlite = openDatabaseSync('boundfortheroad.db');
   for (const sql of MIGRATION_STATEMENTS) {
     sqlite.execSync(sql);
   }
