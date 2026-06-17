@@ -1,7 +1,7 @@
 # Automated testing plan
 
 **Last updated:** 2026-06-17  
-**Status:** Planned — **gate before Phase 2** (user sign-off on Phase 1 features first)
+**Status:** In progress — Jest harness + unit/component tests + CI; Maestro E2E still optional
 
 Decisions: [DECISIONS.md](./DECISIONS.md)
 

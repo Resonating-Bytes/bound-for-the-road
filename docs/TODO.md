@@ -67,11 +67,11 @@
 - [ ] State machine on iPhone + Android emulator
 
 ### Automated testing (gate before Phase 2)
-- [ ] Jest + jest-expo in `mobile/`
-- [ ] Unit tests: hash, dayNight, time, curfew, export
-- [ ] Unit tests: queries (session state machine, progress, edit restore)
-- [ ] Component tests: Review Resume/Edit/Cancel rules
-- [ ] GitHub Actions: `npm test` on PR
+- [x] Jest + jest-expo in `mobile/`
+- [x] Unit tests: hash, dayNight, time, curfew, export
+- [x] Unit tests: queries (session state machine, progress, edit restore)
+- [x] Component tests: Review Resume/Edit/Cancel rules
+- [x] GitHub Actions: `npm test` on PR
 - [ ] Maestro E2E happy path (optional same pass)
 
 See [TESTING.md](./TESTING.md). **User sign-off on Phase 1 features first**, then implement this block before Supabase/Phase 2.

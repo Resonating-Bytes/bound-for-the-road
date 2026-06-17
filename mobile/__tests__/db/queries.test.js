@@ -1,0 +1,120 @@
+jest.mock('../../src/db/client', () => ({
+  getDb: () => require('../helpers/testDb').getTestDb(),
+}));
+
+jest.mock('../../src/config/timezoneCentroids', () => ({
+  getDeviceTimezone: () => 'America/Chicago',
+  timezoneCentroid: () => ({ lat: 41.8781, lon: -87.6298 }),
+}));
+
+import { initTestDb, resetTestDb } from '../helpers/testDb';
+import {
+  upsertUser,
+  createActiveSession,
+  stopSession,
+  saveSession,
+  resumeSession,
+  discardDraft,
+  reopenSavedSession,
+  restoreSavedSession,
+  softDeleteSession,
+  getProgress,
+  listSavedSessions,
+  getSessionById,
+} from '../../src/db/queries';
+
+const TEEN_ID = 'teen-001';
+
+function seedUser() {
+  upsertUser({
+    id: TEEN_ID,
+    legalName: 'Alex Driver',
+    dateOfBirth: '2009-01-01',
+    stateCode: 'IL',
+    permitIssueDate: '2025-09-01',
+  });
+}
+
+describe('queries', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-06-01T14:00:00.000Z'));
+    resetTestDb();
+    initTestDb();
+    seedUser();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('active → draft → saved lifecycle', async () => {
+    const active = createActiveSession(TEEN_ID);
+    expect(active.status).toBe('active');
+
+    const draft = stopSession(active.id, '2026-06-01T15:00:00.000Z');
+    expect(draft.status).toBe('draft');
+    expect(draft.endedAt).toBe('2026-06-01T15:00:00.000Z');
+
+    const saved = await saveSession(draft.id, {
+      notes: 'Practice loop',
+      savedByUserId: TEEN_ID,
+    });
+    expect(saved.status).toBe('saved');
+    expect(saved.durationMinutes).toBeGreaterThan(0);
+    expect(saved.requestHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(saved.payloadJson).toContain('"sessionId"');
+  });
+
+  test('resume clears endedAt and returns to active', () => {
+    const active = createActiveSession(TEEN_ID);
+    const draft = stopSession(active.id, '2026-06-01T15:00:00.000Z');
+    const resumed = resumeSession(draft.id);
+    expect(resumed.status).toBe('active');
+    expect(resumed.endedAt).toBeNull();
+  });
+
+  test('discardDraft removes draft row', () => {
+    const active = createActiveSession(TEEN_ID);
+    stopSession(active.id, '2026-06-01T15:00:00.000Z');
+    discardDraft(active.id);
+    expect(getSessionById(active.id)).toBeNull();
+  });
+
+  test('reopen saved session clears hash for edit draft', async () => {
+    const active = createActiveSession(TEEN_ID, 'IL');
+    stopSession(active.id, '2026-06-01T15:00:00.000Z');
+    const saved = await saveSession(active.id, { notes: 'Original', savedByUserId: TEEN_ID });
+    const backup = {
+      requestHash: saved.requestHash,
+      payloadJson: saved.payloadJson,
+      notes: saved.notes,
+    };
+
+    const draft = reopenSavedSession(active.id);
+    expect(draft.status).toBe('draft');
+    expect(draft.requestHash).toBeNull();
+
+    restoreSavedSession(active.id, backup);
+    const restored = getSessionById(active.id);
+    expect(restored.status).toBe('saved');
+    expect(restored.requestHash).toBe(backup.requestHash);
+    expect(restored.notes).toBe('Original');
+  });
+
+  test('getProgress excludes soft-deleted saved sessions', async () => {
+    const s1 = createActiveSession(TEEN_ID);
+    stopSession(s1.id, '2026-06-01T15:00:00.000Z');
+    await saveSession(s1.id, { savedByUserId: TEEN_ID });
+
+    jest.setSystemTime(new Date('2026-06-02T15:00:00.000Z'));
+    const s2 = createActiveSession(TEEN_ID);
+    stopSession(s2.id, '2026-06-02T16:00:00.000Z');
+    await saveSession(s2.id, { savedByUserId: TEEN_ID });
+    softDeleteSession(s2.id);
+
+    const progress = getProgress(TEEN_ID);
+    expect(progress.totalMinutes).toBeGreaterThan(0);
+    expect(listSavedSessions(TEEN_ID)).toHaveLength(1);
+  });
+});
