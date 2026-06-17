@@ -28,6 +28,8 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+.claude/
+mobile/.claude/
 
 # Local competitive research
 docs/competitive-screenshots/
