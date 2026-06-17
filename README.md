@@ -1,12 +1,12 @@
-# TeenDriver
+# Bound for the Road
 
-Design and implementation workspace for a cross-platform teen permit supervised-driving log app (Illinois first).
+Mobile app for teens to log supervised permit driving hours toward their license (Illinois first).
 
 ## Status
 
-**Phase 1 in progress** — docs consolidated; mobile DB foundation in `mobile/src/`.
+**Phase 1 complete** — mock auth, onboarding, session log, export, local DB, automated tests. Phase 2 (Supabase, real auth) not started.
 
-### Run on iPhone (Expo Go)
+## Quick start
 
 ```powershell
 cd mobile
@@ -14,13 +14,14 @@ npm install
 npm start
 ```
 
-See [`mobile/README.md`](./mobile/README.md).
+Scan the QR code in **Expo Go** on your iPhone (SDK **54**). See [`mobile/README.md`](./mobile/README.md) for scripts and layout. Connection issues: [`docs/DEVELOPMENT_SETUP.md`](./docs/DEVELOPMENT_SETUP.md#troubleshooting-windows--iphone).
 
-## Start here
+## Docs
 
 1. [DECISIONS.md](./docs/DECISIONS.md) — single source of truth
 2. [SCREENS.md](./docs/SCREENS.md) — Phase 1 screens
-3. [TODO.md](./docs/TODO.md) — implementation checklist
-4. [TESTING.md](./docs/TESTING.md) — automated test plan (before Phase 2)
+3. [TODO.md](./docs/TODO.md) — checklist
+4. [TESTING.md](./docs/TESTING.md) — automated tests
+5. [DEVELOPMENT_SETUP.md](./docs/DEVELOPMENT_SETUP.md) — Expo Go, EAS, troubleshooting
 
 Full index: [docs/README.md](./docs/README.md).

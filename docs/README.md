@@ -14,7 +14,7 @@ npm install
 npm start
 ```
 
-Scan the QR code with Expo Go. See [`mobile/README.md`](./mobile/README.md) for troubleshooting.
+Scan the QR code with Expo Go. Troubleshooting: [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md#troubleshooting-windows--iphone).
 
 ## Start here
 

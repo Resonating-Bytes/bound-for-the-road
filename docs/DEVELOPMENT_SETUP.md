@@ -1,6 +1,6 @@
 # Development Setup and Testing
 
-How we build and test TeenDriver on **Windows**, with an **iPhone** and **Android emulator** (no Android phone required to start).
+How we build and test **Bound for the Road** on **Windows**, with an **iPhone** and **Android emulator** (no Android phone required to start).
 
 **Related:** [MVP.md](./MVP.md) (stack), [WISHLIST.md](./WISHLIST.md) (Live Activity, dev builds).
 
@@ -163,7 +163,7 @@ Expo Go development does **not** require paid Apple/Google accounts.
 The runnable app lives in [`../mobile/`](../mobile/).
 
 ```powershell
-cd C:\Users\erica\Documents\Code\TeenDriver\mobile
+cd mobile
 npm install
 npm start
 ```
@@ -171,13 +171,89 @@ npm start
 1. Install **Expo Go** on iPhone (done).
 2. PC and iPhone on the **same Wi‑Fi**.
 3. Scan the **QR code** from the terminal in Expo Go.
-4. Confirm the TeenDriver dev shell loads; edit `mobile/App.jsx` and save to test fast refresh.
+4. Confirm the app loads; edit `mobile/App.jsx` and save to test fast refresh.
 
-If connection fails: `npx expo start --tunnel` (see [mobile/README.md](../mobile/README.md)).
+If connection fails, see [Troubleshooting](#troubleshooting-windows--iphone) below.
 
 **Node:** **20+** (24 LTS is fine). Run `node -v` before starting.
 
 **Expo Go vs SDK:** App Store Expo Go tracks one SDK (e.g. **54.0.2**). The project must use the **same SDK** (`expo@^54` in `mobile/package.json`). SDK 56 projects need a newer Expo Go that may not be on the App Store yet for iOS.
+
+---
+
+## Troubleshooting (Windows + iPhone)
+
+Run commands from the `mobile/` folder unless noted.
+
+### "Could not connect to development server"
+
+Metro is running, but the iPhone can't reach `192.168.x.x:8081`. Try in order:
+
+1. **Keep Metro running** — wait until the terminal shows `iOS Bundled …` before scanning.
+2. **Same Wi‑Fi** — phone and PC on the same network (not guest Wi‑Fi).
+3. **Windows Firewall (LAN — try before tunnel)** — allow Node on private networks:
+   - Windows Security → Firewall → Allow an app → **Node.js** → **Private** checked.
+   - Or PowerShell **as Administrator**:
+     ```powershell
+     New-NetFirewallRule -DisplayName "Expo Metro 8081" -Direction Inbound -LocalPort 8081 -Protocol TCP -Action Allow
+     ```
+   - Then: `npm run start:lan` and scan the QR code.
+4. **Tunnel mode** (only if LAN still fails — requires **your** ngrok account; see below):
+   ```powershell
+   npm run kill:metro
+   npm run start:tunnel
+   ```
+   Wait for `Tunnel ready.` and scan the **new** QR code. **Do not** accept port 8082 — free 8081 first with `kill:metro`.
+
+### Tunnel fails (`Cannot read properties of undefined (reading 'body')`)
+
+That message is misleading. The real error from ngrok is usually:
+
+```text
+ERR_NGROK_4018 — Usage of ngrok requires a verified account and authtoken.
+```
+
+Expo's built-in shared ngrok token **no longer works**. One-time setup with a **free ngrok account**:
+
+1. Sign up: https://dashboard.ngrok.com/signup
+2. Copy authtoken: https://dashboard.ngrok.com/get-started/your-authtoken
+3. Register (token is not stored in the repo):
+   ```powershell
+   cd mobile
+   $env:NGROK_AUTHTOKEN="paste_your_token_here"
+   npm run ngrok:authtoken
+   ```
+4. Free port 8081, then tunnel:
+   ```powershell
+   npm run kill:metro
+   npx expo start --tunnel -c
+   ```
+
+**Recommended:** use **LAN + firewall** first — faster and no ngrok dependency.
+
+Other tunnel failures:
+
+- **Windows Defender** quarantining `node_modules\@expo\ngrok-bin-win32-x64\ngrok.exe` — restore and allow, then `npm install`
+- **Port 8082 prompt** — say **no**; run `npm run kill:metro` and stay on 8081
+
+### Port 8081 already in use
+
+Metro always uses port **8081** (LAN and tunnel). This usually means a prior Metro/Node process is still running.
+
+```powershell
+netstat -ano | findstr :8081
+taskkill /PID <pid> /F
+```
+
+Shortcut: `npm run kill:metro`, then `npm start` again.
+
+### "Requires a newer version of Expo Go"
+
+SDK version must match Expo Go. This repo uses **SDK 54** (App Store Expo Go 54.x). After changing SDK: stop Metro, then `npx expo start -c`.
+
+### Node version error
+
+Upgrade Node to **20+** from [nodejs.org](https://nodejs.org/), then `npm install` and `npm start`.
 
 ---
 
