@@ -1,41 +1,51 @@
 # Notifications
 
-## MVP policy
+Decisions: [DECISIONS.md](./DECISIONS.md)
+
+---
+
+## Phase 1 (MVP)
+
+| Event | Type | Recipients | Notes |
+|-------|------|------------|-------|
+| Session running ≥ 2 hours | **Local notification** | Teen | "Still driving?" — open app to stop or continue |
+| Session stop / save / discard | Cancel scheduled nudge | — | Cancel by session id |
+
+- Implemented with `expo-notifications` (local schedule only).
+- No push, no adult notifications in MVP.
+- Threshold configurable later via `settings` (default 2 hours).
+
+### Local nudge payload
+
+```json
+{
+  "type": "session_duration_nudge",
+  "sessionId": "uuid"
+}
+```
+
+---
+
+## Phase 2 — push matrix
 
 | Event | Recipients | Notes |
 |-------|------------|-------|
 | Session started | All linked adults | Wishlist: proximity filter |
-| Adult tapped “I’m with the driver” | Other adults (informational); teen (optional) | Active supervisor locked |
-| Stall / still driving? | Teen + active supervisor | Default 10 min idle |
-| Adult ended session | Teen | Open app to review |
-| Submitted for approval | Active supervisor (default) | Or all linked—TBD |
-| Approved | Teen | |
-| Session deleted | Active supervisor if was joined | Optional |
+| Adult claimed "I'm with the driver" | Other adults (info) | Active supervisor locked |
+| Session submitted | Eligible approver(s) | |
+| Session approved | Teen | |
+| Session deleted | Active supervisor if joined | Optional |
 
-After **join**, only **teen + active supervisor** receive operational alerts (stall, stop-related)—not all linked adults.
+After join, operational alerts → **teen + active supervisor** only.
 
-## Push payload (minimal)
+Push payload shape and deep links: [CROSS_PLATFORM.md](./CROSS_PLATFORM.md).
 
-```json
-{
-  "type": "session_started | session_claimed | session_stopped | stall_prompt | approval_requested | approved",
-  "sessionId": "uuid",
-  "teenUserId": "uuid",
-  "deepLink": "teendriver://..."
-}
-```
+In-app fallback: pending approval queue for adults; badge on Sessions tab.
 
-## In-app fallbacks
-
-If push disabled: badge on Sessions tab; pending approval queue for adults.
+---
 
 ## Platform notes
 
-- iOS: request permission after value explanation (onboarding).
-- Android: notification channels — `session_active`, `approval`, `reminders`.
-- Live Activity is not a push; started locally on session start.
-
-## Wishlist
-
-- Proximity-filtered start notification.
-- Geofence “arrived home” local notification to teen + supervisor.
+- iOS: request permission when scheduling first nudge (explain value).
+- Android: channel `session_reminders` for Phase 1 nudge.
+- Live Activity is local on start — not a push ([CROSS_PLATFORM.md](./CROSS_PLATFORM.md)).

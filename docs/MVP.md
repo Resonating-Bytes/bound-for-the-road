@@ -1,132 +1,72 @@
 # MVP — First Release
 
-## Product summary
+Cross-platform (React Native + Expo) app for **teen permit supervised driving hours**. **Illinois first.**
 
-Cross-platform (React Native + Expo) app for families tracking **supervised permit driving hours**. The **teen** starts and closes practice sessions; **one linked adult** joins in progress via **“I’m with the driver”**; **approval binds to a frozen hash** of the submitted record. **Illinois** rules and export first.
+**All MVP decisions:** [DECISIONS.md](./DECISIONS.md)  
+**Screens:** [SCREENS.md](./SCREENS.md)  
+**Session states:** [SESSION_LIFECYCLE.md](./SESSION_LIFECYCLE.md)
+
+---
+
+## Product summary (Phase 1)
+
+The **teen** starts and stops practice sessions, reviews an editable summary, and **Save**s records locally with a content hash. The **dashboard** shows progress toward IL 50/10 hours, per-session **Edit**, and **Export all** as text/HTML.
+
+No adult app, linking, push, or approval in Phase 1.
+
+---
 
 ## Vision principles
 
-- **Teen responsibility:** explicit start, review, submit for approval.
-- **Safety:** no auto-start while driving; lock screen shows timer/stop only—not a full summary.
-- **Trust:** optional approval with full provenance; hash defines exactly what was approved.
-- **Offline-first:** works with spotty signal and limited data plans.
+- **Teen responsibility:** explicit start, review, save.
+- **Safety:** no auto-start while driving.
+- **Trust:** hash on save; approval provenance in Phase 2.
+- **Offline-first:** local device is primary store ([DECISIONS.md](./DECISIONS.md)).
 
-## Platforms
+---
 
-- iOS and Android (Expo).
-- IL rules and IL-close export in v1; multi-state engine later.
+## Phase 1 scope
 
-## Accounts
+| In MVP | Post-MVP (Phase 2+) |
+|--------|---------------------|
+| Teen onboarding (no role screen) | Role selection, adult onboarding |
+| Start / stop / review / save | Adult join, submit for approval |
+| Hash on save | Adult approval + attestation |
+| Day/night from start vs sunrise | Minute splits, road type, weather |
+| 2-hour local nudge | Push notifications, GPS stall |
+| Dashboard + edit + export all | PDF export, Live Activity |
+| Mock auth (Expo Go) | Apple/Google + Supabase |
+| Text/HTML export | Pixel-perfect IL PDF |
 
-- **Required:** teen account (13+) and one or more linked adult accounts from onboarding.
-- **Auth:** Sign in with Apple / Google (email optional later). Minimal backend for identity, linking, push, sync.
-- **No** storing driver license numbers in MVP (see [WISHLIST.md](./WISHLIST.md) for qualification flag only).
-
-## Roles
-
-
-| Role                    | Capabilities                                                                                                                                                                     |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Teen**                | Start session; stop (opens app for review); resume; confirm draft; submit for approval; delete session (with confirm) any time; edit → re-submit per hash rules.                 |
-| **Joined adult**        | Tap **“I’m with the driver”** on active session; view live stats; stop session (with confirm). Only **teen + joined adult** may stop while active.                               |
-| **Other linked adults** | Notified on start; cannot stop until one adult joins. May approve submitted hash if product allows any linked adult (default: active supervisor or any linked—confirm at build). |
-
-
-## Multi-parent
-
-- One teen may link to **any number** of adults.
-- State rules may limit who counts as an **eligible supervisor** for official hours—warn or filter on export, do not block linking.
-- **Post-MVP:** proximity-filtered push at session start; MVP pushes all linked adults, then narrows alerts to **joined adult + teen** after “I’m with the driver.”
+---
 
 ## Session lifecycle (summary)
 
-See [SESSION_LIFECYCLE.md](./SESSION_LIFECYCLE.md).
+1. Teen **Start** → active timer.
+2. Teen **Stop** → **Review** (edit notes; see day/night).
+3. **Save** | **Discard** | **Resume**.
+4. Saved sessions on **Dashboard**; **Edit** reopens review; **Export all** shares log.
 
-1. Teen **Start** → ACTIVE.
-2. Push linked adults; first **“I’m with the driver”** → active supervisor.
-3. During drive: lock screen / notification shows elapsed time + **Stop** (no summary on lock screen).
-4. **Stop** (teen or joined adult) → app opens for teen **review** (teen stop unlocks/opens app).
-5. Review: **Confirm** | **Resume driving** | **Delete** (destructive confirm).
-6. After Confirm: **Submit for approval** → `requestHash` created.
-7. Adult: summary + one-tap **Approve**; if not joined, require supervisor-in-vehicle name or **“I was with them.”**
-8. Edit after approval → new submit → new hash → **re-approval required**.
+Details: [SESSION_LIFECYCLE.md](./SESSION_LIFECYCLE.md).
 
-## End flows
+---
 
-### Teen stop (two steps)
+## Illinois
 
-1. **Stop** — pauses timer; launches/opens app (do not show summary in Live Activity).
-2. **Review** — time, day/night, tags; **Confirm** / **Resume** / **Delete** (confirm delete).
+[ILLINOIS_RULES.md](./ILLINOIS_RULES.md) — 50 total hours, 10 night, 9-month holding period, text export fields.
 
-### Adult stop
-
-- Confirm dialog → session ends → teen notified to complete review in app.
-- Teen does **not** need to confirm the adult’s stop action.
-
-### Stall detection
-
-- Default **10 minutes** without meaningful movement → prompt: **End session** | **Still driving**.
-- Configurable in settings.
-- Parking practice: **Still driving** resets timer (MVP).
-
-### Geofence
-
-- **Wishlist / soft post-MVP:** “arrived home” hint combined with stall logic; optional suggested end time on review screen.
-
-## Approval and hash
-
-See [APPROVAL_AND_HASH.md](./APPROVAL_AND_HASH.md).
-
-- Hash **only** when teen submits for approval (`requestHash`).
-- Approval references `requestHash` only.
-- Multiple approvals on same hash are redundant (idempotent OK).
-- Teen may **delete** a session any time (confirm)—pre- or post-approval.
-
-## Display and export
-
-- Dashboard may show progress from **all** completed sessions.
-- Filter: **All** | **Approved only** (list and export).
-- Export MVP: **IL-close** PDF (all fields IL expects); pixel-perfect DSD X152 later.
-- Disclaimer: not legal advice; verify with IL SOS.
-
-## Tags and automation (MVP)
-
-- **Auto:** day/night from time / sunset logic.
-- **Manual:** qualifiers for requirements (road type, etc.—define for IL in [ILLINOIS_RULES.md](./ILLINOIS_RULES.md)).
-- **Not MVP:** weather API, highway vs in-town GPS, route co-present.
-
-## Notifications
-
-See [NOTIFICATIONS.md](./NOTIFICATIONS.md).
-
-## Data and offline
-
-See [OFFLINE_SYNC.md](./OFFLINE_SYNC.md).
-
-## UI
-
-- Simple, clean, easy to understand over flashy branding.
-- Teen-facing copy emphasizes ownership of logging.
-
-## Out of scope (MVP)
-
-- Auto-start driving detection.
-- Pixel-perfect state PDFs (IL-close generic only).
-- Route-based co-present verification.
-- Supervisor license verification storage.
-- Teen nicknames for adults in UI.
-- Global notification suppression.
-- Watch app.
+---
 
 ## Technical stack
 
-- React Native + Expo, JavaScript.
-- Local DB (e.g. SQLite) + minimal backend API.
-- Push via FCM + APNs.
+- React Native + Expo SDK 54, JavaScript
+- Drizzle ORM + expo-sqlite (local)
+- Supabase — Phase 2 ([BACKEND.md](./BACKEND.md))
 
-## Open implementation decisions
+---
 
-- Can teen **withdraw** submission before approve (back to draft)? Recommend: yes.
-- Soft-delete vs hard-delete audit trail for deleted sessions.
-- Which linked adults may approve: active supervisor only vs any linked adult.
+## Out of scope (MVP)
 
+Auto-start driving, adult flows, PDF export, pixel-perfect DSD X152, GPS stall, Live Activity, route co-present, supervisor license storage, teen nicknames, watch app.
+
+See [WISHLIST.md](./WISHLIST.md).

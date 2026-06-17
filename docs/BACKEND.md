@@ -1,6 +1,8 @@
 # Backend
 
-Minimal backend requirements, API endpoints, and the build-vs-buy decision for TeenDriver MVP.
+> **Phase 2 activation.** MVP runs local-only with mock auth. This doc defines the target Supabase API.
+
+Minimal backend requirements, API endpoints, and the build-vs-buy decision for TeenDriver.
 
 Read [AUTH.md](./AUTH.md) and [OFFLINE_SYNC.md](./OFFLINE_SYNC.md) first — this doc builds on both.
 

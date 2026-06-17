@@ -2,6 +2,15 @@
 
 Items here are **not** committed for first release. Promote to [MVP.md](./MVP.md) when scoped for a sprint.
 
+## Session UX
+
+- **Active timer:** show day/night classification (emoji or icon) while driving so the teen sees what the session counts toward before stopping.
+- **Edit start/end times:** allow correcting `startedAt` / `endedAt` (forgot to tap Start/Stop). Consider teen-only, adult-only, or either — Phase 2+ with approval flows. Recompute duration, day/night, and hash on save.
+- **Color themes:** app-wide light/dark themes beyond the driving timer screen.
+- Configurable session duration nudge threshold (currently hardcoded 2 hours).
+- Apple Watch: timer + stop (evaluate safety implications).
+- Driving focus mode: guidance to use system Do Not Disturb.
+
 ## Supervisor qualification
 
 - Verify adult meets state supervisor rules (age, license tenure, relationship where applicable).
@@ -15,6 +24,7 @@ Items here are **not** committed for first release. Promote to [MVP.md](./MVP.md
 
 ## Export and forms
 
+- **State-aware text export:** header, totals, and field labels should follow the user's selected `stateCode` (MVP export still says "Illinois" / IL 50–10 everywhere).
 - Pixel-perfect per-state PDFs; **IL DSD X152** as first official layout target.
 - Pre-filled official DMV forms for states that publish templates (cf. Moda: IN, NC, NJ, NV, NY, OH, PA).
 
@@ -55,12 +65,6 @@ Show a map visualizing where the teen has driven across all sessions. Parents ca
 - Configurable quiet hours per adult.
 - Geofence "arrived home" local notification.
 
-## Session UX
-
-- Configurable session duration nudge threshold (currently hardcoded 2 hours).
-- Apple Watch: timer + stop (evaluate safety implications).
-- Driving focus mode: guidance to use system Do Not Disturb.
-
 ## Multi-state rules engine
 
 The app is designed to expand to all 50 US states via a data-driven rules configuration per state, rather than hardcoded IL-specific logic. MVP focuses on IL only, but the architecture should be built with this in mind.
@@ -89,7 +93,13 @@ The app is designed to expand to all 50 US states via a data-driven rules config
 
 - HMAC or server signature on `requestHash` at approve for PDF footer.
 - Append-only audit log for disputes.
-- Data retention policy UI: let users choose how long approved records are kept on the server (e.g. 1 year, 2 years, indefinitely). Default to 2 years — long enough to cover any DMV audit window after the teen gets their license.
+- Data retention policy UI: post-MVP.
+
+## Local data protection
+
+- **Encrypted SQLite at rest** — encryption key in SecureStore, tied to auth identity.
+- **Local-first:** device is the primary store; server sync for coordination only, not user-facing backup.
+- MVP uses user-scoped rows + "Delete all my data on this device" ([DECISIONS.md](./DECISIONS.md)).
 
 ## Platform and growth
 

@@ -1,21 +1,50 @@
 # Approval and Hash
 
-## Principle
+Decisions: [DECISIONS.md](./DECISIONS.md)
 
-**Approval is for a specific snapshot of data**, not a living row that can change underneath the approver.
+---
+
+## Phase 1 (MVP) — hash on Save only
 
 - **No hash** during `active` or `draft`.
-- **Hash at submit:** `requestHash = SHA-256(canonicalPayload)`.
+- **Hash on Save:** `requestHash = SHA-256(canonicalPayload)`.
+- **No approval record** in MVP — export shows hash for integrity only.
+- Re-Save after edit → new hash; store new `payloadJson`.
+
+Implementation: [mobile/src/utils/hash.js](../mobile/src/utils/hash.js)
+
+### MVP canonical payload
+
+```json
+{
+  "schemaVersion": 1,
+  "sessionId": "uuid",
+  "stateCode": "IL",
+  "startedAt": "ISO-8601 UTC",
+  "endedAt": "ISO-8601 UTC",
+  "durationMinutes": 42,
+  "dayNight": "day | night",
+  "notes": null,
+  "savedAt": "ISO-8601 UTC",
+  "savedByUserId": "uuid"
+}
+```
+
+Serialize with **stable key order** (see `stableStringify`). Exclude sync flags and `updatedAt`.
+
+**Algorithm:** SHA-256 → lowercase hex. UI shows truncated hash (e.g. first 8 chars).
+
+---
+
+## Phase 2 — submit and approval
+
+**Approval is for a specific snapshot**, not a living row.
+
+- **Hash at submit** (Save renamed → Submit for approval).
 - **Approval** stores `requestHash` only.
-- Display **“Approved”** only when an approval exists for the hash being viewed/exported.
+- Display **Approved** only when approval exists for that hash.
 
-Multiple approvals for the same hash are **meaningless** (idempotent; store one).
-
-## Canonical payload (at submit)
-
-Serialize with **stable key order** and normalized types (UTC ISO times, integer minutes).
-
-Include at minimum:
+### Full canonical payload (Phase 2 submit)
 
 ```json
 {
@@ -24,28 +53,18 @@ Include at minimum:
   "stateCode": "IL",
   "startedAt": "ISO-8601",
   "endedAt": "ISO-8601",
-  "endedBy": "teen | adult | system_stall",
+  "endedBy": "teen",
   "activeSupervisorId": "uuid-or-null",
   "activeSupervisorJoinedAt": "ISO-8601-or-null",
   "durationMinutes": 42,
-  "nightMinutes": 12,
-  "tags": {},
-  "supervisorInVehicle": {
-    "linkedUserId": "uuid-or-null",
-    "legalName": "Jane Doe"
-  },
+  "dayNight": "day | night",
+  "notes": null,
   "submittedAt": "ISO-8601",
   "submittedByUserId": "uuid"
 }
 ```
 
-Exclude: sync flags, `updatedAt`, device-only caches.
-
-**Algorithm:** SHA-256 → hex string (display truncated in UI).
-
-Optional later: `signature = HMAC(serverSecret, requestHash)` on approve for PDF.
-
-## Approval record
+### Approval record
 
 ```json
 {
@@ -54,52 +73,33 @@ Optional later: `signature = HMAC(serverSecret, requestHash)` on approve for PDF
   "requestHash": "hex",
   "approvedByUserId": "uuid",
   "approvedAt": "ISO-8601",
-  "approverPresent": "co_present | remote | unknown",
+  "joinedSession": true,
   "supervisorInVehicleName": "string",
-  "joinedSession": true
+  "approverPresent": "co_present | remote | unknown"
 }
 ```
 
-### Adult did not tap “I’m with the driver”
+Attestation UI required before Approve ([DECISIONS.md](./DECISIONS.md)).
 
-On approve UI:
-
-- Require **name of adult in vehicle**, OR
-- **“I was with them”** → set `supervisorInVehicleName` to approver’s legal name and `joinedSession: false` (or `approverPresent: co_present` if button implies physical presence).
-
-### Adult joined session
-
-- `joinedSession: true`; supervisor name defaults from profile unless teen edited in draft.
-
-## Edit rules
+### Edit rules (Phase 2)
 
 | Event | Result |
 |-------|--------|
-| Teen edits draft before submit | No hash yet |
-| Teen submits | `requestHash` H1 |
-| Parent approves H1 | Approved |
-| Teen edits after approve | New submit H2; H1 approval historical only |
-| Parent edits before approve | New hash H2; recommend auto-approve H2 |
-| Teen deletes session | Remove session + hashes + approvals (or soft-delete policy) |
+| Edit draft before submit | No hash |
+| Submit | `requestHash` H1 |
+| Approve H1 | Approved |
+| Edit after approve | New submit H2; re-approval required |
+| Parent edit before approve | New hash + auto-approve (recommended) |
+| Soft-delete session | `deletedAt` set; hash history retained |
 
-**Re-approval:** required after any post-approval edit.
-
-## Display
-
-| State | UI |
-|-------|-----|
-| Draft | “Not submitted” |
-| Submitted, no approval | “Pending approval” |
-| Hash approved | “Approved by [name], [date]” |
-| Newer hash than approved | “Superseded — approval on prior version” |
-
-Export footer (optional): `Record ID: a1b2…c3` (truncated hash).
+---
 
 ## Verification on load
 
-Recompute hash from stored payload; if mismatch → corruption warning, block export.
+Recompute hash from stored `payloadJson`; mismatch → corruption warning, block export.
+
+Optional later: HMAC on approve for PDF footer ([WISHLIST.md](./WISHLIST.md)).
 
 ## Security expectations
 
-- Hash chain proves **internal consistency** and **approval binding**; not proof against a compromised device.
-- Family-trust product; stronger attestation is wishlist.
+Hash proves internal consistency and (Phase 2) approval binding — not protection against a compromised device. Encrypted SQLite at rest → post-MVP.

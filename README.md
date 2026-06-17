@@ -4,9 +4,9 @@ Design and implementation workspace for a cross-platform teen permit supervised-
 
 ## Status
 
-**In development** — Expo shell in [`mobile/`](./mobile/). Product specs in [`docs/`](./docs/).
+**Phase 1 in progress** — docs consolidated; mobile DB foundation in `mobile/src/`.
 
-### Run on your iPhone (Expo Go)
+### Run on iPhone (Expo Go)
 
 ```powershell
 cd mobile
@@ -14,25 +14,13 @@ npm install
 npm start
 ```
 
-Scan the QR code with Expo Go. See [`mobile/README.md`](./mobile/README.md) for troubleshooting.
+See [`mobile/README.md`](./mobile/README.md).
 
-## Documentation
+## Start here
 
-Start here: [`docs/README.md`](./docs/README.md)
+1. [DECISIONS.md](./docs/DECISIONS.md) — single source of truth
+2. [SCREENS.md](./docs/SCREENS.md) — Phase 1 screens
+3. [TODO.md](./docs/TODO.md) — implementation checklist
+4. [TESTING.md](./docs/TESTING.md) — automated test plan (before Phase 2)
 
-| Doc | Description |
-|-----|-------------|
-| [MVP](./docs/MVP.md) | First release scope |
-| [Wishlist](./docs/WISHLIST.md) | Post-MVP ideas |
-| [Competitive analysis](./docs/COMPETITIVE_ANALYSIS.md) | Market scan + your validation tasks |
-| [Development setup](./docs/DEVELOPMENT_SETUP.md) | EAS, Expo Go, iPhone + Android emulator on Windows |
-
-## Planned stack
-
-- React Native + Expo, JavaScript
-- Local-first storage, minimal backend
-
-## Illinois references
-
-- [GDL requirements](https://www.ilsos.gov/departments/drivers/teen_driver_safety/gdl.html)
-- [50-hour log form (DSD X152)](https://www.ilsos.gov/content/dam/publications/pdf_publications/dsd_x152.pdf)
+Full index: [docs/README.md](./docs/README.md).

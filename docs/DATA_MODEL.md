@@ -1,95 +1,84 @@
-# Data Model (MVP)
+# Data Model
 
-Logical entities for local-first storage with minimal server sync.
+Decisions: [DECISIONS.md](./DECISIONS.md)
 
-## Users
+**Canonical DDL:** [mobile/src/db/schema.js](../mobile/src/db/schema.js)  
+**All DB access:** [mobile/src/db/queries.js](../mobile/src/db/queries.js) — no raw SQL in UI components.
+
+---
+
+## Principles
+
+- **Local-first:** device is primary store.
+- **User-scoped rows:** every session keyed by `teenUserId`.
+- **Soft-delete:** sessions use `deletedAt`; excluded from progress and export.
+
+---
+
+## users
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | TEXT PK | UUID |
+| `role` | TEXT | `'teen'` in MVP |
+| `legalName` | TEXT | Export header |
+| `email` | TEXT | nullable |
+| `dateOfBirth` | TEXT | ISO date |
+| `stateCode` | TEXT | default `IL` |
+| `permitIssueDate` | TEXT | ISO date, **required** before dashboard in MVP |
+| `createdAt` | TEXT | |
+| `updatedAt` | TEXT | |
+
+---
+
+## links (Phase 2; table exists in MVP, empty)
 
 | Field | Notes |
 |-------|-------|
-| `id` | UUID |
-| `role` | `teen` \| `adult` |
-| `legalName` | Export / official log |
-| `email` | From auth provider |
-| `dateOfBirth` | Teen; verify 13+ |
-| `stateCode` | Teen primary state (IL MVP) |
-| `createdAt` | |
-
-## Teen–adult links
-
-| Field | Notes |
-|-------|-------|
-| `id` | |
-| `teenUserId` | |
-| `adultUserId` | |
+| `teenUserId`, `adultUserId` | Many-to-many |
 | `status` | `pending` \| `active` |
-| `nickname` | Wishlist: teen-only display name |
-| `createdAt` | |
 
-Cardinality: many-to-many (N adults per teen).
+Teen never sees other teens through this table.
 
-## Adult profile extensions (wishlist)
+---
 
-| Field | Notes |
-|-------|-------|
-| `supervisorVerified` | Boolean, default false; no license storage |
-
-## Sessions
+## sessions
 
 | Field | Notes |
 |-------|-------|
 | `id` | UUID |
-| `teenUserId` | |
+| `teenUserId` | FK |
 | `stateCode` | Snapshot at start |
-| `status` | `active` \| `draft` \| `submitted` \| `approved` \| `deleted` |
-| `startedAt` | |
-| `endedAt` | Nullable until stop |
-| `endedBy` | `teen` \| `adult` \| null |
-| `activeSupervisorId` | Set on join |
-| `activeSupervisorJoinedAt` | |
-| `draftPayload` | JSON, mutable in draft |
-| `currentRequestHash` | Latest submit |
-| `deletedAt` | Soft-delete optional |
+| `status` | `active` \| `draft` \| `saved` \| `deleted` |
+| `startedAt`, `endedAt` | ISO datetime |
+| `durationMinutes` | Set on save |
+| `dayNight` | `day` \| `night` |
+| `notes` | Optional |
+| `requestHash`, `payloadJson` | Set on save |
+| `deletedAt` | Soft-delete |
+| `activeSupervisorId` | Phase 2 |
 
-## Submissions (immutable)
+Phase 2 may add `submitted` / `approved` as status or derive from submissions table.
 
-| Field | Notes |
-|-------|-------|
-| `requestHash` | PK |
-| `sessionId` | |
-| `payloadJson` | Canonical bytes used for hash |
-| `submittedAt` | |
-| `submittedByUserId` | |
-| `superseded` | Boolean when newer submit exists |
+---
 
-## Approvals (immutable)
+## submissions, approvals, outbox
 
-| Field | Notes |
-|-------|-------|
-| `id` | |
-| `requestHash` | FK |
-| `sessionId` | |
-| `approvedByUserId` | |
-| `approvedAt` | |
-| `joinedSession` | Boolean |
-| `supervisorInVehicleName` | |
-| `approverPresent` | Enum |
+Tables created in MVP schema; **populated in Phase 2**. See schema.js.
 
-## Session cache (optional)
+---
 
-| Field | Notes |
-|-------|-------|
-| `sessionId` | |
-| `latestRequestHash` | |
-| `latestApprovedRequestHash` | Nullable |
+## Progress queries
 
-## Server-side (minimal)
+```
+totalMinutes = SUM(durationMinutes) WHERE status='saved' AND deletedAt IS NULL
+nightMinutes = SUM(...) WHERE dayNight='night'
+```
 
-- `users`, `links`, `push_tokens`
-- Sync queue: submissions, approvals, deletes, supervisor claims
-- **Do not** require full GPS upload for MVP
+---
 
 ## Indexes
 
-- Sessions by `teenUserId`, `status`, `startedAt`
-- Submissions by `sessionId`, `submittedAt`
-- Approvals by `requestHash`, `sessionId`
+- `sessions(teenUserId, status)`
+- `sessions(teenUserId, startedAt DESC)`
+- `submissions(sessionId)`, `approvals(requestHash)`

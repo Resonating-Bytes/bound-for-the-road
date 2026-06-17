@@ -4,7 +4,7 @@ Design and implementation workspace for a cross-platform teen permit supervised-
 
 ## Status
 
-**In development** — Expo shell in [`mobile/`](./mobile/). All design decisions resolved. Ready for implementation.
+**Phase 1 in progress** — docs consolidated ([DECISIONS.md](./DECISIONS.md), [SCREENS.md](./SCREENS.md)); mobile DB foundation pending in `mobile/src/`.
 
 ### Run on your iPhone (Expo Go)
 
@@ -20,15 +20,18 @@ Scan the QR code with Expo Go. See [`mobile/README.md`](./mobile/README.md) for 
 
 New to the project? Read in this order:
 
-1. [MVP.md](./MVP.md) — what we're building and why
-2. [SESSION_LIFECYCLE.md](./SESSION_LIFECYCLE.md) — the core session flow
-3. [TODO.md](./TODO.md) — current status and implementation roadmap
+1. [DECISIONS.md](./DECISIONS.md) — all resolved choices
+2. [MVP.md](./MVP.md) — scope summary
+3. [SCREENS.md](./SCREENS.md) — routes and flows
+4. [TODO.md](./TODO.md) — implementation checklist
 
 ## Documentation index
 
 | Doc | Description |
 |-----|-------------|
-| [MVP.md](./MVP.md) | First release scope, principles, roles, decisions |
+| [DECISIONS.md](./DECISIONS.md) | **Single source of truth** for product/tech decisions |
+| [SCREENS.md](./SCREENS.md) | Screen list, navigation, Phase 1 vs 2 |
+| [MVP.md](./MVP.md) | First release scope |
 | [SESSION_LIFECYCLE.md](./SESSION_LIFECYCLE.md) | Session states, flows, who can do what |
 | [APPROVAL_AND_HASH.md](./APPROVAL_AND_HASH.md) | Hash integrity, approval binding, attestation model, schema versioning |
 | [DATA_MODEL.md](./DATA_MODEL.md) | All entities, local/sync fields, ORM approach |
@@ -37,12 +40,13 @@ New to the project? Read in this order:
 | [ILLINOIS_RULES.md](./ILLINOIS_RULES.md) | IL GDL requirements, day/night rules, export fields |
 | [AUTH.md](./AUTH.md) | Sign in with Apple + Google, token flow, session storage, Expo Go mock approach |
 | [BACKEND.md](./BACKEND.md) | Supabase, API endpoints, RLS rules, cost and scalability |
-| [ONBOARDING.md](./ONBOARDING.md) | Role selection, teen/adult screens, invite code linking flow |
+| [ONBOARDING.md](./ONBOARDING.md) | Teen/adult onboarding; **Phase 1 exception** at top (teen profile only) |
 | [CROSS_PLATFORM.md](./CROSS_PLATFORM.md) | iOS vs Android capability matrix, Live Activity, foreground service, EAS profiles |
 | [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md) | Expo Go phases, Windows + iPhone + Android emulator setup |
 | [WISHLIST.md](./WISHLIST.md) | Post-MVP features: heat map, multi-state engine, GPS stall detection, and more |
 | [COMPETITIVE_ANALYSIS.md](./COMPETITIVE_ANALYSIS.md) | Market scan and validation tasks |
 | [TODO.md](./TODO.md) | Work tracker and implementation roadmap — read this every session |
+| [TESTING.md](./TESTING.md) | Automated test plan (Jest, RTL, Maestro, CI) — gate before Phase 2 |
 
 ## Planned stack
 
