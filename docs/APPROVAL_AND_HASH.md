@@ -87,10 +87,23 @@ Attestation UI required before Approve ([DECISIONS.md](./DECISIONS.md)).
 |-------|--------|
 | Edit draft before submit | No hash |
 | Submit | `requestHash` H1 |
+| Withdraw before approve | H1 invalidated; back to draft |
 | Approve H1 | Approved |
 | Edit after approve | New submit H2; re-approval required |
 | Parent edit before approve | New hash + auto-approve (recommended) |
 | Soft-delete session | `deletedAt` set; hash history retained |
+
+### Display states (Phase 2 UI)
+
+| State | UI |
+|-------|-----|
+| Draft | "Not submitted" |
+| Submitted, no approval | "Pending approval" |
+| Hash approved | "Approved by [name], [date]" |
+| Newer hash than approved | "Superseded — approval on prior version" |
+| Session &lt; 5 min (submitted anyway) | Warning badge on record |
+
+Export footer (optional): `Record ID: a1b2…c3` (truncated hash).
 
 ---
 
@@ -102,4 +115,7 @@ Optional later: HMAC on approve for PDF footer ([WISHLIST.md](./WISHLIST.md)).
 
 ## Security expectations
 
-Hash proves internal consistency and (Phase 2) approval binding — not protection against a compromised device. Encrypted SQLite at rest → post-MVP.
+- Hash proves internal consistency and (Phase 2) approval binding — not protection against a compromised device or falsified inputs.
+- Family-trust product: attestation (adults confirm accuracy) is the trust mechanism, not cryptography alone.
+- Device clock manipulation can affect `startedAt`/`endedAt`; acknowledged and accepted for MVP.
+- Encrypted SQLite at rest → post-MVP ([WISHLIST.md](./WISHLIST.md)).

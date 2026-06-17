@@ -93,7 +93,7 @@ The app is designed to expand to all 50 US states via a data-driven rules config
 
 - HMAC or server signature on `requestHash` at approve for PDF footer.
 - Append-only audit log for disputes.
-- Data retention policy UI: post-MVP.
+- **Server data retention:** default **2 years** for synced records (long enough for typical DMV audit windows after licensure); user-configurable retention UI post-MVP.
 
 ## Local data protection
 

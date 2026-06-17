@@ -10,6 +10,21 @@
 
 - All sessions, drafts, submissions, approvals stored in on-device DB first.
 - UI always reads local state; sync is background.
+- Core driving flow works fully offline.
+
+## Backend scope (Phase 2)
+
+The backend is a **relay and identity store**, not the session source of truth:
+
+- **Identity:** auth (Apple/Google), user accounts
+- **Linking:** teen–adult links, invite flow
+- **Push tokens:** FCM/APNs per device
+- **Sync relay:** outbox operations below; no hash/approval business logic on server in MVP sync design
+- **Session presence:** adult can query whether a linked teen has an active session (join without relying on push delivery)
+
+Full API design: [BACKEND.md](./BACKEND.md).
+
+Local network join (mDNS/BLE) as push alternative → [WISHLIST.md](./WISHLIST.md).
 
 ## Outbox queue
 
@@ -32,6 +47,7 @@ Replay in order per `sessionId` when online.
 | Two adults claim same session offline | Server timestamp first-wins; notify teen to confirm |
 | Submit while parent approves old hash offline | Newer `submittedAt` wins; reject approve if hash unknown |
 | Duplicate approval same hash | Idempotent ignore |
+| Teen and adult stop simultaneously (if adult stop added) | Teen stop wins |
 
 ## What syncs to server (MVP minimal)
 

@@ -1,6 +1,6 @@
 # Design Decisions (single source of truth)
 
-**Last updated:** 2026-06-07
+**Last updated:** 2026-06-17
 
 All product and MVP technical choices live here. Other docs link here instead of duplicating decision tables.
 
@@ -32,6 +32,7 @@ All product and MVP technical choices live here. Other docs link here instead of
 | Edit saved | Reopen → `draft` → re-Save (new hash) |
 | Min duration | Warn if &lt; 5 min; **allow Save** |
 | Active nudge | **2-hour** elapsed local notification (no GPS stall in MVP) |
+| Stale active session | If `active` **&gt; 24 hours** on next app open → force to `draft`, notify teen (not yet implemented; nudge-only today) |
 | Dashboard | Progress 50/10; session list; **Edit** per row; **Export all** (text/HTML) |
 
 ---
@@ -85,6 +86,7 @@ Full flow: [ONBOARDING.md](./ONBOARDING.md). MVP overrides:
 | Withdraw submission | Teen may withdraw to draft before approve |
 | Push | FCM/APNs via Expo Push API |
 | Lock screen | Live Activity (iOS) + foreground service (Android) |
+| Server data retention | Default **2 years** for synced records; user-configurable UI post-MVP ([WISHLIST.md](./WISHLIST.md)) |
 
 ---
 
@@ -93,6 +95,7 @@ Full flow: [ONBOARDING.md](./ONBOARDING.md). MVP overrides:
 | Topic | Notes |
 |-------|-------|
 | Pricing | Free / one-time / subscription — decide before submission |
+| Multi-teen dashboard | One adult linked to many teens — confirm adult dashboard scope in Phase 2 vs later |
 
 ---
 
@@ -100,4 +103,5 @@ Full flow: [ONBOARDING.md](./ONBOARDING.md). MVP overrides:
 
 | Date | Change |
 |------|--------|
+| 2026-06-17 | Cherry-pick from planning archive: stale-session guardrail, retention default, multi-teen open item |
 | 2026-06-07 | Initial consolidated decisions from planning sessions |

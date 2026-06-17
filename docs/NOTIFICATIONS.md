@@ -38,9 +38,26 @@ Decisions: [DECISIONS.md](./DECISIONS.md)
 
 After join, operational alerts → **teen + active supervisor** only.
 
-Push payload shape and deep links: [CROSS_PLATFORM.md](./CROSS_PLATFORM.md).
+### Push reliability by build type
 
-In-app fallback: pending approval queue for adults; badge on Sessions tab.
+| Build type | Push reliability |
+|------------|------------------|
+| Expo Go | Unreliable / limited — do not validate push flows here |
+| Dev build (`expo-dev-client`) | Full push via FCM/APNs with your bundle ID |
+| TestFlight / Play internal | Full push, production-like — **validate push here** |
+| Production | Full push |
+
+Push flows (session start, approval request, approved) are not considered validated until tested in a dev build or TestFlight.
+
+### In-app fallback (always required)
+
+Push is never guaranteed. Every notification event must also update in-app state:
+
+- Badge on Sessions tab for pending approvals (adult view).
+- "Awaiting approval" on session list (teen view).
+- Adults see an **Approvals** queue in-app, not push alone.
+
+Push payload shape and deep links: [CROSS_PLATFORM.md](./CROSS_PLATFORM.md).
 
 ---
 

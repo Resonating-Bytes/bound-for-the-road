@@ -70,6 +70,12 @@ stateDiagram-v2
   Approved --> Submitted: edit_resubmit
 ```
 
+**Withdraw:** teen may withdraw a submitted session before approval → back to `draft`; hash invalidated; pending approval notifications voided.
+
+**Delete:** teen may delete at any state (confirm always). Soft-delete recommended; removes session from progress totals.
+
+**Teaching responsibility (Phase 2):** teen starts and submits; adult joins when actually supervising; adult approves with explicit attestation — honest record of who was present.
+
 - Adult **join** in progress; adult **stop** (post-MVP per [WISHLIST.md](./WISHLIST.md)).
 - Push on start, submit, approve — [NOTIFICATIONS.md](./NOTIFICATIONS.md) Phase 2 section.
 

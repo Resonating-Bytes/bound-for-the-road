@@ -60,11 +60,31 @@ Teen never sees other teens through this table.
 
 Phase 2 may add `submitted` / `approved` as status or derive from submissions table.
 
+### Session length guardrails (at review / app open)
+
+- **&lt; 5 minutes:** warn on review; recommend discard if accidental ([DECISIONS.md](./DECISIONS.md)).
+- **≥ 2 hours active:** local nudge notification (implemented); optional future `auto_paused` status not used in Phase 1.
+- **&gt; 24 hours still active:** on next app open, force to `draft` and notify teen ([DECISIONS.md](./DECISIONS.md) — not yet implemented).
+
+`startedAt` / `endedAt` are device-supplied; app does not claim tamper-proof timestamps ([APPROVAL_AND_HASH.md](./APPROVAL_AND_HASH.md)).
+
 ---
 
 ## submissions, approvals, outbox
 
 Tables created in MVP schema; **populated in Phase 2**. See schema.js.
+
+`schemaVersion` in canonical payloads starts at **1**; hash-relevant field changes require a version bump and migration plan ([APPROVAL_AND_HASH.md](./APPROVAL_AND_HASH.md)).
+
+### Session cache (Phase 2, optional)
+
+Derived fields for fast dashboard queries — recomputable from submissions/approvals:
+
+| Field | Notes |
+|-------|-------|
+| `sessionId` | |
+| `latestRequestHash` | |
+| `latestApprovedRequestHash` | Nullable |
 
 ---
 
