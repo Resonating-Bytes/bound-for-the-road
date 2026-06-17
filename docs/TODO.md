@@ -1,7 +1,7 @@
 # Bound for the Road — Project TODO
 
 **Last updated:** 2026-06-17  
-**Current phase:** Phase 1 implementation (teen-only, local DB) — **automated testing gate before Phase 2**
+**Current phase:** Phase 2 foundation — Supabase schema in repo; apply to hosted project next
 
 **Decisions:** [DECISIONS.md](./DECISIONS.md) — do not duplicate here.  
 **Screens:** [SCREENS.md](./SCREENS.md)  
@@ -80,7 +80,9 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 
 ## Phase 2 — Dev build + Supabase
 
-- [ ] Supabase project, schema, RLS
+- [x] Postgres schema + RLS migrations (`supabase/migrations/`)
+- [x] Mobile Supabase client stub + env template ([SUPABASE_SETUP.md](./SUPABASE_SETUP.md))
+- [ ] Supabase project created + migrations applied (manual)
 - [ ] Real Apple / Google auth
 - [ ] Role selection, adult onboarding, linking (ONBOARDING Part 2)
 - [ ] Submit for approval, adult approve, attestation

@@ -4,7 +4,7 @@ Design and implementation workspace for a cross-platform teen permit supervised-
 
 ## Status
 
-**Phase 1 complete** — mock auth, session log, export, local DB, automated tests. Phase 2 (Supabase, real auth) not started.
+**Phase 1 complete** — mock auth, session log, export, local DB, automated tests. **Phase 2 started** — Supabase schema + client stub; see [SUPABASE_SETUP.md](./SUPABASE_SETUP.md).
 
 ### Run on your iPhone (Expo Go)
 

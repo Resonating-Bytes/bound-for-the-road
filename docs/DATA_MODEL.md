@@ -64,7 +64,7 @@ Phase 2 may add `submitted` / `approved` as status or derive from submissions ta
 
 - **&lt; 5 minutes:** warn on review; recommend discard if accidental ([DECISIONS.md](./DECISIONS.md)).
 - **≥ 2 hours active:** local nudge notification (implemented); optional future `auto_paused` status not used in Phase 1.
-- **&gt; 24 hours still active:** on next app open, force to `draft` and notify teen ([DECISIONS.md](./DECISIONS.md) — not yet implemented).
+- **&gt; 24 hours still active:** on next app open, force to `draft` and notify teen ([DECISIONS.md](./DECISIONS.md)).
 
 `startedAt` / `endedAt` are device-supplied; app does not claim tamper-proof timestamps ([APPROVAL_AND_HASH.md](./APPROVAL_AND_HASH.md)).
 
