@@ -84,7 +84,7 @@ E2E in CI is optional initially (simulator cost/complexity); run Maestro locally
 ```text
 mobile/
   jest.config.js
-  __tests__/
+  tests/
     utils/
       hash.test.js
       dayNight.test.js
