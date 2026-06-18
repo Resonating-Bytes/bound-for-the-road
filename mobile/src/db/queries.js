@@ -1,6 +1,6 @@
-import { eq, and, isNull, desc, sql } from 'drizzle-orm';
+import { eq, and, or, isNull, desc, sql } from 'drizzle-orm';
 import { getDb } from './client';
-import { users, sessions, outbox } from './schema';
+import { users, sessions, outbox, links, settings } from './schema';
 import { generateId, nowISO, durationMinutes } from '../utils/time';
 import { classifyDayNight } from '../utils/dayNight';
 import { buildSavePayload, computeRequestHash, stableStringify } from '../utils/hash';
@@ -37,6 +37,9 @@ export function upsertUser(profile) {
 export function deleteAllUserData(userId) {
   const db = getDb();
   db.delete(sessions).where(eq(sessions.teenUserId, userId)).run();
+  db.delete(links).where(or(eq(links.teenUserId, userId), eq(links.adultUserId, userId))).run();
+  db.delete(settings).where(eq(settings.key, roleChosenKey(userId))).run();
+  db.delete(settings).where(eq(settings.key, linkInviteDeferredKey(userId))).run();
   db.delete(users).where(eq(users.id, userId)).run();
 }
 
@@ -268,4 +271,124 @@ export function isProfileComplete(user) {
       user?.stateCode &&
       user?.permitIssueDate,
   );
+}
+
+export function isAdultProfileComplete(user) {
+  return Boolean(user?.role === 'adult' && user?.legalName?.trim());
+}
+
+export function isProfileCompleteForRole(user) {
+  if (!user?.role) return false;
+  if (user.role === 'adult') return isAdultProfileComplete(user);
+  return isProfileComplete(user);
+}
+
+function roleChosenKey(userId) {
+  return `role_chosen_${userId}`;
+}
+
+function linkInviteDeferredKey(userId) {
+  return `link_invite_deferred_${userId}`;
+}
+
+export function isLinkInviteDeferred(userId) {
+  const db = getDb();
+  const row = db.select().from(settings).where(eq(settings.key, linkInviteDeferredKey(userId))).get();
+  return row?.value === '1';
+}
+
+export function setLinkInviteDeferred(userId, deferred) {
+  const db = getDb();
+  const key = linkInviteDeferredKey(userId);
+  const existing = db.select().from(settings).where(eq(settings.key, key)).get();
+  if (deferred) {
+    if (existing) {
+      db.update(settings).set({ value: '1' }).where(eq(settings.key, key)).run();
+    } else {
+      db.insert(settings).values({ key, value: '1' }).run();
+    }
+    return;
+  }
+  if (existing) {
+    db.delete(settings).where(eq(settings.key, key)).run();
+  }
+}
+
+export function isRoleChosen(userId) {
+  const db = getDb();
+  const row = db.select().from(settings).where(eq(settings.key, roleChosenKey(userId))).get();
+  return row?.value === '1';
+}
+
+export function setRoleChosen(userId) {
+  const db = getDb();
+  const key = roleChosenKey(userId);
+  const existing = db.select().from(settings).where(eq(settings.key, key)).get();
+  if (existing) {
+    db.update(settings).set({ value: '1' }).where(eq(settings.key, key)).run();
+  } else {
+    db.insert(settings).values({ key, value: '1' }).run();
+  }
+}
+
+export function ensureRoleChosenForLegacyProfile(user) {
+  if (!user?.id) return;
+  if (isRoleChosen(user.id)) return;
+  if (user.role === 'teen' && isProfileComplete(user)) {
+    setRoleChosen(user.id);
+  }
+}
+
+export function maybeMarkRoleChosenFromRemote(userId, remoteProfile) {
+  if (!remoteProfile || isRoleChosen(userId)) return;
+  const role = remoteProfile.role ?? 'teen';
+  const hasName = Boolean(remoteProfile.legal_name?.trim());
+  if (role === 'adult' && hasName) {
+    setRoleChosen(userId);
+    return;
+  }
+  if (role === 'teen' && hasName && remoteProfile.date_of_birth && remoteProfile.permit_issue_date) {
+    setRoleChosen(userId);
+  }
+}
+
+export function upsertLink(link) {
+  const db = getDb();
+  const existing = db.select().from(links).where(eq(links.id, link.id)).get();
+  const row = {
+    id: link.id,
+    teenUserId: link.teenUserId,
+    adultUserId: link.adultUserId,
+    status: link.status,
+    createdAt: link.createdAt,
+  };
+  if (existing) {
+    db.update(links).set(row).where(eq(links.id, link.id)).run();
+  } else {
+    db.insert(links).values(row).run();
+  }
+  return row;
+}
+
+export function getActiveLinksForUser(userId) {
+  const db = getDb();
+  return db
+    .select()
+    .from(links)
+    .where(
+      and(
+        eq(links.status, 'active'),
+        or(eq(links.teenUserId, userId), eq(links.adultUserId, userId)),
+      ),
+    )
+    .all();
+}
+
+export function hasActiveLink(userId) {
+  return getActiveLinksForUser(userId).length > 0;
+}
+
+export function deleteLink(linkId) {
+  const db = getDb();
+  db.delete(links).where(eq(links.id, linkId)).run();
 }

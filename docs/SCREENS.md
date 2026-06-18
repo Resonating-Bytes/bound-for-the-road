@@ -1,6 +1,6 @@
 # Screens and navigation
 
-**Last updated:** 2026-06-07  
+**Last updated:** 2026-06-17  
 Decisions: [DECISIONS.md](./DECISIONS.md)
 
 ---
@@ -81,11 +81,31 @@ Additional screens:
 | Invite code | Teen | Generate 6-digit code |
 | Enter code | Adult | Accept link |
 | Waiting for link | Both | Gate until linked |
-| Adult dashboard | Adult | Linked teens picker, pending approvals |
+| Adult dashboard | Adult | Selected teen context, pending approvals (see below) |
 | Approval | Adult | Summary + attestation + Approve |
 | Active session (adult) | Adult | "I'm with the driver", live stats |
 
 Teen Save button label → **Submit for approval**.
+
+### Adult dashboard — linked teen context (deferred)
+
+When the adult dashboard shows session/approval data, it must be clear **which teen** is in view:
+
+| Linked teens | UI |
+|--------------|-----|
+| **0** | Empty state + enter invite code (current placeholder) |
+| **1** | Static label with teen name on dashboard — **no switcher** (list + remove live in linked-accounts section until switcher ships) |
+| **2+** | Prominent selected-teen label + easy switch control (dropdown or equivalent) |
+
+Switching teens updates all dashboard content scoped to that teen (approvals, active session, progress when added). Not built in the linking-only slice — implement when fleshing out adult dashboard / approvals.
+
+### Teen Settings — linked accounts
+
+Teen dashboard stays focused on progress. **Settings → Linked accounts**: list of linked adults (name + remove), **Invite adult** at the bottom.
+
+### Adult Settings — linked accounts
+
+Linked teens are managed in **Settings** (list, remove, link another teen) — not on the adult dashboard. Multi-teen **switcher** on the dashboard is deferred until session/approval UI ships.
 
 ---
 

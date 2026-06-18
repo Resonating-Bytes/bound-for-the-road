@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "scheme": "boundfortheroad",
     "ios": {
       "supportsTablet": true
     },
@@ -25,7 +26,8 @@
       "expo-sqlite",
       "expo-notifications",
       "@react-native-community/datetimepicker",
-      "expo-asset"
+      "expo-asset",
+      "expo-web-browser"
     ]
   }
 }

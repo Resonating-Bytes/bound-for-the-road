@@ -13,6 +13,7 @@ export function OnboardingStateScreen({ navigation }) {
   function next() {
     saveProfile({
       legalName: user.legalName,
+      role: 'teen',
       dateOfBirth: user.dateOfBirth,
       stateCode,
       permitIssueDate: user?.permitIssueDate,

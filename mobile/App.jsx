@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Linking from 'expo-linking';
 import { initDb } from './src/db/client';
 import { AuthProvider } from './src/context/AuthContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { Screen } from './src/components/Screen';
+import { isSupabaseConfigured } from './src/lib/supabase';
+import { createSessionFromUrl } from './src/lib/googleAuth';
 
 export default function App() {
   const [dbReady, setDbReady] = useState(false);
@@ -19,6 +22,25 @@ export default function App() {
     } catch (e) {
       setDbError(e.message ?? 'Database failed to initialize');
     }
+  }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+
+    async function handleUrl(url) {
+      if (!url || (!url.includes('code=') && !url.includes('access_token='))) return;
+      try {
+        await createSessionFromUrl(url);
+      } catch (e) {
+        console.warn('Auth callback failed:', e.message);
+      }
+    }
+
+    const subscription = Linking.addEventListener('url', ({ url }) => handleUrl(url));
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl(url);
+    });
+    return () => subscription.remove();
   }, []);
 
   if (dbError) {

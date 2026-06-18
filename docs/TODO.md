@@ -1,11 +1,13 @@
 # Bound for the Road — Project TODO
 
-**Last updated:** 2026-06-17  
-**Current phase:** Phase 2 foundation — Supabase schema in repo; apply to hosted project next
+**Last updated:** 2026-06-19  
+**Current phase:** Phase 2 — linking slice complete; next up: submit for approval
 
 **Decisions:** [DECISIONS.md](./DECISIONS.md) — do not duplicate here.  
 **Screens:** [SCREENS.md](./SCREENS.md)  
 **Testing:** [TESTING.md](./TESTING.md) — planned harness; implement after Phase 1 feature sign-off
+
+**Supabase migrations to apply (in order):** `20260618120000_initial_schema.sql`, `20260618120001_rls_policies.sql`, `20260619120000_link_invite_rpc.sql`, `20260619130000_users_insert_own.sql` — see [SUPABASE_SETUP.md](./SUPABASE_SETUP.md).
 
 ---
 
@@ -80,17 +82,32 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 
 ## Phase 2 — Dev build + Supabase
 
+### Foundation & auth
 - [x] Postgres schema + RLS migrations (`supabase/migrations/`)
-- [x] Mobile Supabase client stub + env template ([SUPABASE_SETUP.md](./SUPABASE_SETUP.md))
-- [ ] Supabase project created + migrations applied (manual)
-- [ ] Real Apple / Google auth
-- [ ] Role selection, adult onboarding, linking (ONBOARDING Part 2)
+- [x] Mobile Supabase client + env template ([SUPABASE_SETUP.md](./SUPABASE_SETUP.md))
+- [x] Supabase project created + migrations applied (manual)
+- [x] Google sign-in via Supabase Auth (Expo Go)
+- [x] Profile upsert to Supabase (incl. `users_insert_own` for dev DB resets)
+
+### Onboarding Part 2 — role + linking
+- [x] Role selection (teen vs adult) + adult name onboarding
+- [x] Teen/adult 6-digit invite codes (`accept_link_invite` RPC)
+- [x] Invite later (teen can defer; resume from Settings)
+- [x] Link established → both sides land on dashboard/home
+- [x] Linked accounts in Settings (list, remove, invite) — teen + adult
+- [x] Settings UI polish (native back button, compact permit date editor)
+- [x] Adult invite entry formatted as `482 916`
+- [x] Jest: links helpers, navigation helpers
+
+### Next (Phase 2 continued)
+- [ ] Adult dashboard UX — multi-teen switcher ([SCREENS.md](./SCREENS.md)): 1 teen = static name; 2+ = dropdown; scope session/approval UI to selection
 - [ ] Submit for approval, adult approve, attestation
 - [ ] Push + Edge Function relay
 - [ ] Outbox sync to BACKEND endpoints
 - [ ] Maestro E2E happy path (dev/production build — not Expo Go)
 - [ ] Live Activity + Android foreground service
 - [ ] Deep links
+- [ ] iOS dev build / Sign in with Apple (when Apple Dev account ready)
 
 ---
 
