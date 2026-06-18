@@ -4,7 +4,7 @@ Mobile app for teens to log supervised permit driving hours toward their license
 
 ## Status
 
-**Phase 1 complete** — mock auth, onboarding, session log, export, local DB, automated tests. Phase 2 (Supabase, real auth) not started.
+**Phase 1 complete** — mock auth, onboarding, session log, export, local DB, automated tests. Phase 2 foundation in progress (Supabase).
 
 ## Quick start
 
@@ -23,5 +23,6 @@ Scan the QR code in **Expo Go** on your iPhone (SDK **54**). See [`mobile/README
 3. [TODO.md](./docs/TODO.md) — checklist
 4. [TESTING.md](./docs/TESTING.md) — automated tests
 5. [DEVELOPMENT_SETUP.md](./docs/DEVELOPMENT_SETUP.md) — Expo Go, EAS, troubleshooting
+6. [SUPABASE_SETUP.md](./docs/SUPABASE_SETUP.md) — Phase 2 Supabase project + migrations
 
 Full index: [docs/README.md](./docs/README.md).

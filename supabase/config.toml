@@ -1,0 +1,19 @@
+# Supabase local dev — https://supabase.com/docs/guides/cli/config
+# Run migrations against a hosted project via Dashboard SQL editor or: supabase db push
+
+project_id = "bound-for-the-road"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323

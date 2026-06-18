@@ -20,6 +20,11 @@ ios/
 # Env
 .env
 .env.local
+mobile/.env
+
+# Supabase CLI local
+supabase/.branches
+supabase/.temp
 *.pem
 
 # OS / IDE
