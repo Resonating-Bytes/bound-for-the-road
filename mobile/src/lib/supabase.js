@@ -1,6 +1,5 @@
 /**
  * Supabase client (Phase 2). No-op until EXPO_PUBLIC_* env vars are set.
- * Auth storage will move to SecureStore when real sign-in ships (see docs/AUTH.md).
  */
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
@@ -34,6 +33,7 @@ export function getSupabase() {
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,
+        flowType: 'pkce',
       },
     });
   }
@@ -46,8 +46,6 @@ export async function checkSupabaseConnection() {
     return { ok: false, reason: 'not_configured' };
   }
   try {
-    // Root /rest/v1/ requires a secret key; hit a public table instead.
-    // Publishable keys (sb_publishable_...) go in apikey only — not Authorization Bearer.
     const response = await fetch(`${supabaseUrl}/rest/v1/users?select=id&limit=0`, {
       headers: {
         apikey: supabaseAnonKey,

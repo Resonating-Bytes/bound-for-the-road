@@ -1,7 +1,7 @@
 # Bound for the Road — Project TODO
 
-**Last updated:** 2026-06-17  
-**Current phase:** Phase 2 foundation — Supabase schema in repo; apply to hosted project next
+**Last updated:** 2026-06-18  
+**Current phase:** Phase 2 — Google sign-in working in Expo Go; next: Apple, linking, sync
 
 **Decisions:** [DECISIONS.md](./DECISIONS.md) — do not duplicate here.  
 **Screens:** [SCREENS.md](./SCREENS.md)  
@@ -82,8 +82,18 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 
 - [x] Postgres schema + RLS migrations (`supabase/migrations/`)
 - [x] Mobile Supabase client stub + env template ([SUPABASE_SETUP.md](./SUPABASE_SETUP.md))
-- [ ] Supabase project created + migrations applied (manual)
-- [ ] Real Apple / Google auth
+- [x] Supabase project created + migrations applied (manual)
+- [x] Google sign-in via Supabase Auth (Expo Go)
+- [x] Dev build scaffold (`expo-dev-client`, `eas.json`, bundle ID in `app.json`) — install blocked until Apple Dev
+- [ ] **Follow-up: iOS development build** (when ready for Apple Developer $99/year) — see [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md#development-build-bound-for-the-road-branding)
+  - [ ] Enroll in [Apple Developer Program](https://developer.apple.com/programs/)
+  - [ ] `npx eas-cli login` → `npx eas-cli init` (from `mobile/`)
+  - [ ] Supabase **Redirect URLs**: `boundfortheroad://**` (covers `boundfortheroad://auth/callback`)
+  - [ ] `npx eas-cli device:create` (register iPhone)
+  - [ ] `npx eas-cli build --profile development --platform ios`
+  - [ ] Install build on iPhone; daily dev via `npm run start:dev-client` (not Expo Go)
+  - [ ] OAuth system prompt should say **Bound for the Road** instead of **Expo**
+- [ ] Sign in with Apple (after iOS dev build)
 - [ ] Role selection, adult onboarding, linking (ONBOARDING Part 2)
 - [ ] Submit for approval, adult approve, attestation
 - [ ] Push + Edge Function relay

@@ -34,7 +34,6 @@ export function SettingsScreen({ navigation }) {
         text: 'Sign out',
         onPress: async () => {
           await signOut();
-          navigation.reset({ index: 0, routes: [{ name: 'MockSignIn' }] });
         },
       },
     ]);
@@ -51,7 +50,6 @@ export function SettingsScreen({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             await deleteAllData();
-            navigation.reset({ index: 0, routes: [{ name: 'MockSignIn' }] });
           },
         },
       ],

@@ -6,10 +6,13 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "scheme": "boundfortheroad",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.resonatingbytes.boundfortheroad"
     },
     "android": {
+      "package": "com.resonatingbytes.boundfortheroad",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -25,7 +28,9 @@
       "expo-sqlite",
       "expo-notifications",
       "@react-native-community/datetimepicker",
-      "expo-asset"
+      "expo-asset",
+      "expo-web-browser",
+      "expo-dev-client"
     ]
   }
 }

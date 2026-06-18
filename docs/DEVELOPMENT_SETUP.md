@@ -158,6 +158,48 @@ Expo Go development does **not** require paid Apple/Google accounts.
 
 ---
 
+## Development build (Bound for the Road branding)
+
+Use this when you want the installed app and iOS OAuth prompt to say **Bound for the Road** instead of **Expo**, or when you need Sign in with Apple, production-like push, or Maestro E2E.
+
+| Requirement | Notes |
+|-------------|--------|
+| **Expo account** | Free tier is enough to start |
+| **Apple Developer** ($99/year) | Required to install an iOS dev build on a **physical iPhone** from Windows (EAS internal distribution) |
+| **Supabase redirect URLs** | Add `boundfortheroad://**` for dev builds (`boundfortheroad://auth/callback` is covered by the wildcard) |
+
+### One-time setup
+
+```powershell
+cd mobile
+npm install
+npx eas-cli login
+npx eas-cli init
+npx eas-cli device:create
+```
+
+`eas init` writes a `projectId` into `app.json`. Register your iPhone when prompted.
+
+### Build and run (iOS, from Windows)
+
+```powershell
+npx eas-cli build --profile development --platform ios
+```
+
+When the build finishes, open the install link on your iPhone. Then start Metro for the dev client:
+
+```powershell
+npm run start:dev-client
+```
+
+Open **Bound for the Road** (the dev build) — not Expo Go — and connect to Metro.
+
+### Custom Supabase domain (later, optional)
+
+A **custom auth domain** (e.g. `auth.yourdomain.com` instead of `xxxxx.supabase.co`) is a **paid Supabase add-on** and requires a **domain you already own** (registrar purchase, e.g. $10–15/year). It only changes what domain appears in the system OAuth prompt — not required for MVP.
+
+---
+
 ## Quick start (iPhone + Expo Go)
 
 The runnable app lives in [`../mobile/`](../mobile/).
