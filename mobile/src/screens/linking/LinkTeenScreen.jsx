@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '../../context/AuthContext';
 import { Screen } from '../../components/Screen';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { setLinkInviteDeferred } from '../../db/queries';
 import { createLinkInvite, formatInviteCode } from '../../lib/links';
 import { canShowBackButton, navigateBackOrHome, resetToHome } from '../../navigation/helpers';
@@ -80,12 +80,12 @@ export function LinkTeenScreen({ navigation }) {
   }
 
   return (
-    <Screen>
-      {canShowBackButton(navigation, linked) ? (
-        <BackButton onPress={handleBack} />
-      ) : null}
+    <Screen withHeader>
+      <ScreenHeader
+        title="Invite an adult"
+        onBack={canShowBackButton(navigation, linked) ? handleBack : undefined}
+      />
       <View style={[shared.content, styles.content]}>
-        <Text style={shared.title}>Invite an adult</Text>
         <Text style={shared.hint}>
           Share this code with your supervising adult. It expires in 24 hours.
         </Text>
@@ -131,7 +131,7 @@ export function LinkTeenScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   content: {
-    paddingTop: 52,
+    paddingTop: 16,
   },
   code: {
     fontSize: 40,

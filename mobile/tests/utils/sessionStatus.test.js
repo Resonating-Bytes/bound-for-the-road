@@ -1,0 +1,42 @@
+import {
+  getSessionDisplayStatus,
+} from '../../src/utils/sessionStatus';
+
+const session = {
+  id: 'sess-1',
+  status: 'saved',
+  requestHash: 'hash-new',
+  startedAt: '2026-06-01T14:00:00.000Z',
+};
+
+describe('sessionStatus', () => {
+  test('pending when submitted without approval', () => {
+    const status = getSessionDisplayStatus(session, {
+      submission: { requestHash: 'hash-new', superseded: false },
+      approval: null,
+      latestApproval: null,
+    });
+    expect(status.key).toBe('pending');
+    expect(status.label).toBe('Pending approval');
+  });
+
+  test('approved when hash matches approval', () => {
+    const status = getSessionDisplayStatus(session, {
+      submission: { requestHash: 'hash-new', superseded: false },
+      approval: { requestHash: 'hash-new', approvedAt: '2026-06-02T10:00:00.000Z' },
+      latestApproval: { requestHash: 'hash-new' },
+      approverName: 'Pat Parent',
+    });
+    expect(status.key).toBe('approved');
+    expect(status.label).toContain('Pat Parent');
+  });
+
+  test('superseded when latest approval is for older hash', () => {
+    const status = getSessionDisplayStatus(session, {
+      submission: { requestHash: 'hash-new', superseded: false },
+      approval: null,
+      latestApproval: { requestHash: 'hash-old' },
+    });
+    expect(status.key).toBe('superseded');
+  });
+});

@@ -14,14 +14,45 @@ const MVP_PAYLOAD_KEYS = [
   'savedByUserId',
 ];
 
-export function stableStringify(obj) {
+const SUBMIT_PAYLOAD_KEYS = [
+  'schemaVersion',
+  'sessionId',
+  'stateCode',
+  'startedAt',
+  'endedAt',
+  'endedBy',
+  'activeSupervisorId',
+  'activeSupervisorJoinedAt',
+  'durationMinutes',
+  'dayNight',
+  'notes',
+  'submittedAt',
+  'submittedByUserId',
+];
+
+function stableStringifyWithKeys(obj, keys) {
   const sorted = {};
-  for (const key of MVP_PAYLOAD_KEYS) {
+  for (const key of keys) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
       sorted[key] = obj[key];
     }
   }
   return JSON.stringify(sorted);
+}
+
+export function stableStringify(obj) {
+  return stableStringifyWithKeys(obj, MVP_PAYLOAD_KEYS);
+}
+
+export function stableSubmitStringify(obj) {
+  return stableStringifyWithKeys(obj, SUBMIT_PAYLOAD_KEYS);
+}
+
+export function payloadKeyOrder(payload) {
+  if (payload && Object.prototype.hasOwnProperty.call(payload, 'submittedAt')) {
+    return SUBMIT_PAYLOAD_KEYS;
+  }
+  return MVP_PAYLOAD_KEYS;
 }
 
 export function buildSavePayload({
@@ -48,8 +79,39 @@ export function buildSavePayload({
   };
 }
 
+export function buildSubmitPayload({
+  sessionId,
+  stateCode,
+  startedAt,
+  endedAt,
+  endedBy = 'teen',
+  activeSupervisorId = null,
+  activeSupervisorJoinedAt = null,
+  durationMinutes,
+  dayNight,
+  notes,
+  submittedByUserId,
+}) {
+  return {
+    schemaVersion: 1,
+    sessionId,
+    stateCode,
+    startedAt,
+    endedAt,
+    endedBy,
+    activeSupervisorId,
+    activeSupervisorJoinedAt,
+    durationMinutes,
+    dayNight,
+    notes: notes ?? null,
+    submittedAt: nowISO(),
+    submittedByUserId,
+  };
+}
+
 export async function computeRequestHash(payload) {
-  const canonical = stableStringify(payload);
+  const keys = payloadKeyOrder(payload);
+  const canonical = stableStringifyWithKeys(payload, keys);
   return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, canonical);
 }
 

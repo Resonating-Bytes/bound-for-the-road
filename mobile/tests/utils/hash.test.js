@@ -1,9 +1,11 @@
 import crypto from 'crypto';
 import {
   stableStringify,
+  stableSubmitStringify,
   computeRequestHash,
   truncateHash,
   verifyStoredHash,
+  buildSubmitPayload,
 } from '../../src/utils/hash';
 
 const GOLDEN_PAYLOAD = {
@@ -57,6 +59,28 @@ describe('hash', () => {
     const canonical = stableStringify(GOLDEN_PAYLOAD);
     const expected = crypto.createHash('sha256').update(canonical).digest('hex');
     await expect(computeRequestHash(GOLDEN_PAYLOAD)).resolves.toBe(expected);
+  });
+
+  test('submit payload uses expanded key order', async () => {
+    const payload = buildSubmitPayload({
+      sessionId: 'sess-001',
+      stateCode: 'IL',
+      startedAt: '2026-06-01T14:00:00.000Z',
+      endedAt: '2026-06-01T15:30:00.000Z',
+      endedBy: 'teen',
+      activeSupervisorId: null,
+      activeSupervisorJoinedAt: null,
+      durationMinutes: 90,
+      dayNight: 'day',
+      notes: null,
+      submittedByUserId: 'user-001',
+    });
+    payload.submittedAt = '2026-06-01T15:31:00.000Z';
+    const canonical = stableSubmitStringify(payload);
+    expect(canonical).toContain('"endedBy":"teen"');
+    expect(canonical).toContain('"submittedAt"');
+    const expected = crypto.createHash('sha256').update(canonical).digest('hex');
+    await expect(computeRequestHash(payload)).resolves.toBe(expected);
   });
 
   test('truncateHash shortens display hash', () => {

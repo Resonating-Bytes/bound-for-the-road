@@ -1,7 +1,7 @@
 # Bound for the Road — Project TODO
 
 **Last updated:** 2026-06-19  
-**Current phase:** Phase 2 — linking slice complete; next up: submit for approval
+**Current phase:** Phase 2 — approval flow complete; next up: push notifications, outbox sync
 
 **Decisions:** [DECISIONS.md](./DECISIONS.md) — do not duplicate here.  
 **Screens:** [SCREENS.md](./SCREENS.md)  
@@ -100,8 +100,9 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 - [x] Jest: links helpers, navigation helpers
 
 ### Next (Phase 2 continued)
+- [ ] Theme color picker in Settings — customize header color (color wheel if feasible, else preset swatches)
 - [ ] Adult dashboard UX — multi-teen switcher ([SCREENS.md](./SCREENS.md)): 1 teen = static name; 2+ = dropdown; scope session/approval UI to selection
-- [ ] Submit for approval, adult approve, attestation
+- [x] Submit for approval, adult approve, attestation
 - [ ] Push + Edge Function relay
 - [ ] Outbox sync to BACKEND endpoints
 - [ ] Maestro E2E happy path (dev/production build — not Expo Go)

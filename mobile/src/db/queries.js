@@ -1,9 +1,9 @@
 import { eq, and, or, isNull, desc, sql } from 'drizzle-orm';
 import { getDb } from './client';
-import { users, sessions, outbox, links, settings } from './schema';
+import { users, sessions, outbox, links, settings, submissions, approvals } from './schema';
 import { generateId, nowISO, durationMinutes } from '../utils/time';
 import { classifyDayNight } from '../utils/dayNight';
-import { buildSavePayload, computeRequestHash, stableStringify } from '../utils/hash';
+import { buildSubmitPayload, computeRequestHash, stableSubmitStringify } from '../utils/hash';
 import { IL_RULES } from '../config/states/IL';
 
 export function getUserById(userId) {
@@ -140,6 +140,7 @@ export function resumeSession(sessionId) {
 export function reopenSavedSession(sessionId) {
   const db = getDb();
   const now = nowISO();
+  supersedeSubmissionsForSession(sessionId);
   db.update(sessions)
     .set({
       status: 'draft',
@@ -168,28 +169,34 @@ export function restoreSavedSession(sessionId, backup) {
   return getSessionById(sessionId);
 }
 
-export async function saveSession(sessionId, { notes, savedByUserId }) {
+export async function submitSession(
+  sessionId,
+  { notes, submittedByUserId, endedBy = 'teen', activeSupervisorId = null, activeSupervisorJoinedAt = null },
+) {
   const session = getSessionById(sessionId);
   if (!session || session.status !== 'draft') {
-    throw new Error('Session must be in draft status to save');
+    throw new Error('Session must be in draft status to submit');
   }
   const mins = durationMinutes(session.startedAt, session.endedAt);
   const dayNight = classifyDayNight(session.startedAt);
-  const payload = buildSavePayload({
+  const payload = buildSubmitPayload({
     sessionId: session.id,
     stateCode: session.stateCode,
     startedAt: session.startedAt,
     endedAt: session.endedAt,
+    endedBy,
+    activeSupervisorId: activeSupervisorId ?? session.activeSupervisorId ?? null,
+    activeSupervisorJoinedAt,
     durationMinutes: mins,
     dayNight,
     notes: notes ?? session.notes ?? null,
-    savedByUserId,
+    submittedByUserId,
   });
   const requestHash = await computeRequestHash(payload);
-  const canonical = stableStringify(payload);
+  const canonical = stableSubmitStringify(payload);
   const now = nowISO();
-  getDb()
-    .update(sessions)
+  const db = getDb();
+  db.update(sessions)
     .set({
       status: 'saved',
       durationMinutes: mins,
@@ -201,8 +208,112 @@ export async function saveSession(sessionId, { notes, savedByUserId }) {
     })
     .where(eq(sessions.id, sessionId))
     .run();
-  enqueueOutbox('session_saved', { sessionId, requestHash });
+  supersedeSubmissionsForSession(sessionId);
+  db.insert(submissions)
+    .values({
+      requestHash,
+      sessionId,
+      payloadJson: canonical,
+      submittedAt: payload.submittedAt,
+      submittedByUserId,
+      superseded: false,
+    })
+    .run();
+  enqueueOutbox('session_submitted', { sessionId, requestHash });
   return getSessionById(sessionId);
+}
+
+/** @deprecated Use submitSession — kept for tests migrating from Phase 1 naming */
+export async function saveSession(sessionId, opts) {
+  return submitSession(sessionId, {
+    notes: opts.notes,
+    submittedByUserId: opts.savedByUserId ?? opts.submittedByUserId,
+  });
+}
+
+export function supersedeSubmissionsForSession(sessionId) {
+  getDb()
+    .update(submissions)
+    .set({ superseded: true })
+    .where(eq(submissions.sessionId, sessionId))
+    .run();
+}
+
+export function getSubmissionForSession(sessionId) {
+  const db = getDb();
+  return (
+    db
+      .select()
+      .from(submissions)
+      .where(and(eq(submissions.sessionId, sessionId), eq(submissions.superseded, false)))
+      .get() ?? null
+  );
+}
+
+export function getSubmissionByHash(requestHash) {
+  const db = getDb();
+  return db.select().from(submissions).where(eq(submissions.requestHash, requestHash)).get() ?? null;
+}
+
+export function getApprovalForHash(requestHash) {
+  const db = getDb();
+  return db.select().from(approvals).where(eq(approvals.requestHash, requestHash)).get() ?? null;
+}
+
+export function getLatestApprovalForSession(sessionId) {
+  const db = getDb();
+  return (
+    db
+      .select()
+      .from(approvals)
+      .where(eq(approvals.sessionId, sessionId))
+      .orderBy(desc(approvals.approvedAt))
+      .get() ?? null
+  );
+}
+
+export function upsertApproval(approval) {
+  const db = getDb();
+  const existing = db.select().from(approvals).where(eq(approvals.id, approval.id)).get();
+  const row = {
+    id: approval.id,
+    requestHash: approval.requestHash,
+    sessionId: approval.sessionId,
+    approvedByUserId: approval.approvedByUserId,
+    approvedAt: approval.approvedAt,
+    joinedSession: approval.joinedSession ?? null,
+    supervisorInVehicleName: approval.supervisorInVehicleName ?? null,
+    approverPresent: approval.approverPresent ?? null,
+  };
+  if (existing) {
+    db.update(approvals).set(row).where(eq(approvals.id, approval.id)).run();
+  } else {
+    db.insert(approvals).values(row).run();
+  }
+  return row;
+}
+
+export function withdrawSubmission(sessionId) {
+  const session = getSessionById(sessionId);
+  if (!session || session.status !== 'saved') {
+    throw new Error('Only submitted sessions can be withdrawn');
+  }
+  if (session.requestHash && getApprovalForHash(session.requestHash)) {
+    throw new Error('Approved sessions cannot be withdrawn');
+  }
+  supersedeSubmissionsForSession(sessionId);
+  return reopenSavedSession(sessionId);
+}
+
+export function getSessionApprovalContext(sessionId) {
+  const session = getSessionById(sessionId);
+  if (!session) return null;
+  return {
+    session,
+    submission: getSubmissionForSession(sessionId),
+    approval: session.requestHash ? getApprovalForHash(session.requestHash) : null,
+    latestApproval: getLatestApprovalForSession(sessionId),
+  };
 }
 
 export function softDeleteSession(sessionId) {

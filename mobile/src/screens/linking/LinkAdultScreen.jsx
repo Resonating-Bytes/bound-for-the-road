@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text, TextInput, Pressable, Alert } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { Screen } from '../../components/Screen';
-import { BackButton } from '../../components/BackButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { acceptLinkInvite, formatInviteCode, normalizeInviteCode } from '../../lib/links';
 import { canShowBackButton, navigateBackOrHome } from '../../navigation/helpers';
 import { shared } from '../onboarding/sharedStyles';
@@ -36,12 +36,12 @@ export function LinkAdultScreen({ navigation }) {
   }
 
   return (
-    <Screen>
-      {canShowBackButton(navigation, linked) ? (
-        <BackButton onPress={handleBack} />
-      ) : null}
+    <Screen withHeader>
+      <ScreenHeader
+        title="Enter invite code"
+        onBack={canShowBackButton(navigation, linked) ? handleBack : undefined}
+      />
       <View style={[shared.content, styles.content]}>
-        <Text style={shared.title}>Enter invite code</Text>
         <Text style={shared.hint}>
           Ask the teen driver to share their 6-digit code from Bound for the Road.
         </Text>
@@ -73,7 +73,7 @@ export function LinkAdultScreen({ navigation }) {
 
 const styles = {
   content: {
-    paddingTop: 52,
+    paddingTop: 16,
   },
   codeInput: {
     fontSize: 24,
