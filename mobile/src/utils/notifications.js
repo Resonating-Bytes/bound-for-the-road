@@ -53,6 +53,22 @@ export async function cancelSessionNudge(sessionId) {
   }
 }
 
+/** Cancel all local scheduled notifications tied to a session (nudge + stale-expired). */
+export async function cancelSessionNotifications(sessionId) {
+  configureNotificationHandler();
+  await cancelSessionNudge(sessionId);
+  try {
+    await Notifications.cancelScheduledNotificationAsync(`session-stale-${sessionId}`);
+  } catch {
+    // notification may not exist
+  }
+}
+
+export async function cancelSessionNotificationsForIds(sessionIds) {
+  if (!sessionIds?.length) return;
+  await Promise.all(sessionIds.map((sessionId) => cancelSessionNotifications(sessionId)));
+}
+
 export async function notifyStaleSessionExpired(sessionId) {
   configureNotificationHandler();
   await ensureNotificationPermissions();

@@ -1,26 +1,34 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { getSettingValue, setSettingValue } from '../db/queries';
+import { useAuth } from './AuthContext';
 import { DEFAULT_PRESET_ID, HEADER_THEME_PRESETS, getPresetById } from '../theme/presets';
+import {
+  readHeaderThemePresetId,
+  registerHeaderThemeResetListener,
+  writeHeaderThemePresetId,
+} from '../theme/headerTheme';
 import { resolveTheme } from '../theme/resolveTheme';
-
-const THEME_SETTING_KEY = 'header_theme_id';
 
 const ThemeContext = createContext(null);
 
-function readSavedPresetId() {
-  const saved = getSettingValue(THEME_SETTING_KEY);
-  return getPresetById(saved) ? saved : DEFAULT_PRESET_ID;
-}
-
 export function ThemeProvider({ children }) {
-  const [presetId, setPresetIdState] = useState(readSavedPresetId);
+  const { userId } = useAuth();
+  const [presetId, setPresetIdState] = useState(DEFAULT_PRESET_ID);
 
-  const setPresetId = useCallback((id) => {
-    if (!getPresetById(id)) return;
-    setPresetIdState(id);
-    setSettingValue(THEME_SETTING_KEY, id);
-  }, []);
+  useEffect(() => {
+    setPresetIdState(readHeaderThemePresetId(userId));
+  }, [userId]);
+
+  useEffect(() => registerHeaderThemeResetListener(setPresetIdState), []);
+
+  const setPresetId = useCallback(
+    (id) => {
+      if (!userId || !getPresetById(id)) return;
+      setPresetIdState(id);
+      writeHeaderThemePresetId(userId, id);
+    },
+    [userId],
+  );
 
   const theme = useMemo(() => resolveTheme(presetId), [presetId]);
   const selectedPreset = useMemo(

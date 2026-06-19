@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
 import { getSessionById, stopSession } from '../db/queries';
 import { durationMinutes, formatDuration } from '../utils/time';
-import { cancelSessionNudge } from '../utils/notifications';
+import { cancelSessionNotifications } from '../utils/notifications';
 import { Screen } from '../components/Screen';
 
 function elapsedFromStart(startedAt) {
@@ -44,7 +44,7 @@ export function ActiveSessionScreen({ route, navigation }) {
 
   async function handleStop() {
     stopSession(sessionId);
-    await cancelSessionNudge(sessionId);
+    await cancelSessionNotifications(sessionId);
     navigation.replace('ReviewSession', { sessionId });
   }
 

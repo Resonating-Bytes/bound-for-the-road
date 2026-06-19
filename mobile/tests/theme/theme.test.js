@@ -3,7 +3,12 @@ jest.mock('../../src/db/client', () => ({
 }));
 
 import { initTestDb, resetTestDb } from '../helpers/testDb';
-import { getSettingValue, setSettingValue } from '../../src/db/queries';
+import { getSettingValue, setSettingValue, deleteAllUserData, upsertUser } from '../../src/db/queries';
+import {
+  headerThemeSettingKey,
+  readHeaderThemePresetId,
+  writeHeaderThemePresetId,
+} from '../../src/theme/headerTheme';
 import { resolveTheme } from '../../src/theme/resolveTheme';
 import { DEFAULT_PRESET_ID, getPresetById } from '../../src/theme/presets';
 
@@ -36,8 +41,28 @@ describe('theme', () => {
     expect(theme.headerBackground).toBe(getPresetById(DEFAULT_PRESET_ID).headerBackground);
   });
 
-  test('setSettingValue persists header theme choice', () => {
-    setSettingValue('header_theme_id', 'lilac');
-    expect(getSettingValue('header_theme_id')).toBe('lilac');
+  test('header theme is stored per user', () => {
+    writeHeaderThemePresetId('user-a', 'lilac');
+    writeHeaderThemePresetId('user-b', 'ocean');
+    expect(readHeaderThemePresetId('user-a')).toBe('lilac');
+    expect(readHeaderThemePresetId('user-b')).toBe('ocean');
+    expect(getSettingValue(headerThemeSettingKey('user-a'))).toBe('lilac');
+  });
+
+  test('migrates legacy device-global header theme key to active user', () => {
+    setSettingValue('header_theme_id', 'crimson');
+    expect(readHeaderThemePresetId('user-a')).toBe('crimson');
+    expect(getSettingValue('header_theme_id')).toBeNull();
+    expect(getSettingValue(headerThemeSettingKey('user-a'))).toBe('crimson');
+  });
+
+  test('deleteAllUserData clears only that user header theme', () => {
+    upsertUser({ id: 'user-a', legalName: 'A', role: 'teen' });
+    upsertUser({ id: 'user-b', legalName: 'B', role: 'adult' });
+    writeHeaderThemePresetId('user-a', 'lilac');
+    writeHeaderThemePresetId('user-b', 'ocean');
+    deleteAllUserData('user-a');
+    expect(getSettingValue(headerThemeSettingKey('user-a'))).toBeNull();
+    expect(getSettingValue(headerThemeSettingKey('user-b'))).toBe('ocean');
   });
 });

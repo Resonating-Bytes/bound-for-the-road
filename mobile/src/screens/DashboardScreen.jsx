@@ -36,7 +36,7 @@ import { dayNightLabel } from '../utils/dayNight';
 import { renderExportTemplate } from '../utils/export';
 import {
   scheduleSessionNudge,
-  cancelSessionNudge,
+  cancelSessionNotifications,
   notifyStaleSessionExpired,
 } from '../utils/notifications';
 
@@ -90,7 +90,7 @@ export function DashboardScreen({ navigation }) {
         const expired = expireStaleActiveSession(userId);
         if (cancelled) return;
         if (expired) {
-          await cancelSessionNudge(expired.id);
+          await cancelSessionNotifications(expired.id);
           await notifyStaleSessionExpired(expired.id);
           navigation.replace('ReviewSession', { sessionId: expired.id, staleExpired: true });
           return;

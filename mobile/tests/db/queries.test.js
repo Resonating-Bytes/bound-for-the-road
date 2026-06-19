@@ -30,7 +30,10 @@ import {
   getActiveSession,
   expireStaleActiveSession,
   isActiveSessionStale,
+  deleteAllUserData,
 } from '../../src/db/queries';
+import { getDb } from '../../src/db/client';
+import { outbox } from '../../src/db/schema';
 
 const TEEN_ID = 'teen-001';
 
@@ -175,5 +178,41 @@ describe('queries', () => {
     const progress = getProgress(TEEN_ID);
     expect(progress.totalMinutes).toBeGreaterThan(0);
     expect(listSavedSessions(TEEN_ID)).toHaveLength(1);
+  });
+
+  test('submit enqueues outbox row with user id', async () => {
+    const active = createActiveSession(TEEN_ID);
+    stopSession(active.id, '2026-06-01T15:00:00.000Z');
+    await submitSession(active.id, { submittedByUserId: TEEN_ID });
+    const rows = getDb().select().from(outbox).all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].userId).toBe(TEEN_ID);
+    expect(rows[0].operation).toBe('session_submitted');
+  });
+
+  test('deleteAllUserData clears outbox for user', async () => {
+    const active = createActiveSession(TEEN_ID);
+    stopSession(active.id, '2026-06-01T15:00:00.000Z');
+    await submitSession(active.id, { submittedByUserId: TEEN_ID });
+    expect(getDb().select().from(outbox).all()).toHaveLength(1);
+    deleteAllUserData(TEEN_ID);
+    expect(getDb().select().from(outbox).all()).toHaveLength(0);
+  });
+
+  test('deleteAllUserData clears legacy outbox rows without user_id', () => {
+    const active = createActiveSession(TEEN_ID);
+    getDb()
+      .insert(outbox)
+      .values({
+        id: 'outbox-legacy',
+        operation: 'session_submitted',
+        payloadJson: JSON.stringify({ sessionId: active.id, requestHash: 'abc' }),
+        userId: null,
+        createdAt: '2026-06-01T10:00:00.000Z',
+        syncedAt: null,
+      })
+      .run();
+    deleteAllUserData(TEEN_ID);
+    expect(getDb().select().from(outbox).all()).toHaveLength(0);
   });
 });

@@ -33,7 +33,7 @@ jest.mock('../../src/components/ScreenHeader', () => {
 });
 
 jest.mock('../../src/utils/notifications', () => ({
-  cancelSessionNudge: jest.fn(() => Promise.resolve()),
+  cancelSessionNotifications: jest.fn(() => Promise.resolve()),
   scheduleSessionNudge: jest.fn(() => Promise.resolve()),
 }));
 

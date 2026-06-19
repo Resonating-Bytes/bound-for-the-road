@@ -22,7 +22,7 @@ import { formatDateTime, formatDuration, durationMinutes } from '../utils/time';
 import { classifyDayNight, dayNightLabel } from '../utils/dayNight';
 import { getCurfewWarning } from '../utils/curfew';
 import { IL_RULES } from '../config/states/IL';
-import { cancelSessionNudge, scheduleSessionNudge } from '../utils/notifications';
+import { cancelSessionNotifications, scheduleSessionNudge } from '../utils/notifications';
 import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
 
@@ -79,7 +79,7 @@ export function ReviewSessionScreen({ route, navigation }) {
     setSaving(true);
     try {
       await submitSessionForApproval(sessionId, { notes, submittedByUserId: userId });
-      await cancelSessionNudge(sessionId);
+      await cancelSessionNotifications(sessionId);
       goDashboard();
     } catch (e) {
       Alert.alert('Error', e.message ?? 'Could not submit session.');
@@ -113,7 +113,7 @@ export function ReviewSessionScreen({ route, navigation }) {
         text: 'Discard',
         style: 'destructive',
         onPress: async () => {
-          await cancelSessionNudge(sessionId);
+          await cancelSessionNotifications(sessionId);
           discardDraft(sessionId);
           goDashboard();
         },
@@ -137,7 +137,7 @@ export function ReviewSessionScreen({ route, navigation }) {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            await cancelSessionNudge(sessionId);
+            await cancelSessionNotifications(sessionId);
             softDeleteSession(sessionId);
             goDashboard();
           },

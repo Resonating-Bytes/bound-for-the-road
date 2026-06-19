@@ -62,6 +62,7 @@ export const outbox = sqliteTable('outbox', {
   id: text('id').primaryKey(),
   operation: text('operation').notNull(),
   payloadJson: text('payload_json').notNull(),
+  userId: text('user_id'),
   createdAt: text('created_at').notNull(),
   syncedAt: text('synced_at'),
 });

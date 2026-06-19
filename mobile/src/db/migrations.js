@@ -58,6 +58,7 @@ export const MIGRATION_STATEMENTS = [
     id TEXT PRIMARY KEY NOT NULL,
     operation TEXT NOT NULL,
     payload_json TEXT NOT NULL,
+    user_id TEXT,
     created_at TEXT NOT NULL,
     synced_at TEXT
   )`,
@@ -66,3 +67,29 @@ export const MIGRATION_STATEMENTS = [
     value TEXT NOT NULL
   )`,
 ];
+
+function execSql(sqlite, sql) {
+  if (typeof sqlite.execSync === 'function') {
+    sqlite.execSync(sql);
+  } else {
+    sqlite.exec(sql);
+  }
+}
+
+function queryAll(sqlite, sql) {
+  if (typeof sqlite.getAllSync === 'function') {
+    return sqlite.getAllSync(sql);
+  }
+  return sqlite.prepare(sql).all();
+}
+
+/** Run DDL and lightweight column upgrades (full versioned migrations → versioning batch). */
+export function applyMigrations(sqlite) {
+  for (const sql of MIGRATION_STATEMENTS) {
+    execSql(sqlite, sql);
+  }
+  const outboxColumns = queryAll(sqlite, 'PRAGMA table_info(outbox)');
+  if (!outboxColumns.some((col) => col.name === 'user_id')) {
+    execSql(sqlite, 'ALTER TABLE outbox ADD COLUMN user_id TEXT');
+  }
+}

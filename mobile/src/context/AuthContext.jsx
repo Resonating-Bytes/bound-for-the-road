@@ -5,6 +5,7 @@ import {
   getUserById,
   upsertUser,
   deleteAllUserData,
+  listSessionIdsForTeen,
   isProfileCompleteForRole,
   isProfileComplete,
   isRoleChosen,
@@ -18,6 +19,7 @@ import { signInWithGoogleOAuth } from '../lib/googleAuth';
 import { fetchRemoteLinks } from '../lib/links';
 import { syncProfileToSupabase } from '../lib/profileSync';
 import { unregisterCurrentDevicePushToken } from '../lib/pushTokens';
+import { cancelSessionNotificationsForIds } from '../utils/notifications';
 
 const MOCK_USER_KEY = '@boundfortheroad/mockUserId';
 
@@ -324,6 +326,8 @@ export function AuthProvider({ children }) {
     try {
       if (deletingUserId) {
         await unregisterCurrentDevicePushToken(deletingUserId);
+        const sessionIds = listSessionIdsForTeen(deletingUserId);
+        await cancelSessionNotificationsForIds(sessionIds);
         deleteAllUserData(deletingUserId);
       }
       if (isSupabaseConfigured()) {
