@@ -9,6 +9,7 @@ import {
   getCachedCompatibility,
   getAppUpdateStatus,
   getHeaderBanners,
+  getSettingsCompatibilityLabel,
 } from '../../src/lib/compatibility';
 
 describe('compatibility', () => {
@@ -96,6 +97,13 @@ describe('compatibility', () => {
     });
     expect(status.required).toBe(true);
     expect(status.optional).toBe(false);
+  });
+
+  test('getSettingsCompatibilityLabel uses plain language', () => {
+    expect(getSettingsCompatibilityLabel({ ok: true })).toBe('Up to date');
+    expect(getSettingsCompatibilityLabel({ backendStale: true })).toBe(
+      'Submit and approval sync temporarily unavailable',
+    );
   });
 
   test('getHeaderBanners returns warning banner when writes blocked', () => {

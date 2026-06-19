@@ -2,7 +2,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import {
   getActiveCompatibilityDisplay,
   getAppUpdateStatus,
-  getCompatibilityStatusLabel,
+  getSettingsCompatibilityLabel,
 } from '../lib/compatibility';
 import { useCompatibility } from '../context/CompatibilityContext';
 import { APP_VERSION } from '../config/compatibility';
@@ -18,32 +18,29 @@ export function AppVersionSection() {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>App version</Text>
-      <Text style={styles.metaLine}>Installed: {APP_VERSION}</Text>
-      {remote?.min_app_version ? (
-        <Text style={styles.metaLine}>Server minimum: {remote.min_app_version}</Text>
+      <Text style={styles.sectionTitle}>App Updates</Text>
+      <Text style={styles.metaLine}>This device: {APP_VERSION}</Text>
+      {updateStatus.required && remote?.min_app_version ? (
+        <Text style={styles.metaLine}>Required version: {remote.min_app_version}</Text>
       ) : null}
-      {remote?.latest_app_version ? (
-        <Text style={styles.metaLine}>Server latest: {remote.latest_app_version}</Text>
-      ) : null}
-      {remote?.backend_revision ? (
-        <Text style={styles.metaLine}>Backend revision: {remote.backend_revision}</Text>
+      {updateStatus.optional && remote?.latest_app_version ? (
+        <Text style={styles.metaLine}>Latest version: {remote.latest_app_version}</Text>
       ) : null}
       <Text style={styles.statusLine}>
-        Status: {loading ? 'Checking…' : getCompatibilityStatusLabel(statusSource)}
+        {loading ? 'Checking…' : getSettingsCompatibilityLabel(statusSource)}
       </Text>
       {compatibility.warning ? (
-        <Text style={styles.warningLine}>Note: {compatibility.warning}</Text>
+        <Text style={styles.warningLine}>{compatibility.warning}</Text>
       ) : null}
       {showUpdateButton ? (
         <Pressable style={styles.updateBtn} onPress={openAppUpdateUrl}>
           <Text style={styles.updateBtnText}>
-            {updateStatus.required ? 'Update required — get latest app' : 'Update available — get latest app'}
+            {updateStatus.required ? 'Get the latest app' : 'Get the update'}
           </Text>
         </Pressable>
       ) : null}
       <Pressable onPress={refresh} accessibilityRole="button">
-        <Text style={styles.refreshLink}>Re-check compatibility</Text>
+        <Text style={styles.refreshLink}>Check for updates</Text>
       </Pressable>
     </View>
   );
