@@ -1,6 +1,9 @@
 /** App ↔ backend compatibility constants — keep in sync with Supabase app_config seed. */
 
-export const APP_VERSION = '1.0.0';
+import appJson from '../../app.json';
+
+/** Runtime app semver — read from mobile/app.json (single source of truth). */
+export const APP_VERSION = appJson.expo.version;
 
 /** Oldest backend_revision this app build supports (Supabase migration id). */
 export const MIN_BACKEND_REVISION = '20260620120000';

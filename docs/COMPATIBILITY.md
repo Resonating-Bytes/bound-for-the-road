@@ -10,7 +10,7 @@ Related: [APPROVAL_AND_HASH.md](./APPROVAL_AND_HASH.md) · [OFFLINE_SYNC.md](./O
 
 | Layer | Where | Current | Who bumps |
 |-------|--------|---------|-----------|
-| **App** | `mobile/app.json` `version` | `1.0.0` | Release / EAS build |
+| **App** | `mobile/app.json` `expo.version` | `1.0.0` | Release / EAS build; bump with [CHANGELOG.md](../CHANGELOG.md). Runtime reads via `APP_VERSION`; `mobile/package.json` `version` mirrors it for npm. |
 | **Local DB** | `schema_meta.local_db_version` | `2` | Mobile dev when SQLite shape changes |
 | **Payload hash** | `schemaVersion` in canonical JSON | `1` | Mobile dev when hash-relevant fields change |
 | **Backend** | `app_config.backend_revision` | migration id | Apply new Supabase migration + update seed row |

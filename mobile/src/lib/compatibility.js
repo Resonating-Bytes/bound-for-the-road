@@ -100,6 +100,21 @@ export function getCompatibilityStatusLabel(compatibility) {
   return 'Unknown';
 }
 
+/** Plain-language status for Settings (user-actionable only). */
+export function getSettingsCompatibilityLabel(compatibility) {
+  if (compatibility?.preview) return 'Preview mode';
+  if (compatibility?.skipped) {
+    return compatibility.warning ? 'Could not check for updates' : 'Update check skipped';
+  }
+  if (compatibility?.appOutdated) return 'Update required';
+  if (compatibility?.backendStale) {
+    return 'Submit and approval sync temporarily unavailable';
+  }
+  if (compatibility?.updateOptional) return 'Update available';
+  if (compatibility?.ok) return 'Up to date';
+  return 'Unknown';
+}
+
 /**
  * @returns {{
  *   ok: boolean;
