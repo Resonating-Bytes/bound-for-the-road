@@ -13,10 +13,22 @@ jest.mock('../../src/db/queries', () => ({
   resumeSession: jest.fn(),
   softDeleteSession: jest.fn(),
   restoreSavedSession: jest.fn(),
+  reopenSavedSession: jest.fn(),
+  getSessionApprovalContext: jest.fn(() => ({
+    submission: { requestHash: 'hash-new', superseded: false },
+    approval: null,
+    latestApproval: null,
+  })),
+  getApprovalForHash: jest.fn(() => null),
+  hasUnsyncedSubmissionOutbox: jest.fn(() => false),
 }));
 
 jest.mock('../../src/lib/submissions', () => ({
   submitSessionForApproval: jest.fn(() => Promise.resolve()),
+  sendSavedSessionForApproval: jest.fn(() => Promise.resolve()),
+  discardSessionSubmission: jest.fn(() => Promise.resolve()),
+  fetchRemoteUserName: jest.fn(() => Promise.resolve('Supervisor')),
+  syncSessionReopenedForEdit: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock('../../src/components/ScreenHeader', () => {
@@ -90,16 +102,21 @@ describe('ReviewSessionScreen', () => {
     const { getByText, queryByText } = await renderReview({ sessionId: 'sess-001', editing: false });
     expect(getByText('Review session')).toBeTruthy();
     expect(getByText('Resume')).toBeTruthy();
-    expect(getByText('Discard')).toBeTruthy();
+    expect(getByText('Discard session')).toBeTruthy();
     expect(getByText('Submit for approval')).toBeTruthy();
     expect(queryByText('Back')).toBeNull();
   });
 
-  test('shows back to dashboard when session is no longer draft', async () => {
-    getSessionById.mockReturnValue({ ...draftSession, status: 'saved' });
-    const { getByText, queryByText } = await renderReview({ sessionId: 'sess-001', editing: false });
+  test('shows saved-session actions when session is no longer draft', async () => {
+    getSessionById.mockReturnValue({ ...draftSession, status: 'saved', requestHash: 'hash-new' });
+    const { getByText, queryByText, findByText } = await renderReview({
+      sessionId: 'sess-001',
+      editing: false,
+    });
     expect(getByText('Back to dashboard')).toBeTruthy();
+    expect(getByText('Edit session')).toBeTruthy();
     expect(queryByText('Submit for approval')).toBeNull();
+    expect(await findByText('Pending approval')).toBeTruthy();
   });
 
   test('hides Resume and shows Back when editing saved entry', async () => {
@@ -112,6 +129,6 @@ describe('ReviewSessionScreen', () => {
     expect(queryByText('Resume')).toBeNull();
     expect(getByLabelText('Go back')).toBeTruthy();
     expect(getByText('Discard edits')).toBeTruthy();
-    expect(getByText('Delete from log')).toBeTruthy();
+    expect(getByText('Discard session')).toBeTruthy();
   });
 });

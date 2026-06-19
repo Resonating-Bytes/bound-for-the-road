@@ -46,7 +46,7 @@ export function ApproveSessionScreen({ route, navigation }) {
               result.session?.status === 'deleted' ||
               result.session?.deletedAt)
           ) {
-            Alert.alert('No longer pending', 'This session was withdrawn or is no longer available.', [
+            Alert.alert('No longer pending', 'This session was discarded or is no longer available.', [
               { text: 'OK', onPress: () => navigation.goBack() },
             ]);
             setLoading(false);

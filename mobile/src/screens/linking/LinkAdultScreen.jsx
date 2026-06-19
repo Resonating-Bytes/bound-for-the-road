@@ -4,12 +4,13 @@ import { useAuth } from '../../context/AuthContext';
 import { Screen } from '../../components/Screen';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { acceptLinkInvite, formatInviteCode, normalizeInviteCode } from '../../lib/links';
-import { canShowBackButton, navigateBackOrHome } from '../../navigation/helpers';
+import { canShowBackButton, navigateBackOrHome, resetToHome } from '../../navigation/helpers';
+import { writeSelectedTeenId } from '../../lib/adultSelectedTeen';
 import { useTheme } from '../../context/ThemeContext';
 import { shared, themeAccentStyles } from '../onboarding/sharedStyles';
 
 export function LinkAdultScreen({ navigation }) {
-  const { user, linked, refreshLinks } = useAuth();
+  const { user, userId, linked, refreshLinks } = useAuth();
   const { theme } = useTheme();
   const accent = themeAccentStyles(theme);
   const [code, setCode] = useState('');
@@ -24,8 +25,12 @@ export function LinkAdultScreen({ navigation }) {
 
     setLoading(true);
     try {
-      await acceptLinkInvite(normalized);
+      const link = await acceptLinkInvite(normalized);
       await refreshLinks();
+      if (userId && link?.teenUserId) {
+        writeSelectedTeenId(userId, link.teenUserId);
+      }
+      resetToHome(navigation, 'adult');
       Alert.alert('Linked', "You're now connected.");
     } catch (e) {
       Alert.alert('Could not link', e.message ?? 'Try again.');

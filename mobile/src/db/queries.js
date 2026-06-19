@@ -6,6 +6,7 @@ import { classifyDayNight } from '../utils/dayNight';
 import { buildSubmitPayload, computeRequestHash, stableSubmitStringify } from '../utils/hash';
 import { IL_RULES } from '../config/states/IL';
 import { clearHeaderThemePreference } from '../theme/headerTheme';
+import { clearAdultSelectedTeen } from '../lib/adultSelectedTeen';
 
 export function getUserById(userId) {
   const db = getDb();
@@ -82,6 +83,7 @@ export function deleteAllUserData(userId) {
   db.delete(settings).where(eq(settings.key, linkInviteDeferredKey(userId))).run();
   db.delete(users).where(eq(users.id, userId)).run();
   clearHeaderThemePreference(userId);
+  clearAdultSelectedTeen(userId);
 }
 
 export function createActiveSession(teenUserId, stateCode = 'IL') {
@@ -380,13 +382,13 @@ export function healDraftAfterDecline(sessionId) {
   return getSessionById(sessionId);
 }
 
-export function withdrawSubmission(sessionId) {
+export function discardSubmittedSession(sessionId) {
   const session = getSessionById(sessionId);
   if (!session || session.status !== 'saved') {
-    throw new Error('Only submitted sessions can be withdrawn');
+    throw new Error('Only submitted sessions can be discarded');
   }
   if (session.requestHash && getApprovalForHash(session.requestHash)) {
-    throw new Error('Approved sessions cannot be withdrawn');
+    throw new Error('Approved sessions cannot be discarded this way');
   }
   supersedeSubmissionsForSession(sessionId);
   softDeleteSession(sessionId);

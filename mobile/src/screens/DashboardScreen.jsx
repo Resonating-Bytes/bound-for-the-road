@@ -7,11 +7,11 @@ import {
   SectionList,
   Share,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { ProgressBar } from '../components/ProgressBar';
+import { ListRowChevron } from '../components/ListRowChevron';
 import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { IconCircleButton } from '../components/IconCircleButton';
@@ -21,19 +21,17 @@ import {
   getActiveSession,
   getDraftSession,
   createActiveSession,
-  reopenSavedSession,
-  getSessionById,
   expireStaleActiveSession,
+  getSessionById,
+  reopenSavedSession,
   getSessionApprovalContext,
   hasUnsyncedSubmissionOutbox,
 } from '../db/queries';
 import {
   syncApprovalsForTeen,
   syncDeclinedSubmissionsForTeen,
-  withdrawSessionSubmission,
   fetchRemoteUserName,
   syncSessionReopenedForEdit,
-  sendSavedSessionForApproval,
 } from '../lib/submissions';
 import { useCompatibility } from '../context/CompatibilityContext';
 import { useTheme } from '../context/ThemeContext';
@@ -134,51 +132,65 @@ export function DashboardScreen({ navigation }) {
     [sessions, statusBySessionId],
   );
 
+  function openSessionEdit(sessionId) {
+    const before = getSessionById(sessionId);
+    if (!before) return;
+    reopenSavedSession(sessionId);
+    syncSessionReopenedForEdit(sessionId).catch((e) => {
+      console.warn('Remote edit sync failed:', e.message);
+    });
+    navigation.navigate('ReviewSession', {
+      sessionId,
+      editing: true,
+      editBackup: {
+        requestHash: before.requestHash,
+        payloadJson: before.payloadJson,
+        notes: before.notes,
+      },
+    });
+  }
+
+  function handleSessionRowPress(item) {
+    const status = statusBySessionId[item.id];
+    if (status?.key === 'needs_revision') {
+      openSessionEdit(item.id);
+      return;
+    }
+    navigation.navigate('ReviewSession', { sessionId: item.id });
+  }
+
   function renderSessionRow(item) {
     const status = statusBySessionId[item.id];
-    const showWithdraw = status?.key === 'pending' || status?.key === 'saved_local';
-    const showSend = status?.key === 'saved_local' && canRemoteWrite;
 
     return (
-      <View style={styles.row}>
-        <View style={styles.rowTop}>
-          <Pressable style={styles.rowMain} onPress={() => handleEdit(item.id)}>
-            <Text style={styles.rowDate}>{formatDate(item.startedAt)}</Text>
-            <Text style={styles.rowMeta}>
-              {formatDuration(item.durationMinutes ?? 0)} · {dayNightLabel(item.dayNight)}
-            </Text>
-          </Pressable>
-          <View style={styles.topActions}>
-            <Pressable onPress={() => handleEdit(item.id)}>
-              <Text style={[styles.editLink, { color: theme.accent }]}>Edit</Text>
-            </Pressable>
-            {showWithdraw ? (
-              <Pressable onPress={() => handleWithdraw(item.id)}>
-                <Text style={styles.withdrawLink}>Withdraw</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        </View>
-        {status?.label ? (
-          <Text
-            style={[
-              styles.statusText,
-              status.key === 'approved' && styles.statusApproved,
-              status.key === 'pending' && styles.statusPending,
-              status.key === 'saved_local' && styles.statusSavedLocal,
-              status.key === 'needs_revision' && styles.statusNeedsRevision,
-              status.key === 'superseded' && styles.statusSuperseded,
-            ]}
-          >
-            {status.label}
+      <Pressable
+        style={styles.row}
+        onPress={() => handleSessionRowPress(item)}
+        accessibilityRole="button"
+        accessibilityLabel={`Session ${formatDate(item.startedAt)}`}
+      >
+        <View style={styles.rowBody}>
+          <Text style={styles.rowDate}>{formatDate(item.startedAt)}</Text>
+          <Text style={styles.rowMeta}>
+            {formatDuration(item.durationMinutes ?? 0)} · {dayNightLabel(item.dayNight)}
           </Text>
-        ) : null}
-        {showSend ? (
-          <Pressable style={styles.sendRow} onPress={() => handleSendForApproval(item.id)}>
-            <Text style={[styles.sendLink, { color: theme.accent }]}>Send for approval</Text>
-          </Pressable>
-        ) : null}
-      </View>
+          {status?.label ? (
+            <Text
+              style={[
+                styles.statusText,
+                status.key === 'approved' && styles.statusApproved,
+                status.key === 'pending' && styles.statusPending,
+                status.key === 'saved_local' && styles.statusSavedLocal,
+                status.key === 'needs_revision' && styles.statusNeedsRevision,
+                status.key === 'superseded' && styles.statusSuperseded,
+              ]}
+            >
+              {status.label}
+            </Text>
+          ) : null}
+        </View>
+        <ListRowChevron />
+      </Pressable>
     );
   }
 
@@ -210,85 +222,6 @@ export function DashboardScreen({ navigation }) {
     const rows = listSavedSessions(userId);
     const text = renderExportTemplate(rows, user);
     await Share.share({ message: text });
-  }
-
-  function handleEdit(sessionId) {
-    const before = getSessionById(sessionId);
-    const ctx = getSessionApprovalContext(sessionId);
-    if (ctx?.approval) {
-      Alert.alert(
-        'Edit approved session?',
-        'Editing will require your supervisor to approve the updated record.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Edit',
-            onPress: () => openEdit(sessionId, before),
-          },
-        ],
-      );
-      return;
-    }
-    openEdit(sessionId, before);
-  }
-
-  function openEdit(sessionId, before) {
-    reopenSavedSession(sessionId);
-    syncSessionReopenedForEdit(sessionId).catch((e) => {
-      console.warn('Remote edit sync failed:', e.message);
-    });
-    navigation.navigate('ReviewSession', {
-      sessionId,
-      editing: true,
-      editBackup: {
-        requestHash: before.requestHash,
-        payloadJson: before.payloadJson,
-        notes: before.notes,
-      },
-    });
-  }
-
-  function handleSendForApproval(sessionId) {
-    Alert.alert(
-      'Send for approval?',
-      'Your supervisor will be notified to review this session.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Send',
-          onPress: async () => {
-            try {
-              await sendSavedSessionForApproval(sessionId);
-              refresh();
-            } catch (e) {
-              Alert.alert('Error', e.message ?? 'Could not send for approval.');
-            }
-          },
-        },
-      ],
-    );
-  }
-
-  function handleWithdraw(sessionId) {
-    Alert.alert(
-      'Withdraw submission?',
-      'This removes the session from your log and clears it from your supervisor\'s pending list.',
-      [
-        { text: 'Keep pending', style: 'cancel' },
-        {
-          text: 'Withdraw',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await withdrawSessionSubmission(sessionId);
-              refresh();
-            } catch (e) {
-              Alert.alert('Error', e.message ?? 'Could not withdraw submission.');
-            }
-          },
-        },
-      ],
-    );
   }
 
   const eligibility = user?.permitIssueDate
@@ -395,30 +328,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-  },
-  rowTop: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  rowMain: {
+  rowBody: {
     flex: 1,
     minWidth: 0,
     paddingRight: 8,
-  },
-  topActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginLeft: 8,
-    paddingTop: 2,
-  },
-  sendRow: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    alignItems: 'flex-start',
   },
   rowDate: { fontSize: 16, fontWeight: '600', color: '#1a2b3c' },
   rowMeta: { fontSize: 14, color: '#5a6b7c', marginTop: 2 },
@@ -428,7 +344,4 @@ const styles = StyleSheet.create({
   statusSavedLocal: { color: '#1d4ed8' },
   statusNeedsRevision: { color: '#dc2626' },
   statusSuperseded: { color: '#9333ea' },
-  editLink: { fontWeight: '600', fontSize: 14 },
-  sendLink: { fontWeight: '600', fontSize: 14 },
-  withdrawLink: { color: '#dc2626', fontWeight: '600', fontSize: 14 },
 });

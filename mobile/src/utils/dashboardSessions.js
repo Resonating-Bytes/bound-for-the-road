@@ -46,3 +46,9 @@ export function groupAdultDashboardSections(pending, approved) {
   }
   return sections;
 }
+
+/** Scope adult dashboard session rows to one linked teen. */
+export function filterSubmissionsForTeen(rows, teenUserId) {
+  if (!teenUserId) return rows ?? [];
+  return (rows ?? []).filter((row) => row.session?.teenUserId === teenUserId);
+}

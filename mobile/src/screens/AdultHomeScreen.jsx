@@ -14,15 +14,26 @@ import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { IconCircleButton } from '../components/IconCircleButton';
 import { DriverProgressSummary } from '../components/DriverProgressSummary';
+import { ListRowChevron } from '../components/ListRowChevron';
+import { TeenSwitcher } from '../components/TeenSwitcher';
 import { useApprovalPushRefresh } from '../hooks/useApprovalPushRefresh';
 import {
   fetchPendingSubmissionsForAdult,
   fetchApprovedSubmissionsForAdult,
 } from '../lib/submissions';
 import { fetchLinkedTeenSummaries } from '../lib/teenProgress';
-import { groupAdultDashboardSections } from '../utils/dashboardSessions';
+import {
+  readSavedSelectedTeenId,
+  resolveSelectedTeenId,
+  writeSelectedTeenId,
+} from '../lib/adultSelectedTeen';
+import {
+  filterSubmissionsForTeen,
+  groupAdultDashboardSections,
+} from '../utils/dashboardSessions';
 import { formatDate, formatDuration } from '../utils/time';
 import { dayNightLabel } from '../utils/dayNight';
+import { getFirstName, shortDisplayNameForTeen } from '../utils/displayName';
 import { useTheme } from '../context/ThemeContext';
 
 export function AdultHomeScreen({ navigation }) {
@@ -31,6 +42,7 @@ export function AdultHomeScreen({ navigation }) {
   const [pending, setPending] = useState([]);
   const [approved, setApproved] = useState([]);
   const [teenSummaries, setTeenSummaries] = useState([]);
+  const [selectedTeenId, setSelectedTeenId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -39,6 +51,14 @@ export function AdultHomeScreen({ navigation }) {
     try {
       const summaries = await fetchLinkedTeenSummaries(userId);
       setTeenSummaries(summaries);
+      const linkedIds = summaries.map((teen) => teen.teenUserId);
+      const savedId = readSavedSelectedTeenId(userId);
+      const resolvedId = resolveSelectedTeenId(linkedIds, savedId);
+      if (resolvedId && resolvedId !== savedId) {
+        writeSelectedTeenId(userId, resolvedId);
+      }
+      setSelectedTeenId(resolvedId);
+
       const [pendingRows, approvedRows] = await Promise.all([
         fetchPendingSubmissionsForAdult(),
         fetchApprovedSubmissionsForAdult(),
@@ -49,6 +69,7 @@ export function AdultHomeScreen({ navigation }) {
       setTeenSummaries([]);
       setPending([]);
       setApproved([]);
+      setSelectedTeenId(null);
     }
   }, [userId]);
 
@@ -68,17 +89,35 @@ export function AdultHomeScreen({ navigation }) {
 
   useApprovalPushRefresh(['pending_approval', 'submission_withdrawn'], refresh);
 
+  function handleSelectTeen(teenUserId) {
+    if (!userId || teenUserId === selectedTeenId) return;
+    writeSelectedTeenId(userId, teenUserId);
+    setSelectedTeenId(teenUserId);
+  }
+
   async function handlePullRefresh() {
     setRefreshing(true);
     await refresh();
     setRefreshing(false);
   }
 
-  const singleTeen = teenSummaries.length === 1 ? teenSummaries[0] : null;
-  const multipleTeens = teenSummaries.length > 1;
+  const selectedTeen = useMemo(
+    () => teenSummaries.find((teen) => teen.teenUserId === selectedTeenId) ?? null,
+    [teenSummaries, selectedTeenId],
+  );
+
+  const filteredPending = useMemo(
+    () => filterSubmissionsForTeen(pending, selectedTeenId),
+    [pending, selectedTeenId],
+  );
+  const filteredApproved = useMemo(
+    () => filterSubmissionsForTeen(approved, selectedTeenId),
+    [approved, selectedTeenId],
+  );
+
   const sessionSections = useMemo(
-    () => groupAdultDashboardSections(pending, approved),
-    [pending, approved],
+    () => groupAdultDashboardSections(filteredPending, filteredApproved),
+    [filteredPending, filteredApproved],
   );
 
   function renderProgressHeader() {
@@ -86,25 +125,18 @@ export function AdultHomeScreen({ navigation }) {
 
     return (
       <View style={styles.progressSection}>
-        {singleTeen ? (
-          <>
-            <Text style={styles.contextLabel}>Viewing: {singleTeen.name}</Text>
-            <DriverProgressSummary
-              progress={singleTeen.progress}
-              eligibility={singleTeen.eligibility}
-            />
-          </>
-        ) : (
-          teenSummaries.map((teen) => (
-            <DriverProgressSummary
-              key={teen.teenUserId}
-              driverName={teen.name}
-              progress={teen.progress}
-              eligibility={teen.eligibility}
-              showDriverName
-            />
-          ))
-        )}
+        <TeenSwitcher
+          teens={teenSummaries}
+          selectedTeenId={selectedTeenId}
+          onSelectTeen={handleSelectTeen}
+          theme={theme}
+        />
+        {selectedTeen ? (
+          <DriverProgressSummary
+            progress={selectedTeen.progress}
+            eligibility={selectedTeen.eligibility}
+          />
+        ) : null}
       </View>
     );
   }
@@ -115,9 +147,10 @@ export function AdultHomeScreen({ navigation }) {
       <Pressable
         style={styles.row}
         onPress={() => navigation.navigate('ApproveSession', { requestHash: item.requestHash })}
+        accessibilityRole="button"
+        accessibilityLabel={`Session ${formatDate(item.session?.startedAt)}`}
       >
         <View style={styles.rowContent}>
-          {multipleTeens ? <Text style={styles.rowTitle}>{item.teenName}</Text> : null}
           <Text style={styles.rowDate}>{formatDate(item.session?.startedAt)}</Text>
           <Text style={styles.rowMeta}>
             {formatDuration(item.session?.durationMinutes ?? 0)} ·{' '}
@@ -125,16 +158,19 @@ export function AdultHomeScreen({ navigation }) {
           </Text>
           {isApproved ? (
             <Text style={styles.approvedMeta}>
-              Approved by {item.approverName}, {formatDate(item.approvedAt)}
+              Approved by {getFirstName(item.approverName ?? 'Supervisor')},{' '}
+              {formatDate(item.approvedAt)}
             </Text>
           ) : null}
         </View>
-        <Text style={[styles.reviewLink, { color: theme.accent }]}>
-          {isApproved ? 'View' : 'Review'}
-        </Text>
+        <ListRowChevron />
       </Pressable>
     );
   }
+
+  const emptySessionsMessage = selectedTeen
+    ? `No practice sessions yet for ${shortDisplayNameForTeen(teenSummaries, selectedTeen.teenUserId)}.`
+    : 'No practice sessions yet.';
 
   return (
     <Screen style={styles.container} withHeader>
@@ -178,9 +214,7 @@ export function AdultHomeScreen({ navigation }) {
             }
             stickySectionHeadersEnabled={false}
             ListHeaderComponent={renderProgressHeader()}
-            ListEmptyComponent={
-              <Text style={styles.emptyList}>No practice sessions yet.</Text>
-            }
+            ListEmptyComponent={<Text style={styles.emptyList}>{emptySessionsMessage}</Text>}
             renderSectionHeader={({ section: { title } }) => (
               <Text style={styles.listSectionTitle}>{title}</Text>
             )}
@@ -196,7 +230,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   body: { flex: 1, paddingHorizontal: 20, paddingTop: 16 },
   progressSection: { marginBottom: 20 },
-  contextLabel: { fontSize: 14, color: '#5a6b7c', marginBottom: 12 },
   loader: { marginTop: 40 },
   listSectionTitle: {
     fontSize: 18,
@@ -229,9 +262,7 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   rowContent: { flex: 1, paddingRight: 8 },
-  rowTitle: { fontSize: 16, fontWeight: '600', color: '#1a2b3c' },
   rowDate: { fontSize: 15, color: '#1a2b3c', marginTop: 2 },
   rowMeta: { fontSize: 14, color: '#5a6b7c', marginTop: 2 },
   approvedMeta: { fontSize: 13, color: '#15803d', marginTop: 6 },
-  reviewLink: { fontWeight: '600' },
 });

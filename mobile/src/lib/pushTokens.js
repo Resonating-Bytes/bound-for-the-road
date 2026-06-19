@@ -80,10 +80,10 @@ export async function registerPushToken(userId) {
   if (!token) return null;
 
   const platform = Platform.OS === 'ios' ? 'ios' : 'android';
-  const { error } = await getSupabase().from('push_tokens').upsert(
-    { user_id: userId, token, platform },
-    { onConflict: 'user_id,token' },
-  );
+  const { error } = await getSupabase().rpc('register_push_token', {
+    p_token: token,
+    p_platform: platform,
+  });
 
   if (error) {
     console.warn('Push token registration failed:', error.message);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,8 +17,18 @@ import {
   softDeleteSession,
   restoreSavedSession,
   hasActiveLink,
+  reopenSavedSession,
+  getSessionApprovalContext,
+  getApprovalForHash,
+  hasUnsyncedSubmissionOutbox,
 } from '../db/queries';
-import { submitSessionForApproval } from '../lib/submissions';
+import {
+  submitSessionForApproval,
+  sendSavedSessionForApproval,
+  discardSessionSubmission,
+  fetchRemoteUserName,
+  syncSessionReopenedForEdit,
+} from '../lib/submissions';
 import { formatDateTime, formatDuration, durationMinutes } from '../utils/time';
 import { classifyDayNight, dayNightLabel } from '../utils/dayNight';
 import { getCurfewWarning } from '../utils/curfew';
@@ -28,6 +38,7 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { useTheme } from '../context/ThemeContext';
+import { getSessionDisplayStatus } from '../utils/sessionStatus';
 
 export function ReviewSessionScreen({ route, navigation }) {
   const { sessionId, editing, editBackup, staleExpired } = route.params ?? {};
@@ -37,6 +48,41 @@ export function ReviewSessionScreen({ route, navigation }) {
   const session = getSessionById(sessionId);
   const [notes, setNotes] = useState(session?.notes ?? '');
   const [saving, setSaving] = useState(false);
+  const [displayStatus, setDisplayStatus] = useState(null);
+  const [actionBusy, setActionBusy] = useState(false);
+
+  useEffect(() => {
+    if (!session || session.status !== 'saved') {
+      setDisplayStatus(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const ctx = getSessionApprovalContext(sessionId);
+      let approverName;
+      if (ctx?.approval?.approvedByUserId) {
+        approverName = await fetchRemoteUserName(ctx.approval.approvedByUserId);
+      }
+      if (!cancelled) {
+        setDisplayStatus(
+          getSessionDisplayStatus(session, {
+            submission: ctx?.submission,
+            approval: ctx?.approval,
+            latestApproval: ctx?.latestApproval,
+            approverName,
+            approverNameFirstOnly: false,
+            pendingRemoteSync: hasUnsyncedSubmissionOutbox(sessionId),
+            canRemoteWrite,
+          }),
+        );
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, canRemoteWrite]);
 
   if (!session) {
     return (
@@ -114,9 +160,9 @@ export function ReviewSessionScreen({ route, navigation }) {
       revertEdit();
       return;
     }
-    Alert.alert('Discard changes?', 'Your edits will be thrown away. The original log entry is kept.', [
+    Alert.alert('Discard edits?', 'Your edits will be thrown away. The original log entry is kept.', [
       { text: 'Keep editing', style: 'cancel' },
-      { text: 'Discard changes', style: 'destructive', onPress: revertEdit },
+      { text: 'Discard edits', style: 'destructive', onPress: revertEdit },
     ]);
   }
 
@@ -124,7 +170,7 @@ export function ReviewSessionScreen({ route, navigation }) {
     Alert.alert('Discard session?', 'This draft will be permanently deleted.', [
       { text: 'Keep editing', style: 'cancel' },
       {
-        text: 'Discard',
+        text: 'Discard session',
         style: 'destructive',
         onPress: async () => {
           await cancelSessionNotifications(sessionId);
@@ -141,24 +187,116 @@ export function ReviewSessionScreen({ route, navigation }) {
     navigation.replace('ActiveSession', { sessionId });
   }
 
-  function handleDeleteFromLog() {
+  function confirmDiscardSession({ title, message, onDiscard }) {
+    Alert.alert(title, message, [
+      { text: 'Keep session', style: 'cancel' },
+      {
+        text: 'Discard session',
+        style: 'destructive',
+        onPress: onDiscard,
+      },
+    ]);
+  }
+
+  function handleDiscardSessionWhileEditing() {
+    const wasApproved = Boolean(
+      editBackup?.requestHash && getApprovalForHash(editBackup.requestHash),
+    );
+    confirmDiscardSession({
+      title: wasApproved ? 'Discard approved session?' : 'Discard session?',
+      message: wasApproved
+        ? 'This permanently removes an approved session from your log and progress totals. Your supervisor\'s approval will no longer apply to this drive.'
+        : 'This removes the session from your log and progress totals.',
+      onDiscard: async () => {
+        await cancelSessionNotifications(sessionId);
+        softDeleteSession(sessionId);
+        goDashboard();
+      },
+    });
+  }
+
+  function handleDiscardSubmittedSession() {
+    confirmDiscardSession({
+      title: 'Discard session?',
+      message:
+        'This removes the session from your log and clears it from your supervisor\'s pending list.',
+      onDiscard: async () => {
+        setActionBusy(true);
+        try {
+          await discardSessionSubmission(sessionId);
+          goDashboard();
+        } catch (e) {
+          Alert.alert('Error', e.message ?? 'Could not discard session.');
+        } finally {
+          setActionBusy(false);
+        }
+      },
+    });
+  }
+
+  function handleEditSaved() {
+    const before = getSessionById(sessionId);
+    const ctx = getSessionApprovalContext(sessionId);
+    if (ctx?.approval) {
+      Alert.alert(
+        'Edit approved session?',
+        'Editing will require your supervisor to approve the updated record.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Edit',
+            onPress: () => openSavedEdit(before),
+          },
+        ],
+      );
+      return;
+    }
+    openSavedEdit(before);
+  }
+
+  function openSavedEdit(before) {
+    reopenSavedSession(sessionId);
+    syncSessionReopenedForEdit(sessionId).catch((e) => {
+      console.warn('Remote edit sync failed:', e.message);
+    });
+    navigation.replace('ReviewSession', {
+      sessionId,
+      editing: true,
+      editBackup: {
+        requestHash: before.requestHash,
+        payloadJson: before.payloadJson,
+        notes: before.notes,
+      },
+    });
+  }
+
+  function handleSendForApproval() {
     Alert.alert(
-      'Delete session?',
-      'This removes the session from your log and progress totals.',
+      'Send for approval?',
+      'Your supervisor will be notified to review this session.',
       [
-        { text: 'Keep session', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: 'Send',
           onPress: async () => {
-            await cancelSessionNotifications(sessionId);
-            softDeleteSession(sessionId);
-            goDashboard();
+            setActionBusy(true);
+            try {
+              await sendSavedSessionForApproval(sessionId);
+              goDashboard();
+            } catch (e) {
+              Alert.alert('Error', e.message ?? 'Could not send for approval.');
+            } finally {
+              setActionBusy(false);
+            }
           },
         },
       ],
     );
   }
+
+  const showDiscardSubmitted =
+    displayStatus?.key === 'pending' || displayStatus?.key === 'saved_local';
+  const showSend = displayStatus?.key === 'saved_local' && canRemoteWrite;
 
   return (
     <Screen withHeader>
@@ -182,6 +320,28 @@ export function ReviewSessionScreen({ route, navigation }) {
         )}
 
         {curfewWarning && <Text style={styles.warning}>{curfewWarning}</Text>}
+
+        {!isDraft && !editing && displayStatus?.label ? (
+          <Text
+            style={[
+              styles.statusText,
+              displayStatus.key === 'approved' && styles.statusApproved,
+              displayStatus.key === 'pending' && styles.statusPending,
+              displayStatus.key === 'saved_local' && styles.statusSavedLocal,
+              displayStatus.key === 'needs_revision' && styles.statusNeedsRevision,
+              displayStatus.key === 'superseded' && styles.statusSuperseded,
+            ]}
+          >
+            {displayStatus.label}
+          </Text>
+        ) : null}
+
+        {!isDraft && !editing && session.notes ? (
+          <>
+            <Text style={styles.label}>Notes</Text>
+            <Text style={styles.notesReadOnly}>{session.notes}</Text>
+          </>
+        ) : null}
 
         {isDraft && submitBlocked && (
           <Text style={styles.warning}>
@@ -233,7 +393,7 @@ export function ReviewSessionScreen({ route, navigation }) {
               </Pressable>
             ) : (
               <Pressable style={styles.discardBtn} onPress={handleDiscardDraft}>
-                <Text style={styles.discardBtnText}>Discard</Text>
+                <Text style={styles.discardBtnText}>Discard session</Text>
               </Pressable>
             )}
           </View>
@@ -241,15 +401,45 @@ export function ReviewSessionScreen({ route, navigation }) {
 
         {!isDraft && !editing && (
           <View style={styles.actions}>
+            {showSend ? (
+              <Pressable
+                style={[
+                  styles.saveBtn,
+                  { backgroundColor: theme.accent },
+                  actionBusy && styles.disabled,
+                ]}
+                onPress={handleSendForApproval}
+                disabled={actionBusy}
+              >
+                <Text style={[styles.saveBtnText, { color: theme.accentText }]}>
+                  Send for approval
+                </Text>
+              </Pressable>
+            ) : null}
+            <Pressable style={styles.secondaryBtn} onPress={handleEditSaved}>
+              <Text style={styles.secondaryBtnText}>Edit session</Text>
+            </Pressable>
             <Pressable style={styles.secondaryBtn} onPress={goDashboard}>
               <Text style={styles.secondaryBtnText}>Back to dashboard</Text>
             </Pressable>
+            {showDiscardSubmitted ? (
+              <Pressable
+                style={styles.discardBtn}
+                onPress={handleDiscardSubmittedSession}
+                disabled={actionBusy}
+              >
+                <Text style={styles.discardBtnText}>Discard session</Text>
+              </Pressable>
+            ) : null}
           </View>
         )}
 
         {editing && (
-          <Pressable style={styles.deleteBtn} onPress={handleDeleteFromLog}>
-            <Text style={styles.deleteBtnText}>Delete from log</Text>
+          <Pressable
+            style={[styles.discardBtn, styles.discardBtnSpaced]}
+            onPress={handleDiscardSessionWhileEditing}
+          >
+            <Text style={styles.discardBtnText}>Discard session</Text>
           </Pressable>
         )}
       </ScrollView>
@@ -291,6 +481,23 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   label: { fontSize: 15, fontWeight: '600', color: '#1a2b3c', marginBottom: 8 },
+  notesReadOnly: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 20,
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#1a2b3c',
+  },
+  statusText: { fontSize: 14, marginBottom: 16, color: '#5a6b7c' },
+  statusApproved: { color: '#15803d' },
+  statusPending: { color: '#b45309' },
+  statusSavedLocal: { color: '#1d4ed8' },
+  statusNeedsRevision: { color: '#dc2626' },
+  statusSuperseded: { color: '#9333ea' },
   input: {
     backgroundColor: '#fff',
     borderWidth: 1,
@@ -324,12 +531,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   discardBtnText: { color: '#dc2626', fontWeight: '600', fontSize: 16 },
-  deleteBtn: {
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  deleteBtnText: { color: '#dc2626', fontWeight: '600', fontSize: 16 },
+  discardBtnSpaced: { marginTop: 16 },
   disabled: { opacity: 0.6 },
 });
