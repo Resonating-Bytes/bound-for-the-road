@@ -19,13 +19,12 @@ export const shared = StyleSheet.create({
     marginBottom: 20,
   },
   button: {
-    backgroundColor: '#2563eb',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
   },
   buttonDisabled: { opacity: 0.5 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  buttonText: { fontSize: 16, fontWeight: '600' },
   card: {
     backgroundColor: '#fff',
     borderRadius: 10,
@@ -36,3 +35,10 @@ export const shared = StyleSheet.create({
   },
   cardTitle: { fontSize: 17, fontWeight: '600', color: '#1a2b3c' },
 });
+
+export function themeAccentStyles(theme) {
+  return {
+    button: { backgroundColor: theme.accent },
+    buttonText: { color: theme.accentText },
+  };
+}

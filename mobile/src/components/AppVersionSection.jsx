@@ -7,8 +7,10 @@ import {
 import { useCompatibility } from '../context/CompatibilityContext';
 import { APP_VERSION } from '../config/compatibility';
 import { openAppUpdateUrl } from './ScreenHeaderBanners';
+import { useTheme } from '../context/ThemeContext';
 
 export function AppVersionSection() {
+  const { theme } = useTheme();
   const { compatibility, loading, refresh } = useCompatibility();
   const active = getActiveCompatibilityDisplay(compatibility);
   const remote = compatibility.remote ?? active.remote;
@@ -33,14 +35,14 @@ export function AppVersionSection() {
         <Text style={styles.warningLine}>{compatibility.warning}</Text>
       ) : null}
       {showUpdateButton ? (
-        <Pressable style={styles.updateBtn} onPress={openAppUpdateUrl}>
-          <Text style={styles.updateBtnText}>
+        <Pressable style={[styles.updateBtn, { backgroundColor: theme.accent }]} onPress={openAppUpdateUrl}>
+          <Text style={[styles.updateBtnText, { color: theme.accentText }]}>
             {updateStatus.required ? 'Get the latest app' : 'Get the update'}
           </Text>
         </Pressable>
       ) : null}
       <Pressable onPress={refresh} accessibilityRole="button">
-        <Text style={styles.refreshLink}>Check for updates</Text>
+        <Text style={[styles.refreshLink, { color: theme.accent }]}>Check for updates</Text>
       </Pressable>
     </View>
   );
@@ -65,7 +67,6 @@ const styles = StyleSheet.create({
   statusLine: { fontSize: 14, color: '#1a2b3c', marginTop: 6, marginBottom: 4 },
   warningLine: { fontSize: 13, color: '#b45309', marginBottom: 8 },
   updateBtn: {
-    backgroundColor: '#2563eb',
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 10,
@@ -73,6 +74,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 8,
   },
-  updateBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-  refreshLink: { color: '#2563eb', fontWeight: '600', fontSize: 14 },
+  updateBtnText: { fontWeight: '600', fontSize: 15 },
+  refreshLink: { fontWeight: '600', fontSize: 14 },
 });

@@ -5,10 +5,13 @@ import { Screen } from '../../components/Screen';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { acceptLinkInvite, formatInviteCode, normalizeInviteCode } from '../../lib/links';
 import { canShowBackButton, navigateBackOrHome } from '../../navigation/helpers';
-import { shared } from '../onboarding/sharedStyles';
+import { useTheme } from '../../context/ThemeContext';
+import { shared, themeAccentStyles } from '../onboarding/sharedStyles';
 
 export function LinkAdultScreen({ navigation }) {
   const { user, linked, refreshLinks } = useAuth();
+  const { theme } = useTheme();
+  const accent = themeAccentStyles(theme);
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -56,15 +59,21 @@ export function LinkAdultScreen({ navigation }) {
         />
 
         <Pressable
-          style={[shared.button, (loading || !code.trim()) && shared.buttonDisabled]}
+          style={[
+            shared.button,
+            accent.button,
+            (loading || !code.trim()) && shared.buttonDisabled,
+          ]}
           onPress={handleAccept}
           disabled={loading || !code.trim()}
         >
-          <Text style={shared.buttonText}>{loading ? 'Linking…' : 'Link accounts'}</Text>
+          <Text style={[shared.buttonText, accent.buttonText]}>
+            {loading ? 'Linking…' : 'Link accounts'}
+          </Text>
         </Pressable>
 
         <Pressable onPress={() => navigation.navigate('Settings')}>
-          <Text style={styles.settingsLink}>Settings</Text>
+          <Text style={[styles.settingsLink, { color: theme.accent }]}>Settings</Text>
         </Pressable>
       </View>
     </Screen>
@@ -83,7 +92,6 @@ const styles = {
   settingsLink: {
     marginTop: 24,
     textAlign: 'center',
-    color: '#2563eb',
     fontSize: 16,
   },
 };

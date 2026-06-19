@@ -14,6 +14,8 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { fetchSubmissionDetail, approveSubmissionRemote, declineSubmissionRemote } from '../lib/submissions';
 import { formatDate, formatDateTime, formatDuration } from '../utils/time';
 import { dayNightLabel } from '../utils/dayNight';
+import { useTheme } from '../context/ThemeContext';
+import { rgbaFromHex } from '../theme/colorMath';
 
 const PRESENCE_OPTIONS = [
   { value: 'co_present', label: 'I was in the car' },
@@ -24,6 +26,7 @@ const PRESENCE_OPTIONS = [
 export function ApproveSessionScreen({ route, navigation }) {
   const { requestHash } = route.params ?? {};
   const { userId, user } = useAuth();
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
@@ -127,7 +130,7 @@ export function ApproveSessionScreen({ route, navigation }) {
   if (loading) {
     return (
       <Screen style={styles.centered}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color={theme.accent} />
       </Screen>
     );
   }
@@ -170,11 +173,23 @@ export function ApproveSessionScreen({ route, navigation }) {
             {PRESENCE_OPTIONS.map((option) => (
               <Pressable
                 key={option.value}
-                style={[styles.radioRow, approverPresent === option.value && styles.radioRowSelected]}
+                style={[
+                  styles.radioRow,
+                  approverPresent === option.value && {
+                    borderColor: theme.accent,
+                    backgroundColor: rgbaFromHex(theme.accent, 0.08),
+                  },
+                ]}
                 onPress={() => setApproverPresent(option.value)}
               >
                 <View
-                  style={[styles.radio, approverPresent === option.value && styles.radioSelected]}
+                  style={[
+                    styles.radio,
+                    approverPresent === option.value && {
+                      borderColor: theme.accent,
+                      backgroundColor: theme.accent,
+                    },
+                  ]}
                 />
                 <Text style={styles.radioLabel}>{option.label}</Text>
               </Pressable>
@@ -182,7 +197,12 @@ export function ApproveSessionScreen({ route, navigation }) {
 
             <Text style={styles.sectionTitle}>Your attestation</Text>
             <Pressable style={styles.checkRow} onPress={() => setConfirmed((v) => !v)}>
-              <View style={[styles.checkbox, confirmed && styles.checkboxChecked]}>
+              <View
+                style={[
+                  styles.checkbox,
+                  confirmed && { backgroundColor: theme.accent, borderColor: theme.accent },
+                ]}
+              >
                 {confirmed ? <Text style={styles.checkmark}>✓</Text> : null}
               </View>
               <Text style={styles.checkLabel}>
@@ -191,11 +211,15 @@ export function ApproveSessionScreen({ route, navigation }) {
             </Pressable>
 
             <Pressable
-              style={[styles.approveBtn, (busy || !confirmed) && styles.disabled]}
+              style={[
+                styles.approveBtn,
+                { backgroundColor: theme.accent },
+                (busy || !confirmed) && styles.disabled,
+              ]}
               onPress={handleApprove}
               disabled={busy || !confirmed}
             >
-              <Text style={styles.approveBtnText}>
+              <Text style={[styles.approveBtnText, { color: theme.accentText }]}>
                 {busyAction === 'approve' ? 'Approving…' : 'Approve'}
               </Text>
             </Pressable>
@@ -268,7 +292,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxChecked: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
   checkmark: { color: '#fff', fontWeight: '700', fontSize: 14 },
   checkLabel: { flex: 1, fontSize: 15, lineHeight: 22, color: '#1a2b3c' },
   radioRow: {
@@ -280,7 +303,6 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     marginBottom: 8,
   },
-  radioRowSelected: { borderColor: '#2563eb', backgroundColor: '#eff6ff' },
   radio: {
     width: 18,
     height: 18,
@@ -289,16 +311,14 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
     marginRight: 10,
   },
-  radioSelected: { borderColor: '#2563eb', backgroundColor: '#2563eb' },
   radioLabel: { flex: 1, fontSize: 15, color: '#1a2b3c' },
   approveBtn: {
-    backgroundColor: '#2563eb',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 12,
   },
-  approveBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  approveBtnText: { fontWeight: '700', fontSize: 16 },
   sendBackBtn: {
     paddingVertical: 14,
     borderRadius: 10,

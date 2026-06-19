@@ -8,10 +8,13 @@ import { ScreenHeader } from '../../components/ScreenHeader';
 import { setLinkInviteDeferred } from '../../db/queries';
 import { createLinkInvite, formatInviteCode } from '../../lib/links';
 import { canShowBackButton, navigateBackOrHome, resetToHome } from '../../navigation/helpers';
-import { shared } from '../onboarding/sharedStyles';
+import { useTheme } from '../../context/ThemeContext';
+import { shared, themeAccentStyles } from '../onboarding/sharedStyles';
 
 export function LinkTeenScreen({ navigation }) {
   const { userId, user, linked, refreshLinks } = useAuth();
+  const { theme } = useTheme();
+  const accent = themeAccentStyles(theme);
   const [code, setCode] = useState(null);
   const [expiresAt, setExpiresAt] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -92,16 +95,20 @@ export function LinkTeenScreen({ navigation }) {
 
         <Text style={styles.code}>{code ? formatInviteCode(code) : loading ? '…' : '------'}</Text>
 
-        <Pressable style={shared.button} onPress={handleCopy} disabled={!code}>
-          <Text style={shared.buttonText}>Copy code</Text>
+        <Pressable style={[shared.button, accent.button]} onPress={handleCopy} disabled={!code}>
+          <Text style={[shared.buttonText, accent.buttonText]}>Copy code</Text>
         </Pressable>
 
-        <Pressable style={[shared.button, styles.secondary]} onPress={handleShare} disabled={!code}>
-          <Text style={shared.buttonText}>Share code</Text>
+        <Pressable
+          style={[shared.button, styles.secondary, { borderColor: theme.accent }]}
+          onPress={handleShare}
+          disabled={!code}
+        >
+          <Text style={[shared.buttonText, { color: theme.accent }]}>Share code</Text>
         </Pressable>
 
         <Pressable style={styles.textButton} onPress={loadInvite} disabled={loading}>
-          <Text style={styles.textButtonLabel}>Generate new code</Text>
+          <Text style={[styles.textButtonLabel, { color: theme.accent }]}>Generate new code</Text>
         </Pressable>
 
         {expiresAt ? (
@@ -143,14 +150,14 @@ const styles = StyleSheet.create({
   },
   secondary: {
     marginTop: 12,
-    backgroundColor: '#1d4ed8',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
   },
   textButton: {
     marginTop: 16,
     alignItems: 'center',
   },
   textButtonLabel: {
-    color: '#2563eb',
     fontSize: 16,
     fontWeight: '600',
   },

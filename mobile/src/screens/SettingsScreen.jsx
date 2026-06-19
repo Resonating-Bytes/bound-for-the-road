@@ -9,9 +9,11 @@ import { AppVersionSection } from '../components/AppVersionSection';
 import { DatePickerField } from '../components/DatePickerField';
 import { toISODateOnly } from '../utils/time';
 import { canShowBackButton, navigateBackOrHome } from '../navigation/helpers';
+import { useTheme } from '../context/ThemeContext';
 
 export function SettingsScreen({ navigation }) {
   const { user, linked, saveProfile, signOut, deleteAllData, requiresLink, refreshLinks } = useAuth();
+  const { theme } = useTheme();
   const [name, setName] = useState(user?.legalName ?? '');
   const [permitDate, setPermitDate] = useState(
     user?.permitIssueDate ?? toISODateOnly(new Date()),
@@ -98,8 +100,11 @@ export function SettingsScreen({ navigation }) {
           </>
         ) : null}
 
-        <Pressable style={styles.primaryBtn} onPress={handleSaveProfile}>
-          <Text style={styles.primaryBtnText}>Save profile</Text>
+        <Pressable
+          style={[styles.primaryBtn, { backgroundColor: theme.accent }]}
+          onPress={handleSaveProfile}
+        >
+          <Text style={[styles.primaryBtnText, { color: theme.accentText }]}>Save profile</Text>
         </Pressable>
 
         {requiresLink ? (
@@ -138,13 +143,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   primaryBtn: {
-    backgroundColor: '#2563eb',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
     marginBottom: 24,
   },
-  primaryBtnText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  primaryBtnText: { fontWeight: '600', fontSize: 16 },
   secondaryBtn: {
     backgroundColor: '#fff',
     paddingVertical: 14,

@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 import { SignInScreen } from '../screens/SignInScreen';
 
@@ -224,11 +225,12 @@ function AdultNavigator({ navigatorKey, initialRouteName }) {
 
 export function RootNavigator() {
   const { ready, userId, user, roleChosen, profileComplete, linked, requiresLink } = useAuth();
+  const { theme } = useTheme();
 
   if (!ready) {
     return (
       <Screen style={styles.loading}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color={theme.accent} />
       </Screen>
     );
   }

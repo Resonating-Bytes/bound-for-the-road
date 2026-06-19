@@ -2,10 +2,13 @@ import { useState } from 'react';
 import { View, Text, TextInput, Pressable } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { Screen } from '../../components/Screen';
-import { shared } from './sharedStyles';
+import { useTheme } from '../../context/ThemeContext';
+import { shared, themeAccentStyles } from './sharedStyles';
 
 export function OnboardingNameScreen({ navigation }) {
   const { user, saveProfile } = useAuth();
+  const { theme } = useTheme();
+  const accent = themeAccentStyles(theme);
   const [name, setName] = useState(user?.legalName ?? '');
 
   function next() {
@@ -34,8 +37,11 @@ export function OnboardingNameScreen({ navigation }) {
         placeholder="First and last name"
         autoCapitalize="words"
       />
-      <Pressable style={[shared.button, !name.trim() && shared.buttonDisabled]} onPress={next}>
-        <Text style={shared.buttonText}>Continue</Text>
+      <Pressable
+        style={[shared.button, accent.button, !name.trim() && shared.buttonDisabled]}
+        onPress={next}
+      >
+        <Text style={[shared.buttonText, accent.buttonText]}>Continue</Text>
       </Pressable>
       </View>
     </Screen>
