@@ -293,6 +293,52 @@ export function upsertApproval(approval) {
   return row;
 }
 
+export function returnSessionForRevision(sessionId) {
+  const session = getSessionById(sessionId);
+  if (!session || session.status !== 'saved') {
+    throw new Error('Only saved sessions can be returned for revision');
+  }
+  if (session.requestHash && getApprovalForHash(session.requestHash)) {
+    throw new Error('Approved sessions cannot be returned for revision');
+  }
+  supersedeSubmissionsForSession(sessionId);
+  const now = nowISO();
+  getDb()
+    .update(sessions)
+    .set({
+      requestHash: null,
+      payloadJson: null,
+      updatedAt: now,
+    })
+    .where(eq(sessions.id, sessionId))
+    .run();
+  return getSessionById(sessionId);
+}
+
+/** Restore a declined draft (legacy) back to saved for dashboard listing. */
+export function healDraftAfterDecline(sessionId) {
+  const session = getSessionById(sessionId);
+  if (!session || session.status !== 'draft' || !session.endedAt) {
+    return null;
+  }
+  if (session.requestHash && getApprovalForHash(session.requestHash)) {
+    return null;
+  }
+  supersedeSubmissionsForSession(sessionId);
+  const now = nowISO();
+  getDb()
+    .update(sessions)
+    .set({
+      status: 'saved',
+      requestHash: null,
+      payloadJson: null,
+      updatedAt: now,
+    })
+    .where(eq(sessions.id, sessionId))
+    .run();
+  return getSessionById(sessionId);
+}
+
 export function withdrawSubmission(sessionId) {
   const session = getSessionById(sessionId);
   if (!session || session.status !== 'saved') {
@@ -302,7 +348,8 @@ export function withdrawSubmission(sessionId) {
     throw new Error('Approved sessions cannot be withdrawn');
   }
   supersedeSubmissionsForSession(sessionId);
-  return reopenSavedSession(sessionId);
+  softDeleteSession(sessionId);
+  return getSessionById(sessionId);
 }
 
 export function getSessionApprovalContext(sessionId) {
@@ -400,6 +447,22 @@ function roleChosenKey(userId) {
 
 function linkInviteDeferredKey(userId) {
   return `link_invite_deferred_${userId}`;
+}
+
+export function getSettingValue(key) {
+  const db = getDb();
+  const row = db.select().from(settings).where(eq(settings.key, key)).get();
+  return row?.value ?? null;
+}
+
+export function setSettingValue(key, value) {
+  const db = getDb();
+  const existing = db.select().from(settings).where(eq(settings.key, key)).get();
+  if (existing) {
+    db.update(settings).set({ value }).where(eq(settings.key, key)).run();
+  } else {
+    db.insert(settings).values({ key, value }).run();
+  }
 }
 
 export function isLinkInviteDeferred(userId) {

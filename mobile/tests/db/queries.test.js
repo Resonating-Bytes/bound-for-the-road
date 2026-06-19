@@ -79,14 +79,15 @@ describe('queries', () => {
     expect(submission.superseded).toBe(false);
   });
 
-  test('withdraw submission returns session to draft', async () => {
+  test('withdraw submission soft-deletes saved session', async () => {
     const active = createActiveSession(TEEN_ID);
     stopSession(active.id, '2026-06-01T15:00:00.000Z');
     await submitSession(active.id, { submittedByUserId: TEEN_ID });
-    const draft = withdrawSubmission(active.id);
-    expect(draft.status).toBe('draft');
-    expect(draft.requestHash).toBeNull();
+    const deleted = withdrawSubmission(active.id);
+    expect(deleted.status).toBe('deleted');
+    expect(deleted.deletedAt).not.toBeNull();
     expect(getSubmissionForSession(active.id)).toBeNull();
+    expect(listSavedSessions(TEEN_ID)).toHaveLength(0);
   });
 
   test('approval context reflects approved hash', async () => {

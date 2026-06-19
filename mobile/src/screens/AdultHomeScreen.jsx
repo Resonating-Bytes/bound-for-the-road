@@ -1,10 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
   Pressable,
   StyleSheet,
-  FlatList,
+  SectionList,
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
@@ -13,28 +13,40 @@ import { useAuth } from '../context/AuthContext';
 import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { IconCircleButton } from '../components/IconCircleButton';
-import { useFocusPoll } from '../hooks/useFocusPoll';
-import { fetchPendingSubmissionsForAdult } from '../lib/submissions';
-import { fetchLinkedPartners } from '../lib/links';
+import { DriverProgressSummary } from '../components/DriverProgressSummary';
+import { useApprovalPushRefresh } from '../hooks/useApprovalPushRefresh';
+import {
+  fetchPendingSubmissionsForAdult,
+  fetchApprovedSubmissionsForAdult,
+} from '../lib/submissions';
+import { fetchLinkedTeenSummaries } from '../lib/teenProgress';
+import { groupAdultDashboardSections } from '../utils/dashboardSessions';
 import { formatDate, formatDuration } from '../utils/time';
 import { dayNightLabel } from '../utils/dayNight';
 
 export function AdultHomeScreen({ navigation }) {
   const { userId } = useAuth();
   const [pending, setPending] = useState([]);
-  const [linkedTeens, setLinkedTeens] = useState([]);
+  const [approved, setApproved] = useState([]);
+  const [teenSummaries, setTeenSummaries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!userId) return;
-    const partners = await fetchLinkedPartners(userId);
-    setLinkedTeens(partners.filter((p) => p.linkId));
     try {
-      const rows = await fetchPendingSubmissionsForAdult();
-      setPending(rows);
+      const summaries = await fetchLinkedTeenSummaries(userId);
+      setTeenSummaries(summaries);
+      const [pendingRows, approvedRows] = await Promise.all([
+        fetchPendingSubmissionsForAdult(),
+        fetchApprovedSubmissionsForAdult(),
+      ]);
+      setPending(pendingRows);
+      setApproved(approvedRows);
     } catch {
+      setTeenSummaries([]);
       setPending([]);
+      setApproved([]);
     }
   }, [userId]);
 
@@ -52,7 +64,7 @@ export function AdultHomeScreen({ navigation }) {
     }, [refresh]),
   );
 
-  useFocusPoll(refresh, 15000);
+  useApprovalPushRefresh(['pending_approval', 'submission_withdrawn'], refresh);
 
   async function handlePullRefresh() {
     setRefreshing(true);
@@ -60,12 +72,65 @@ export function AdultHomeScreen({ navigation }) {
     setRefreshing(false);
   }
 
-  const teenLabel =
-    linkedTeens.length === 1
-      ? linkedTeens[0].name
-      : linkedTeens.length > 1
-        ? `${linkedTeens.length} linked drivers`
-        : null;
+  const singleTeen = teenSummaries.length === 1 ? teenSummaries[0] : null;
+  const multipleTeens = teenSummaries.length > 1;
+  const sessionSections = useMemo(
+    () => groupAdultDashboardSections(pending, approved),
+    [pending, approved],
+  );
+
+  function renderProgressHeader() {
+    if (!teenSummaries.length) return null;
+
+    return (
+      <View style={styles.progressSection}>
+        {singleTeen ? (
+          <>
+            <Text style={styles.contextLabel}>Viewing: {singleTeen.name}</Text>
+            <DriverProgressSummary
+              progress={singleTeen.progress}
+              eligibility={singleTeen.eligibility}
+            />
+          </>
+        ) : (
+          teenSummaries.map((teen) => (
+            <DriverProgressSummary
+              key={teen.teenUserId}
+              driverName={teen.name}
+              progress={teen.progress}
+              eligibility={teen.eligibility}
+              showDriverName
+            />
+          ))
+        )}
+      </View>
+    );
+  }
+
+  function renderSessionRow(item, sectionKey) {
+    const isApproved = sectionKey === 'approved';
+    return (
+      <Pressable
+        style={styles.row}
+        onPress={() => navigation.navigate('ApproveSession', { requestHash: item.requestHash })}
+      >
+        <View style={styles.rowContent}>
+          {multipleTeens ? <Text style={styles.rowTitle}>{item.teenName}</Text> : null}
+          <Text style={styles.rowDate}>{formatDate(item.session?.startedAt)}</Text>
+          <Text style={styles.rowMeta}>
+            {formatDuration(item.session?.durationMinutes ?? 0)} ·{' '}
+            {dayNightLabel(item.session?.dayNight)}
+          </Text>
+          {isApproved ? (
+            <Text style={styles.approvedMeta}>
+              Approved by {item.approverName}, {formatDate(item.approvedAt)}
+            </Text>
+          ) : null}
+        </View>
+        <Text style={styles.reviewLink}>{isApproved ? 'View' : 'Review'}</Text>
+      </Pressable>
+    );
+  }
 
   return (
     <Screen style={styles.container} withHeader>
@@ -81,55 +146,38 @@ export function AdultHomeScreen({ navigation }) {
       />
 
       <View style={styles.body}>
-      {teenLabel ? <Text style={styles.contextLabel}>Viewing: {teenLabel}</Text> : null}
-
-      {loading ? (
-        <ActivityIndicator style={styles.loader} size="large" color="#2563eb" />
-      ) : linkedTeens.length === 0 ? (
-        <View style={styles.emptyBlock}>
-          <Text style={styles.emptyTitle}>No linked drivers yet</Text>
-          <Text style={styles.emptyBody}>
-            Enter an invite code from your teen to review and approve their practice sessions.
-          </Text>
-          <Pressable style={styles.primaryBtn} onPress={() => navigation.navigate('LinkAdult')}>
-            <Text style={styles.primaryBtnText}>Enter invite code</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <>
-          <Text style={styles.sectionTitle}>Pending approvals</Text>
-          <FlatList
+        {loading ? (
+          <ActivityIndicator style={styles.loader} size="large" color="#2563eb" />
+        ) : teenSummaries.length === 0 ? (
+          <View style={styles.emptyBlock}>
+            <Text style={styles.emptyTitle}>No linked drivers yet</Text>
+            <Text style={styles.emptyBody}>
+              Enter an invite code from your teen to review and approve their practice sessions.
+            </Text>
+            <Pressable style={styles.primaryBtn} onPress={() => navigation.navigate('LinkAdult')}>
+              <Text style={styles.primaryBtnText}>Enter invite code</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <SectionList
             style={styles.list}
-            contentContainerStyle={pending.length === 0 ? styles.listEmpty : undefined}
-            data={pending}
+            contentContainerStyle={sessionSections.length === 0 ? styles.listEmpty : undefined}
+            sections={sessionSections}
             keyExtractor={(item) => item.requestHash}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={handlePullRefresh} />
             }
+            stickySectionHeadersEnabled={false}
+            ListHeaderComponent={renderProgressHeader()}
             ListEmptyComponent={
-              <Text style={styles.emptyList}>No sessions waiting for approval.</Text>
+              <Text style={styles.emptyList}>No practice sessions yet.</Text>
             }
-            renderItem={({ item }) => (
-              <Pressable
-                style={styles.row}
-                onPress={() =>
-                  navigation.navigate('ApproveSession', { requestHash: item.requestHash })
-                }
-              >
-                <View style={styles.rowContent}>
-                  <Text style={styles.rowTitle}>{item.teenName}</Text>
-                  <Text style={styles.rowDate}>{formatDate(item.session?.startedAt)}</Text>
-                  <Text style={styles.rowMeta}>
-                    {formatDuration(item.session?.durationMinutes ?? 0)} ·{' '}
-                    {dayNightLabel(item.session?.dayNight)}
-                  </Text>
-                </View>
-                <Text style={styles.reviewLink}>Review</Text>
-              </Pressable>
+            renderSectionHeader={({ section: { title } }) => (
+              <Text style={styles.listSectionTitle}>{title}</Text>
             )}
+            renderItem={({ item, section }) => renderSessionRow(item, section.key)}
           />
-        </>
-      )}
+        )}
       </View>
     </Screen>
   );
@@ -138,9 +186,16 @@ export function AdultHomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   body: { flex: 1, paddingHorizontal: 20, paddingTop: 16 },
-  contextLabel: { fontSize: 14, color: '#5a6b7c', marginBottom: 16 },
+  progressSection: { marginBottom: 20 },
+  contextLabel: { fontSize: 14, color: '#5a6b7c', marginBottom: 12 },
   loader: { marginTop: 40 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1a2b3c', marginBottom: 8 },
+  listSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1a2b3c',
+    marginTop: 4,
+    marginBottom: 8,
+  },
   list: { flex: 1 },
   listEmpty: { flexGrow: 1 },
   emptyBlock: { marginTop: 24 },
@@ -169,5 +224,6 @@ const styles = StyleSheet.create({
   rowTitle: { fontSize: 16, fontWeight: '600', color: '#1a2b3c' },
   rowDate: { fontSize: 15, color: '#1a2b3c', marginTop: 2 },
   rowMeta: { fontSize: 14, color: '#5a6b7c', marginTop: 2 },
+  approvedMeta: { fontSize: 13, color: '#15803d', marginTop: 6 },
   reviewLink: { color: '#2563eb', fontWeight: '600' },
 });

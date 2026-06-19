@@ -28,9 +28,9 @@ export function getSessionDisplayStatus(session, { submission, approval, latestA
     return { key: 'pending', label: 'Pending approval', submission };
   }
 
-  if (session.requestHash) {
-    return { key: 'pending', label: 'Pending approval' };
+  if (!session.requestHash) {
+    return { key: 'needs_revision', label: 'Revision requested' };
   }
 
-  return { key: 'draft', label: 'Not submitted' };
+  return { key: 'pending', label: 'Pending approval' };
 }

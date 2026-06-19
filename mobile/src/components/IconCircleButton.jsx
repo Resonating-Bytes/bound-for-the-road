@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
+import { DEFAULT_COLORS } from '../theme/colors';
 
 export function IconCircleButton({
   icon,
@@ -9,7 +9,7 @@ export function IconCircleButton({
   disabled = false,
   size = 36,
   iconSize = 20,
-  iconColor = colors.textPrimary,
+  iconColor = DEFAULT_COLORS.textPrimary,
 }) {
   return (
     <Pressable
@@ -37,9 +37,9 @@ const styles = StyleSheet.create({
   circle: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.circleBackground,
+    backgroundColor: DEFAULT_COLORS.circleBackground,
     borderWidth: 1,
-    borderColor: colors.circleBorder,
+    borderColor: DEFAULT_COLORS.circleBorder,
   },
   pressed: {
     opacity: 0.7,

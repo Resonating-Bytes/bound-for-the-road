@@ -11,8 +11,8 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { fetchSubmissionDetail, approveSubmissionRemote } from '../lib/submissions';
-import { formatDateTime, formatDuration } from '../utils/time';
+import { fetchSubmissionDetail, approveSubmissionRemote, declineSubmissionRemote } from '../lib/submissions';
+import { formatDate, formatDateTime, formatDuration } from '../utils/time';
 import { dayNightLabel } from '../utils/dayNight';
 
 const PRESENCE_OPTIONS = [
@@ -28,14 +28,29 @@ export function ApproveSessionScreen({ route, navigation }) {
   const [detail, setDetail] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
   const [approverPresent, setApproverPresent] = useState('co_present');
-  const [submitting, setSubmitting] = useState(false);
+  const [busyAction, setBusyAction] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const result = await fetchSubmissionDetail(requestHash);
-        if (!cancelled) setDetail(result);
+        if (!cancelled) {
+          if (
+            result &&
+            !result.approval &&
+            (result.submission?.superseded ||
+              result.session?.status === 'deleted' ||
+              result.session?.deletedAt)
+          ) {
+            Alert.alert('No longer pending', 'This session was withdrawn or is no longer available.', [
+              { text: 'OK', onPress: () => navigation.goBack() },
+            ]);
+            setLoading(false);
+            return;
+          }
+          setDetail(result);
+        }
       } catch (e) {
         if (!cancelled) {
           Alert.alert('Error', e.message ?? 'Could not load session.', [
@@ -51,6 +66,36 @@ export function ApproveSessionScreen({ route, navigation }) {
     };
   }, [requestHash, navigation]);
 
+  async function handleSendBack() {
+    if (!detail?.session) return;
+
+    Alert.alert(
+      'Send back for revision?',
+      'The teen will need to review and submit this session again. The driving record is not deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send back',
+          style: 'destructive',
+          onPress: async () => {
+            setBusyAction('sendBack');
+            try {
+              await declineSubmissionRemote({
+                sessionId: detail.session.id,
+                requestHash,
+              });
+              navigation.goBack();
+            } catch (e) {
+              Alert.alert('Error', e.message ?? 'Could not send session back.');
+            } finally {
+              setBusyAction(null);
+            }
+          },
+        },
+      ],
+    );
+  }
+
   async function handleApprove() {
     if (!confirmed) {
       Alert.alert('Attestation required', 'Confirm the session record is accurate before approving.');
@@ -58,7 +103,7 @@ export function ApproveSessionScreen({ route, navigation }) {
     }
     if (!detail?.session) return;
 
-    setSubmitting(true);
+    setBusyAction('approve');
     try {
       const joinedSession = approverPresent === 'co_present';
       await approveSubmissionRemote({
@@ -73,9 +118,11 @@ export function ApproveSessionScreen({ route, navigation }) {
     } catch (e) {
       Alert.alert('Error', e.message ?? 'Could not approve session.');
     } finally {
-      setSubmitting(false);
+      setBusyAction(null);
     }
   }
+
+  const busy = busyAction !== null;
 
   if (loading) {
     return (
@@ -93,12 +140,13 @@ export function ApproveSessionScreen({ route, navigation }) {
     );
   }
 
-  const { session } = detail;
+  const { session, approval, approverName } = detail;
+  const isApprovedView = Boolean(approval);
 
   return (
     <Screen withHeader>
       <ScreenHeader
-        title="Approve session"
+        title={isApprovedView ? 'Session details' : 'Approve session'}
         onBack={() => navigation.goBack()}
       />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
@@ -110,37 +158,59 @@ export function ApproveSessionScreen({ route, navigation }) {
           {session.notes ? <Row label="Notes" value={session.notes} /> : null}
         </View>
 
-        <Text style={styles.sectionTitle}>How were you present?</Text>
-        {PRESENCE_OPTIONS.map((option) => (
-          <Pressable
-            key={option.value}
-            style={[styles.radioRow, approverPresent === option.value && styles.radioRowSelected]}
-            onPress={() => setApproverPresent(option.value)}
-          >
-            <View
-              style={[styles.radio, approverPresent === option.value && styles.radioSelected]}
-            />
-            <Text style={styles.radioLabel}>{option.label}</Text>
-          </Pressable>
-        ))}
-
-        <Text style={styles.sectionTitle}>Your attestation</Text>
-        <Pressable style={styles.checkRow} onPress={() => setConfirmed((v) => !v)}>
-          <View style={[styles.checkbox, confirmed && styles.checkboxChecked]}>
-            {confirmed ? <Text style={styles.checkmark}>✓</Text> : null}
+        {isApprovedView ? (
+          <View style={styles.approvedBanner}>
+            <Text style={styles.approvedBannerText}>
+              Approved by {approverName ?? 'Supervisor'}, {formatDate(approval.approvedAt)}
+            </Text>
           </View>
-          <Text style={styles.checkLabel}>
-            I confirm this session record is accurate to the best of my knowledge.
-          </Text>
-        </Pressable>
+        ) : (
+          <>
+            <Text style={styles.sectionTitle}>How were you present?</Text>
+            {PRESENCE_OPTIONS.map((option) => (
+              <Pressable
+                key={option.value}
+                style={[styles.radioRow, approverPresent === option.value && styles.radioRowSelected]}
+                onPress={() => setApproverPresent(option.value)}
+              >
+                <View
+                  style={[styles.radio, approverPresent === option.value && styles.radioSelected]}
+                />
+                <Text style={styles.radioLabel}>{option.label}</Text>
+              </Pressable>
+            ))}
 
-        <Pressable
-          style={[styles.approveBtn, (submitting || !confirmed) && styles.disabled]}
-          onPress={handleApprove}
-          disabled={submitting || !confirmed}
-        >
-          <Text style={styles.approveBtnText}>{submitting ? 'Approving…' : 'Approve'}</Text>
-        </Pressable>
+            <Text style={styles.sectionTitle}>Your attestation</Text>
+            <Pressable style={styles.checkRow} onPress={() => setConfirmed((v) => !v)}>
+              <View style={[styles.checkbox, confirmed && styles.checkboxChecked]}>
+                {confirmed ? <Text style={styles.checkmark}>✓</Text> : null}
+              </View>
+              <Text style={styles.checkLabel}>
+                I confirm this session record is accurate to the best of my knowledge.
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.approveBtn, (busy || !confirmed) && styles.disabled]}
+              onPress={handleApprove}
+              disabled={busy || !confirmed}
+            >
+              <Text style={styles.approveBtnText}>
+                {busyAction === 'approve' ? 'Approving…' : 'Approve'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.sendBackBtn, busy && styles.disabled]}
+              onPress={handleSendBack}
+              disabled={busy}
+            >
+              <Text style={styles.sendBackBtnText}>
+                {busyAction === 'sendBack' ? 'Sending back…' : 'Send back for revision'}
+              </Text>
+            </Pressable>
+          </>
+        )}
       </ScrollView>
     </Screen>
   );
@@ -179,6 +249,14 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   sectionTitle: { fontSize: 16, fontWeight: '600', color: '#1a2b3c', marginBottom: 10 },
+  approvedBanner: {
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    borderRadius: 10,
+    padding: 14,
+  },
+  approvedBannerText: { fontSize: 15, color: '#15803d', fontWeight: '600' },
   checkRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
   checkbox: {
     width: 22,
@@ -221,5 +299,14 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   approveBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  sendBackBtn: {
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#dc2626',
+  },
+  sendBackBtnText: { color: '#dc2626', fontWeight: '600', fontSize: 16 },
   disabled: { opacity: 0.6 },
 });
