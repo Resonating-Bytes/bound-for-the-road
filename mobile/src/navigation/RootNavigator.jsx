@@ -12,6 +12,8 @@ import { Screen } from '../components/Screen';
 
 import { getInitialMainRoute, getMainNavigatorKey } from './helpers';
 import { isLinkInviteDeferred } from '../db/queries';
+import { navigationRef } from './navigationRef';
+import { PushNotificationHandler } from './PushNotificationHandler';
 
 
 
@@ -221,106 +223,62 @@ function AdultNavigator({ navigatorKey, initialRouteName }) {
 
 
 export function RootNavigator() {
-
   const { ready, userId, user, roleChosen, profileComplete, linked, requiresLink } = useAuth();
 
-
-
   if (!ready) {
-
     return (
-
       <Screen style={styles.loading}>
-
         <ActivityIndicator size="large" color="#2563eb" />
-
       </Screen>
-
     );
-
   }
 
-
+  let containerKey = 'auth';
+  let content = null;
+  let showPushHandler = false;
 
   if (!userId) {
-
-    return (
-
-      <NavigationContainer>
-
-        <AuthNavigator />
-
-      </NavigationContainer>
-
-    );
-
-  }
-
-
-
-  if (!roleChosen || !profileComplete) {
+    content = <AuthNavigator />;
+  } else if (!roleChosen || !profileComplete) {
+    containerKey = `setup-${userId}`;
     const setupInitial =
       roleChosen && user?.role
         ? user.role === 'adult'
           ? 'OnboardingAdultName'
           : 'OnboardingName'
         : 'OnboardingRole';
-
-    return (
-      <NavigationContainer>
-        <SetupNavigator key={`setup-${userId}`} initialRouteName={setupInitial} />
-      </NavigationContainer>
-    );
+    content = <SetupNavigator key={containerKey} initialRouteName={setupInitial} />;
+  } else {
+    const linkInviteDeferred = isLinkInviteDeferred(userId);
+    const initialRouteName = getInitialMainRoute({
+      role: user?.role,
+      requiresLink,
+      linked,
+      linkInviteDeferred,
+    });
+    containerKey = getMainNavigatorKey({
+      role: user?.role,
+      requiresLink,
+      linked,
+      linkInviteDeferred,
+    });
+    content =
+      user?.role === 'adult' ? (
+        <AdultNavigator navigatorKey={containerKey} initialRouteName={initialRouteName} />
+      ) : (
+        <TeenNavigator navigatorKey={containerKey} initialRouteName={initialRouteName} />
+      );
+    showPushHandler = true;
   }
 
-
-
-  const linkInviteDeferred = userId ? isLinkInviteDeferred(userId) : false;
-
-  const initialRouteName = getInitialMainRoute({
-
-    role: user?.role,
-
-    requiresLink,
-
-    linked,
-
-    linkInviteDeferred,
-
-  });
-
-  const navigatorKey = getMainNavigatorKey({
-
-    role: user?.role,
-
-    requiresLink,
-
-    linked,
-
-    linkInviteDeferred,
-
-  });
-
-
-
   return (
-
-    <NavigationContainer key={navigatorKey}>
-
-      {user?.role === 'adult' ? (
-
-        <AdultNavigator navigatorKey={navigatorKey} initialRouteName={initialRouteName} />
-
-      ) : (
-
-        <TeenNavigator navigatorKey={navigatorKey} initialRouteName={initialRouteName} />
-
-      )}
-
+    <NavigationContainer ref={navigationRef} key={containerKey}>
+      {content}
+      {showPushHandler && userId ? (
+        <PushNotificationHandler userId={userId} role={user?.role} />
+      ) : null}
     </NavigationContainer>
-
   );
-
 }
 
 

@@ -17,6 +17,7 @@ import { getSupabase, isSupabaseConfigured } from '../lib/supabase';
 import { signInWithGoogleOAuth } from '../lib/googleAuth';
 import { fetchRemoteLinks } from '../lib/links';
 import { syncProfileToSupabase } from '../lib/profileSync';
+import { unregisterCurrentDevicePushToken } from '../lib/pushTokens';
 
 const MOCK_USER_KEY = '@boundfortheroad/mockUserId';
 
@@ -236,11 +237,15 @@ export function AuthProvider({ children }) {
 
   const signOut = useCallback(async () => {
     isSigningOutRef.current = true;
+    const signingOutUserId = userId;
     setUserId(null);
     setUser(null);
     setLinked(false);
     setRoleChosenFlag(false);
     try {
+      if (signingOutUserId) {
+        await unregisterCurrentDevicePushToken(signingOutUserId);
+      }
       if (isSupabaseConfigured()) {
         const { error } = await getSupabase().auth.signOut({ scope: 'local' });
         if (error) console.warn('Sign out failed:', error.message);
@@ -311,13 +316,15 @@ export function AuthProvider({ children }) {
 
   const deleteAllData = useCallback(async () => {
     isSigningOutRef.current = true;
+    const deletingUserId = userId;
     setUserId(null);
     setUser(null);
     setLinked(false);
     setRoleChosenFlag(false);
     try {
-      if (userId) {
-        deleteAllUserData(userId);
+      if (deletingUserId) {
+        await unregisterCurrentDevicePushToken(deletingUserId);
+        deleteAllUserData(deletingUserId);
       }
       if (isSupabaseConfigured()) {
         const { error } = await getSupabase().auth.signOut({ scope: 'local' });

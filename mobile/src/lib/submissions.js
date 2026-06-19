@@ -6,9 +6,15 @@ import {
   upsertApproval,
   getUserById,
   withdrawSubmission,
+  returnSessionForRevision,
+  healDraftAfterDecline,
   getSessionById,
+  listSavedSessions,
+  getApprovalForHash,
+  getDraftSession,
 } from '../db/queries';
 import { generateId, nowISO } from '../utils/time';
+import { notifyApprovalPush, PUSH_EVENTS } from './approvalPush';
 
 function mapSessionToRemote(session) {
   return {
@@ -74,12 +80,35 @@ export async function markSubmissionSupersededRemote(requestHash) {
   if (error) throw error;
 }
 
+/** Mark all remote submission rows for a session superseded (before a new submit). */
+export async function supersedeAllRemoteSubmissionsForSession(sessionId) {
+  if (!isSupabaseConfigured()) return;
+  const { error } = await getSupabase()
+    .from('submissions')
+    .update({ superseded: true })
+    .eq('session_id', sessionId);
+  if (error) throw error;
+}
+
+export async function syncSessionReopenedForEdit(sessionId) {
+  if (!isSupabaseConfigured()) return;
+  const session = getSessionById(sessionId);
+  if (!session) return;
+  await supersedeAllRemoteSubmissionsForSession(sessionId);
+  await syncSessionToRemote(session);
+}
+
 export async function submitSessionForApproval(sessionId, opts) {
   const session = await submitSession(sessionId, opts);
   const submission = getSubmissionForSession(sessionId);
   if (isSupabaseConfigured() && submission) {
     await syncSessionToRemote(session);
+    await supersedeAllRemoteSubmissionsForSession(sessionId);
     await syncSubmissionToRemote(submission);
+    await notifyApprovalPush(PUSH_EVENTS.SESSION_SUBMITTED, {
+      sessionId: session.id,
+      requestHash: submission.requestHash,
+    });
   }
   return session;
 }
@@ -90,8 +119,46 @@ export async function withdrawSessionSubmission(sessionId) {
   if (isSupabaseConfigured() && submission) {
     await markSubmissionSupersededRemote(submission.requestHash);
     await syncSessionToRemote(session);
+    await notifyApprovalPush(PUSH_EVENTS.SESSION_WITHDRAWN, {
+      sessionId: session.id,
+      requestHash: submission.requestHash,
+    });
   }
   return session;
+}
+
+async function assertSubmissionStillPending(sessionId, requestHash) {
+  const supabase = getSupabase();
+  const { data: submission, error: subError } = await supabase
+    .from('submissions')
+    .select('superseded')
+    .eq('request_hash', requestHash)
+    .eq('session_id', sessionId)
+    .maybeSingle();
+  if (subError) throw subError;
+  if (!submission || submission.superseded) {
+    throw new Error('This session is no longer pending approval.');
+  }
+
+  const { data: sessionRow, error: sessionError } = await supabase
+    .from('sessions')
+    .select('status, deleted_at')
+    .eq('id', sessionId)
+    .maybeSingle();
+  if (sessionError) throw sessionError;
+  if (!sessionRow || sessionRow.status === 'deleted' || sessionRow.deleted_at) {
+    throw new Error('This session is no longer available.');
+  }
+
+  const { data: approval, error: approvalError } = await supabase
+    .from('approvals')
+    .select('request_hash')
+    .eq('request_hash', requestHash)
+    .maybeSingle();
+  if (approvalError) throw approvalError;
+  if (approval) {
+    throw new Error('This session has already been approved.');
+  }
 }
 
 export async function fetchRemoteUserName(userId) {
@@ -180,6 +247,76 @@ export async function fetchPendingSubmissionsForAdult() {
     .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
 }
 
+export async function fetchApprovedSubmissionsForAdult() {
+  if (!isSupabaseConfigured()) return [];
+
+  const supabase = getSupabase();
+  const { data: rows, error } = await supabase
+    .from('approvals')
+    .select(
+      `
+      id,
+      request_hash,
+      session_id,
+      approved_by_user_id,
+      approved_at,
+      sessions!inner (
+        id,
+        teen_user_id,
+        started_at,
+        ended_at,
+        duration_minutes,
+        day_night,
+        notes,
+        status,
+        deleted_at
+      )
+    `,
+    )
+    .order('approved_at', { ascending: false });
+
+  if (error) throw error;
+  if (!rows?.length) return [];
+
+  const filtered = rows.filter(
+    (row) => row.sessions?.status === 'saved' && !row.sessions?.deleted_at,
+  );
+
+  const teenIds = [...new Set(filtered.map((row) => row.sessions?.teen_user_id).filter(Boolean))];
+  const approverIds = [...new Set(filtered.map((row) => row.approved_by_user_id))];
+  const teenNames = {};
+  const approverNames = {};
+
+  await Promise.all([
+    ...teenIds.map(async (teenId) => {
+      teenNames[teenId] = await fetchRemoteUserName(teenId);
+    }),
+    ...approverIds.map(async (approverId) => {
+      approverNames[approverId] = await fetchRemoteUserName(approverId);
+    }),
+  ]);
+
+  return filtered.map((row) => ({
+    requestHash: row.request_hash,
+    sessionId: row.session_id,
+    approvedAt: row.approved_at,
+    approvedByUserId: row.approved_by_user_id,
+    approverName: approverNames[row.approved_by_user_id] ?? 'Supervisor',
+    session: row.sessions
+      ? {
+          id: row.sessions.id,
+          teenUserId: row.sessions.teen_user_id,
+          startedAt: row.sessions.started_at,
+          endedAt: row.sessions.ended_at,
+          durationMinutes: row.sessions.duration_minutes,
+          dayNight: row.sessions.day_night,
+          notes: row.sessions.notes,
+        }
+      : null,
+    teenName: teenNames[row.sessions?.teen_user_id] ?? 'Driver',
+  }));
+}
+
 export async function approveSubmissionRemote({
   sessionId,
   requestHash,
@@ -191,6 +328,8 @@ export async function approveSubmissionRemote({
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase is required to approve sessions.');
   }
+
+  await assertSubmissionStillPending(sessionId, requestHash);
 
   const approval = {
     id: generateId(),
@@ -208,7 +347,66 @@ export async function approveSubmissionRemote({
 
   const local = mapRemoteApproval(data);
   upsertApproval(local);
+  await notifyApprovalPush(PUSH_EVENTS.SESSION_APPROVED, {
+    sessionId,
+    requestHash,
+  });
   return local;
+}
+
+export async function declineSubmissionRemote({ sessionId, requestHash }) {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase is required to send a session back.');
+  }
+
+  await assertSubmissionStillPending(sessionId, requestHash);
+
+  const { error } = await getSupabase().rpc('decline_submission', {
+    p_request_hash: requestHash,
+  });
+  if (error) throw error;
+
+  await notifyApprovalPush(PUSH_EVENTS.SESSION_DECLINED, {
+    sessionId,
+    requestHash,
+  });
+}
+
+export async function syncDeclinedSubmissionsForTeen(teenUserId) {
+  if (!isSupabaseConfigured()) return;
+
+  const supabase = getSupabase();
+  for (const session of listSavedSessions(teenUserId)) {
+    const submission = getSubmissionForSession(session.id);
+    if (!submission || submission.superseded) continue;
+    if (getApprovalForHash(submission.requestHash)) continue;
+
+    const { data, error } = await supabase
+      .from('submissions')
+      .select('superseded')
+      .eq('request_hash', submission.requestHash)
+      .maybeSingle();
+
+    if (error || !data?.superseded) continue;
+    const updated = returnSessionForRevision(session.id);
+    await syncSessionToRemote(updated);
+  }
+
+  const draft = getDraftSession(teenUserId);
+  if (!draft) return;
+
+  const { data: remoteSession, error: sessionError } = await supabase
+    .from('sessions')
+    .select('status, request_hash')
+    .eq('id', draft.id)
+    .maybeSingle();
+
+  if (sessionError || remoteSession?.status !== 'saved') return;
+
+  const healed = healDraftAfterDecline(draft.id);
+  if (healed) {
+    await syncSessionToRemote(healed);
+  }
 }
 
 export async function syncApprovalsForTeen(teenUserId) {
@@ -240,12 +438,24 @@ export async function fetchSubmissionDetail(requestHash) {
   const local = getSubmissionByHash(requestHash);
   if (local?.payloadJson) {
     const session = getSessionById(local.sessionId);
-    return { submission: local, session, payload: JSON.parse(local.payloadJson) };
+    const approval = getApprovalForHash(requestHash);
+    let approverName;
+    if (approval?.approvedByUserId) {
+      approverName = await fetchRemoteUserName(approval.approvedByUserId);
+    }
+    return {
+      submission: local,
+      session,
+      payload: JSON.parse(local.payloadJson),
+      approval,
+      approverName,
+    };
   }
 
   if (!isSupabaseConfigured()) return null;
 
-  const { data, error } = await getSupabase()
+  const supabase = getSupabase();
+  const { data, error } = await supabase
     .from('submissions')
     .select(
       `
@@ -263,7 +473,9 @@ export async function fetchSubmissionDetail(requestHash) {
         duration_minutes,
         day_night,
         notes,
-        request_hash
+        request_hash,
+        status,
+        deleted_at
       )
     `,
     )
@@ -271,7 +483,48 @@ export async function fetchSubmissionDetail(requestHash) {
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) return null;
+
+  const { data: approvalData } = await supabase
+    .from('approvals')
+    .select(
+      'id, request_hash, session_id, approved_by_user_id, approved_at, joined_session, supervisor_in_vehicle_name, approver_present',
+    )
+    .eq('request_hash', requestHash)
+    .maybeSingle();
+
+  const approval = approvalData ? mapRemoteApproval(approvalData) : null;
+  const approverName = approval
+    ? await fetchRemoteUserName(approval.approvedByUserId)
+    : null;
+
+  if (!data) {
+    if (!approval) return null;
+
+    const { data: sessionRow, error: sessionError } = await supabase
+      .from('sessions')
+      .select('id, teen_user_id, started_at, ended_at, duration_minutes, day_night, notes, request_hash')
+      .eq('id', approval.sessionId)
+      .maybeSingle();
+
+    if (sessionError || !sessionRow) return null;
+
+    return {
+      submission: null,
+      session: {
+        id: sessionRow.id,
+        teenUserId: sessionRow.teen_user_id,
+        startedAt: sessionRow.started_at,
+        endedAt: sessionRow.ended_at,
+        durationMinutes: sessionRow.duration_minutes,
+        dayNight: sessionRow.day_night,
+        notes: sessionRow.notes,
+        requestHash: sessionRow.request_hash,
+      },
+      payload: null,
+      approval,
+      approverName,
+    };
+  }
 
   return {
     submission: {
@@ -292,8 +545,12 @@ export async function fetchSubmissionDetail(requestHash) {
           dayNight: data.sessions.day_night,
           notes: data.sessions.notes,
           requestHash: data.sessions.request_hash,
+          status: data.sessions.status,
+          deletedAt: data.sessions.deleted_at,
         }
       : null,
     payload: JSON.parse(data.payload_json),
+    approval,
+    approverName,
   };
 }

@@ -1,10 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
   Pressable,
   StyleSheet,
-  FlatList,
+  SectionList,
   Share,
   RefreshControl,
   Alert,
@@ -26,9 +26,10 @@ import {
   expireStaleActiveSession,
   getSessionApprovalContext,
 } from '../db/queries';
-import { syncApprovalsForTeen, withdrawSessionSubmission, fetchRemoteUserName } from '../lib/submissions';
+import { syncApprovalsForTeen, syncDeclinedSubmissionsForTeen, withdrawSessionSubmission, fetchRemoteUserName, syncSessionReopenedForEdit } from '../lib/submissions';
 import { getSessionDisplayStatus } from '../utils/sessionStatus';
-import { useFocusPoll } from '../hooks/useFocusPoll';
+import { groupSessionsForDashboard } from '../utils/dashboardSessions';
+import { useApprovalPushRefresh } from '../hooks/useApprovalPushRefresh';
 import { IL_RULES } from '../config/states/IL';
 import { formatDate, formatDuration, addMonths } from '../utils/time';
 import { dayNightLabel } from '../utils/dayNight';
@@ -50,6 +51,7 @@ export function DashboardScreen({ navigation }) {
     if (!userId) return;
     try {
       await syncApprovalsForTeen(userId);
+      await syncDeclinedSubmissionsForTeen(userId);
     } catch {
       // Offline — show local approval state only
     }
@@ -78,11 +80,13 @@ export function DashboardScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      if (!userId) return;
-      refresh();
-
+      if (!userId) return undefined;
       let cancelled = false;
+
       (async () => {
+        await refresh();
+        if (cancelled) return;
+
         const expired = expireStaleActiveSession(userId);
         if (cancelled) return;
         if (expired) {
@@ -110,7 +114,47 @@ export function DashboardScreen({ navigation }) {
     }, [userId, navigation, refresh]),
   );
 
-  useFocusPoll(refresh, 15000);
+  const sessionSections = useMemo(
+    () => groupSessionsForDashboard(sessions, statusBySessionId),
+    [sessions, statusBySessionId],
+  );
+
+  function renderSessionRow(item) {
+    const status = statusBySessionId[item.id];
+    return (
+      <View style={styles.row}>
+        <Pressable style={styles.rowMain} onPress={() => handleEdit(item.id)}>
+          <View style={styles.rowContent}>
+            <Text style={styles.rowDate}>{formatDate(item.startedAt)}</Text>
+            <Text style={styles.rowMeta}>
+              {formatDuration(item.durationMinutes ?? 0)} · {dayNightLabel(item.dayNight)}
+            </Text>
+            {status?.label ? (
+              <Text
+                style={[
+                  styles.statusText,
+                  status.key === 'approved' && styles.statusApproved,
+                  status.key === 'pending' && styles.statusPending,
+                  status.key === 'needs_revision' && styles.statusNeedsRevision,
+                  status.key === 'superseded' && styles.statusSuperseded,
+                ]}
+              >
+                {status.label}
+              </Text>
+            ) : null}
+          </View>
+          <Text style={styles.editLink}>Edit</Text>
+        </Pressable>
+        {status?.key === 'pending' ? (
+          <Pressable onPress={() => handleWithdraw(item.id)}>
+            <Text style={styles.withdrawLink}>Withdraw</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    );
+  }
+
+  useApprovalPushRefresh(['session_approved', 'session_declined'], refresh);
 
   async function handlePullRefresh() {
     setRefreshing(true);
@@ -162,6 +206,9 @@ export function DashboardScreen({ navigation }) {
 
   function openEdit(sessionId, before) {
     reopenSavedSession(sessionId);
+    syncSessionReopenedForEdit(sessionId).catch((e) => {
+      console.warn('Remote edit sync failed:', e.message);
+    });
     navigation.navigate('ReviewSession', {
       sessionId,
       editing: true,
@@ -176,7 +223,7 @@ export function DashboardScreen({ navigation }) {
   function handleWithdraw(sessionId) {
     Alert.alert(
       'Withdraw submission?',
-      'This returns the session to draft so you can edit before submitting again.',
+      'This removes the session from your log and clears it from your supervisor\'s pending list.',
       [
         { text: 'Keep pending', style: 'cancel' },
         {
@@ -240,49 +287,20 @@ export function DashboardScreen({ navigation }) {
         </Pressable>
       </View>
 
-      <Text style={styles.sectionTitle}>Submitted sessions</Text>
-      <FlatList
+      <SectionList
         style={styles.list}
-        contentContainerStyle={sessions.length === 0 ? styles.listEmpty : undefined}
-        data={sessions}
+        contentContainerStyle={sessionSections.length === 0 ? styles.listEmpty : undefined}
+        sections={sessionSections}
         keyExtractor={(item) => item.id}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handlePullRefresh} />
         }
+        stickySectionHeadersEnabled={false}
         ListEmptyComponent={<Text style={styles.empty}>No submitted sessions yet.</Text>}
-        renderItem={({ item }) => {
-          const status = statusBySessionId[item.id];
-          return (
-            <View style={styles.row}>
-              <Pressable style={styles.rowMain} onPress={() => handleEdit(item.id)}>
-                <View style={styles.rowContent}>
-                  <Text style={styles.rowDate}>{formatDate(item.startedAt)}</Text>
-                  <Text style={styles.rowMeta}>
-                    {formatDuration(item.durationMinutes ?? 0)} · {dayNightLabel(item.dayNight)}
-                  </Text>
-                  {status?.label ? (
-                    <Text
-                      style={[
-                        styles.statusText,
-                        status.key === 'approved' && styles.statusApproved,
-                        status.key === 'pending' && styles.statusPending,
-                        status.key === 'superseded' && styles.statusSuperseded,
-                      ]}
-                    >
-                      {status.label}
-                    </Text>
-                  ) : null}
-                </View>
-                <Text style={styles.editLink}>Edit</Text>
-              </Pressable>
-              {status?.key === 'pending' ? (
-                <Pressable onPress={() => handleWithdraw(item.id)}>
-                  <Text style={styles.withdrawLink}>Withdraw</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          );
-        }}
+        renderSectionHeader={({ section: { title } }) => (
+          <Text style={styles.listSectionTitle}>{title}</Text>
+        )}
+        renderItem={({ item }) => renderSessionRow(item)}
       />
       </View>
     </Screen>
@@ -312,7 +330,13 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
   },
   secondaryBtnText: { color: '#1a2b3c', fontWeight: '600', fontSize: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1a2b3c', marginBottom: 8 },
+  listSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1a2b3c',
+    marginTop: 4,
+    marginBottom: 8,
+  },
   list: { flex: 1 },
   listEmpty: { flexGrow: 1 },
   empty: { color: '#6a7b8c', fontSize: 15, marginTop: 8 },
@@ -339,6 +363,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 13, marginTop: 6, color: '#5a6b7c' },
   statusApproved: { color: '#15803d' },
   statusPending: { color: '#b45309' },
+  statusNeedsRevision: { color: '#dc2626' },
   statusSuperseded: { color: '#9333ea' },
   editLink: { color: '#2563eb', fontWeight: '600' },
   withdrawLink: { color: '#dc2626', fontWeight: '600', fontSize: 14, marginLeft: 8 },

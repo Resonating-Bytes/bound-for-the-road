@@ -39,4 +39,17 @@ describe('sessionStatus', () => {
     });
     expect(status.key).toBe('superseded');
   });
+
+  test('needs revision when saved without active submission', () => {
+    const status = getSessionDisplayStatus(
+      { ...session, requestHash: null },
+      {
+        submission: null,
+        approval: null,
+        latestApproval: null,
+      },
+    );
+    expect(status.key).toBe('needs_revision');
+    expect(status.label).toBe('Revision requested');
+  });
 });
