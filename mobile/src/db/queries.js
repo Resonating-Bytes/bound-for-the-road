@@ -464,6 +464,58 @@ export function enqueueOutbox(operation, payload, userId) {
     .run();
 }
 
+export function hasUnsyncedSubmissionOutbox(sessionId) {
+  const db = getDb();
+  const rows = db
+    .select()
+    .from(outbox)
+    .where(and(eq(outbox.operation, 'session_submitted'), isNull(outbox.syncedAt)))
+    .all();
+  return rows.some((row) => {
+    try {
+      const payload = JSON.parse(row.payloadJson);
+      return payload.sessionId === sessionId;
+    } catch {
+      return false;
+    }
+  });
+}
+
+export function markSubmissionOutboxSynced(sessionId) {
+  const db = getDb();
+  const rows = db
+    .select()
+    .from(outbox)
+    .where(and(eq(outbox.operation, 'session_submitted'), isNull(outbox.syncedAt)))
+    .all();
+  const now = nowISO();
+  for (const row of rows) {
+    try {
+      const payload = JSON.parse(row.payloadJson);
+      if (payload.sessionId === sessionId) {
+        db.update(outbox).set({ syncedAt: now }).where(eq(outbox.id, row.id)).run();
+      }
+    } catch {
+      // ignore malformed outbox payloads
+    }
+  }
+}
+
+export function clearOutboxForSession(sessionId) {
+  const db = getDb();
+  const rows = db.select().from(outbox).all();
+  for (const row of rows) {
+    try {
+      const payload = JSON.parse(row.payloadJson);
+      if (payload.sessionId === sessionId) {
+        db.delete(outbox).where(eq(outbox.id, row.id)).run();
+      }
+    } catch {
+      // ignore malformed outbox payloads
+    }
+  }
+}
+
 export function isProfileComplete(user) {
   return Boolean(
     user?.legalName &&

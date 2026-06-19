@@ -25,6 +25,7 @@ describe('approvalPush', () => {
         event: 'session_submitted',
         sessionId: 'session-1',
         requestHash: 'hash-1',
+        clientVersion: '1.0.0',
       },
     });
   });

@@ -1,7 +1,7 @@
 # Bound for the Road — Project TODO
 
 **Last updated:** 2026-06-20  
-**Current phase:** Phase 2 — push/approval flow largely complete; **next batch after merge:** compatibility & versioning → theme/color system
+**Current phase:** Phase 2 — versioning complete; **next:** theme & color system (after versioning merge verified)
 
 **Decisions:** [DECISIONS.md](./DECISIONS.md) — do not duplicate here.  
 **Screens:** [SCREENS.md](./SCREENS.md)  
@@ -130,13 +130,13 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 | **Software / API** | App build ↔ backend capabilities | App 1.2 requires `decline_submission` RPC + `session_withdrawn` push event; block or prompt if missing |
 
 ### Plan (implement in this batch)
-- [ ] Short design note in docs (extend APPROVAL_AND_HASH or new `COMPATIBILITY.md`): version numbering, who bumps what, and client behavior on mismatch
-- [ ] **Local SQLite:** `schema_version` table + numbered incremental migrations (replace one-shot `CREATE IF NOT EXISTS`)
-- [ ] **Payload:** `schemaVersion` bump rules; backward-compatible readers; when re-hash / re-submit is required
-- [ ] **Backend revision:** track applied migration id (table or config); expose read-only `GET` / RPC for app health check (`min_app_version`, `backend_revision`, required RPC names)
-- [ ] **App startup check:** compare local expectations vs backend; degrade gracefully (read-only, block submit, or “update app” banner) — policy TBD in design note
-- [ ] **Edge functions / RPCs:** version or capability tag in `send-approval-push` request body; reject unknown events with clear error
-- [ ] Tests: local DB migrate vN→vN+1; payload v1 still verifies; mocked backend-too-old / app-too-old paths
+- [x] Short design note in docs ([COMPATIBILITY.md](./COMPATIBILITY.md)): version numbering, who bumps what, and client behavior on mismatch
+- [x] **Local SQLite:** `schema_meta` table + numbered incremental migrations (`schemaMigrations.js`)
+- [x] **Payload:** `schemaVersion` constants; backward-compatible readers; reject newer payloads on verify
+- [x] **Backend revision:** `app_config` + `get_app_compatibility()` RPC (`20260620120000_app_compatibility.sql`)
+- [x] **App startup check:** `CompatibilityProvider` + banner; block remote submit/approve/decline/withdraw when incompatible
+- [x] **Edge functions:** `clientVersion` on push invoke body (optional on server)
+- [x] Tests: local DB version, compatibility evaluation, payload schema guard
 
 ### Still queued after versioning (Phase 2 continued)
 - [ ] Multi-teen switcher
@@ -147,7 +147,7 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 
 ## After versioning — theme & color system
 
-**Goal:** Richer personalization beyond header-only presets; secondary color for accents across the app.
+**Goal:** Richer personalization beyond header-only presets; **accent color** for highlights across the app (buttons, links, progress, selected states).
 
 **What exists today:**
 - Per-user header preset (`header_theme_id_<userId>`) in Settings — Neutrals, Saturated, Light categories
@@ -155,11 +155,11 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 - Body UI still uses hardcoded accent (`#2563eb` on primary buttons, links, loaders, etc.) — not tied to theme
 
 ### Design (spike first)
-- [ ] Decide **secondary color** role: accent buttons, progress bar fill, links, selected states, section highlights?
-- [ ] **Approach A — derived:** compute from primary/header (HSL: lower saturation, higher lightness, or alpha blend on `screenBackground`); single picker, harmonious palette
-- [ ] **Approach B — configurable:** second swatch per preset (or global secondary picker); more control, more Settings UI
-- [ ] **Approach C — hybrid:** derived by default, optional per-preset `secondaryBackground` override in preset definition
-- [ ] Contrast rules for secondary on white/light backgrounds (extend `contrast.js`); vibrant presets need extra care
+- [ ] Decide **accent color** role: primary action buttons, progress bar fill, links, selected states, section highlights?
+- [ ] **Approach A — derived:** compute accent from primary/header (HSL: lower saturation, higher lightness, or alpha blend on `screenBackground`); single picker, harmonious palette
+- [ ] **Approach B — configurable:** second swatch per preset (or global accent picker); more control, more Settings UI — label it **Accent** in user-facing copy
+- [ ] **Approach C — hybrid:** derived by default, optional per-preset `accent` override in preset definition
+- [ ] Contrast rules for accent on white/light backgrounds (extend `contrast.js`); vibrant presets need extra care
 - [ ] **Header text outline:** explore dark grey/black stroke or shadow on title text in `ScreenHeader` so mid-tone header colors (e.g. Slate, Sand, Amber) stay readable without flipping to pure light/dark text
   - RN options: `textShadow*` (iOS + Android), multi-layer `Text` stroke hack, or SVG — spike which renders cleanly at 28px bold
   - Policy: always-on outline vs only when `relativeLuminance(headerBackground)` is in a “muddy middle” band
@@ -167,19 +167,38 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
   - Tests: snapshot or contrast assertions for mid-tone presets with outline enabled
 
 ### Implementation
-- [ ] Extend preset model + `resolveTheme()` with `accent` / `secondaryBackground` / `accentText` (names TBD in spike)
+- [ ] Extend preset model + `resolveTheme()` with `accent`, `accentText`, and related tokens (names finalized in spike)
 - [ ] Replace hardcoded `#2563eb` (and related) in shared components: `DashboardScreen`, `AdultHomeScreen`, `SettingsScreen`, `ProgressBar`, `ActivityIndicator`, status/link styles
 - [ ] **Vibrant** category — four new presets:
   - Bright orange
   - Hot pink
   - Lime green
   - Royal blue
-- [ ] `ThemePickerSection` — render Vibrant row; preview shows header + secondary sample (chip or button mock)
+- [ ] `ThemePickerSection` — render Vibrant row; preview shows header + accent sample (chip or button mock)
 - [ ] `ScreenHeader` — apply outlined/stroked title per spike; expose `headerTextOutline` (or similar) from `resolveTheme()` / `getHeaderContrast()`
-- [ ] Tests: contrast for Vibrant presets; `resolveTheme` secondary derivation (or explicit overrides); mid-tone header text legibility with outline
-- [ ] Optional (same batch or follow-up): custom hex / native color wheel for primary (and secondary if configurable)
+- [ ] Tests: contrast for Vibrant presets; `resolveTheme` accent derivation (or explicit overrides); mid-tone header text legibility with outline
+- [ ] Optional (same batch or follow-up): custom hex / native color wheel for header (and accent if configurable)
 
 **Reading order:** `presets.js`, `resolveTheme.js`, `contrast.js`, `ScreenHeader.jsx`, `ThemePickerSection.jsx`
+
+---
+
+## After theming — Settings sub-pages
+
+**Goal:** Reduce clutter on the main Settings screen by grouping related options into focused sub-screens.
+
+**What exists today:** Single long `SettingsScreen` scroll — theme picker, app version, profile fields, linked accounts, sign out, delete data.
+
+### Proposed structure (spike)
+- [ ] **Profile** — legal name, permit date (teen), save
+- [ ] **Appearance** — header theme picker (and accent picker once theming lands)
+- [ ] **App & updates** — installed version, compatibility status, update link
+- [ ] **Account & data** — linked accounts, sign out, delete all local data
+- [ ] Main Settings becomes a short list of rows (title + chevron) that navigate into each sub-screen
+- [ ] Keep destructive actions (delete data) visually separated on the Account sub-screen
+- [ ] Reuse existing section components (`ThemePickerSection`, `AppVersionSection`, `LinkedAccountsSection`) inside sub-screens where possible
+
+**Reading order:** `SettingsScreen.jsx`, stack navigators in `RootNavigator.jsx`
 
 ---
 

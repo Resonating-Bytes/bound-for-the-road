@@ -25,8 +25,17 @@ import {
   getSessionById,
   expireStaleActiveSession,
   getSessionApprovalContext,
+  hasUnsyncedSubmissionOutbox,
 } from '../db/queries';
-import { syncApprovalsForTeen, syncDeclinedSubmissionsForTeen, withdrawSessionSubmission, fetchRemoteUserName, syncSessionReopenedForEdit } from '../lib/submissions';
+import {
+  syncApprovalsForTeen,
+  syncDeclinedSubmissionsForTeen,
+  withdrawSessionSubmission,
+  fetchRemoteUserName,
+  syncSessionReopenedForEdit,
+  sendSavedSessionForApproval,
+} from '../lib/submissions';
+import { useCompatibility } from '../context/CompatibilityContext';
 import { getSessionDisplayStatus } from '../utils/sessionStatus';
 import { groupSessionsForDashboard } from '../utils/dashboardSessions';
 import { useApprovalPushRefresh } from '../hooks/useApprovalPushRefresh';
@@ -42,6 +51,7 @@ import {
 
 export function DashboardScreen({ navigation }) {
   const { userId, user } = useAuth();
+  const { canRemoteWrite } = useCompatibility();
   const [sessions, setSessions] = useState([]);
   const [progress, setProgress] = useState({ totalMinutes: 0, nightMinutes: 0 });
   const [statusBySessionId, setStatusBySessionId] = useState({});
@@ -72,11 +82,13 @@ export function DashboardScreen({ navigation }) {
           approval: ctx?.approval,
           latestApproval: ctx?.latestApproval,
           approverName,
+          pendingRemoteSync: hasUnsyncedSubmissionOutbox(session.id),
+          canRemoteWrite,
         });
       }),
     );
     setStatusBySessionId(statuses);
-  }, [userId]);
+  }, [userId, canRemoteWrite]);
 
   useFocusEffect(
     useCallback(() => {
@@ -121,33 +133,46 @@ export function DashboardScreen({ navigation }) {
 
   function renderSessionRow(item) {
     const status = statusBySessionId[item.id];
+    const showWithdraw = status?.key === 'pending' || status?.key === 'saved_local';
+    const showSend = status?.key === 'saved_local' && canRemoteWrite;
+
     return (
       <View style={styles.row}>
-        <Pressable style={styles.rowMain} onPress={() => handleEdit(item.id)}>
-          <View style={styles.rowContent}>
+        <View style={styles.rowTop}>
+          <Pressable style={styles.rowMain} onPress={() => handleEdit(item.id)}>
             <Text style={styles.rowDate}>{formatDate(item.startedAt)}</Text>
             <Text style={styles.rowMeta}>
               {formatDuration(item.durationMinutes ?? 0)} · {dayNightLabel(item.dayNight)}
             </Text>
-            {status?.label ? (
-              <Text
-                style={[
-                  styles.statusText,
-                  status.key === 'approved' && styles.statusApproved,
-                  status.key === 'pending' && styles.statusPending,
-                  status.key === 'needs_revision' && styles.statusNeedsRevision,
-                  status.key === 'superseded' && styles.statusSuperseded,
-                ]}
-              >
-                {status.label}
-              </Text>
+          </Pressable>
+          <View style={styles.topActions}>
+            <Pressable onPress={() => handleEdit(item.id)}>
+              <Text style={styles.editLink}>Edit</Text>
+            </Pressable>
+            {showWithdraw ? (
+              <Pressable onPress={() => handleWithdraw(item.id)}>
+                <Text style={styles.withdrawLink}>Withdraw</Text>
+              </Pressable>
             ) : null}
           </View>
-          <Text style={styles.editLink}>Edit</Text>
-        </Pressable>
-        {status?.key === 'pending' ? (
-          <Pressable onPress={() => handleWithdraw(item.id)}>
-            <Text style={styles.withdrawLink}>Withdraw</Text>
+        </View>
+        {status?.label ? (
+          <Text
+            style={[
+              styles.statusText,
+              status.key === 'approved' && styles.statusApproved,
+              status.key === 'pending' && styles.statusPending,
+              status.key === 'saved_local' && styles.statusSavedLocal,
+              status.key === 'needs_revision' && styles.statusNeedsRevision,
+              status.key === 'superseded' && styles.statusSuperseded,
+            ]}
+          >
+            {status.label}
+          </Text>
+        ) : null}
+        {showSend ? (
+          <Pressable style={styles.sendRow} onPress={() => handleSendForApproval(item.id)}>
+            <Text style={styles.sendLink}>Send for approval</Text>
           </Pressable>
         ) : null}
       </View>
@@ -218,6 +243,27 @@ export function DashboardScreen({ navigation }) {
         notes: before.notes,
       },
     });
+  }
+
+  function handleSendForApproval(sessionId) {
+    Alert.alert(
+      'Send for approval?',
+      'Your supervisor will be notified to review this session.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send',
+          onPress: async () => {
+            try {
+              await sendSavedSessionForApproval(sessionId);
+              refresh();
+            } catch (e) {
+              Alert.alert('Error', e.message ?? 'Could not send for approval.');
+            }
+          },
+        },
+      ],
+    );
   }
 
   function handleWithdraw(sessionId) {
@@ -345,26 +391,42 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 10,
     marginBottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
+  rowTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
   rowMain: {
     flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    minWidth: 0,
+    paddingRight: 8,
   },
-  rowContent: { flex: 1, paddingRight: 8 },
+  topActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginLeft: 8,
+    paddingTop: 2,
+  },
+  sendRow: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    alignItems: 'flex-start',
+  },
   rowDate: { fontSize: 16, fontWeight: '600', color: '#1a2b3c' },
   rowMeta: { fontSize: 14, color: '#5a6b7c', marginTop: 2 },
-  statusText: { fontSize: 13, marginTop: 6, color: '#5a6b7c' },
+  statusText: { fontSize: 13, marginTop: 8, color: '#5a6b7c' },
   statusApproved: { color: '#15803d' },
   statusPending: { color: '#b45309' },
+  statusSavedLocal: { color: '#1d4ed8' },
   statusNeedsRevision: { color: '#dc2626' },
   statusSuperseded: { color: '#9333ea' },
-  editLink: { color: '#2563eb', fontWeight: '600' },
-  withdrawLink: { color: '#dc2626', fontWeight: '600', fontSize: 14, marginLeft: 8 },
+  editLink: { color: '#2563eb', fontWeight: '600', fontSize: 14 },
+  sendLink: { color: '#2563eb', fontWeight: '600', fontSize: 14 },
+  withdrawLink: { color: '#dc2626', fontWeight: '600', fontSize: 14 },
 });

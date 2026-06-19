@@ -20,6 +20,30 @@ describe('sessionStatus', () => {
     expect(status.label).toBe('Pending approval');
   });
 
+  test('saved locally when remote sync is still pending and app is blocked', () => {
+    const status = getSessionDisplayStatus(session, {
+      submission: { requestHash: 'hash-new', superseded: false },
+      approval: null,
+      latestApproval: null,
+      pendingRemoteSync: true,
+      canRemoteWrite: false,
+    });
+    expect(status.key).toBe('saved_local');
+    expect(status.label).toBe('Saved on device — update app to send for approval');
+  });
+
+  test('saved locally when remote sync is pending but app can send', () => {
+    const status = getSessionDisplayStatus(session, {
+      submission: { requestHash: 'hash-new', superseded: false },
+      approval: null,
+      latestApproval: null,
+      pendingRemoteSync: true,
+      canRemoteWrite: true,
+    });
+    expect(status.key).toBe('saved_local');
+    expect(status.label).toBe('Saved on device — ready to send for approval');
+  });
+
   test('approved when hash matches approval', () => {
     const status = getSessionDisplayStatus(session, {
       submission: { requestHash: 'hash-new', superseded: false },
