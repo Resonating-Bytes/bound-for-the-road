@@ -13,6 +13,20 @@ App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 
 ### Fixed
 
+## [1.1.0] - 2026-06-17
+
+### Added
+
+- EAS build profiles (`eas.json`) and `expo-dev-client` for native development builds
+- OAuth redirect routing: Expo Go uses `exp://`; dev and production builds use `boundfortheroad://`
+- `npm run start:dev-client` for daily dev after installing a development build
+- Development build setup guide in `docs/DEVELOPMENT_SETUP.md`
+
+### Changed
+
+- Google Sign-In button styling aligned with Google Identity branding guidelines
+- OAuth debug logging in development (`redirectTo`, PKCE details)
+
 ## [1.0.0] - 2026-06-19
 
 ### Added
