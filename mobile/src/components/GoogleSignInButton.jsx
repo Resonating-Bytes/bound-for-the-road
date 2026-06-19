@@ -1,14 +1,24 @@
-import { Pressable, Text, StyleSheet, ActivityIndicator, View, Image } from 'react-native';
+import { Pressable, Text, Image, StyleSheet, ActivityIndicator, View } from 'react-native';
 
+/**
+ * Google Identity "Sign in with Google" button (light theme).
+ * @see https://developers.google.com/identity/branding-guidelines
+ */
 export function GoogleSignInButton({ onPress, disabled, loading }) {
   return (
     <Pressable
-      style={[styles.button, (disabled || loading) && styles.buttonDisabled]}
+      style={({ pressed }) => [
+        styles.button,
+        pressed && styles.buttonPressed,
+        disabled && styles.buttonDisabled,
+      ]}
       onPress={onPress}
       disabled={disabled || loading}
+      accessibilityRole="button"
+      accessibilityLabel="Sign in with Google"
     >
       {loading ? (
-        <ActivityIndicator color="#1a2b3c" />
+        <ActivityIndicator color="#1f1f1f" />
       ) : (
         <View style={styles.content}>
           <Image source={require('../../assets/google-g.png')} style={styles.logo} />
@@ -21,15 +31,18 @@ export function GoogleSignInButton({ onPress, disabled, loading }) {
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#747775',
-    borderRadius: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderRadius: 20,
+    minHeight: 40,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+  },
+  buttonPressed: {
+    backgroundColor: '#f8f9fa',
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -37,16 +50,18 @@ const styles = StyleSheet.create({
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'center',
   },
   logo: {
     width: 20,
     height: 20,
+    marginRight: 12,
     resizeMode: 'contain',
   },
   label: {
-    fontSize: 16,
-    fontWeight: '500',
     color: '#1f1f1f',
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: 0.1,
   },
 });

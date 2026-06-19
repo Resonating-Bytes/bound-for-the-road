@@ -24,11 +24,14 @@ npm start
 
 **Troubleshooting** (LAN, firewall, tunnel, port 8081, SDK mismatch): [`../docs/DEVELOPMENT_SETUP.md`](../docs/DEVELOPMENT_SETUP.md#troubleshooting-windows--iphone).
 
+**Development build** (app shows as Bound for the Road, not Expo Go): [`../docs/DEVELOPMENT_SETUP.md`](../docs/DEVELOPMENT_SETUP.md#development-build-bound-for-the-road-branding).
+
 ## Scripts
 
 | Command | Purpose |
 |---------|---------|
-| `npm start` | Dev server + QR (LAN) |
+| `npm start` | Dev server + QR (LAN, Expo Go) |
+| `npm run start:dev-client` | Dev server for **development build** (not Expo Go) |
 | `npm run start:lan` | LAN mode explicit |
 | `npm run start:tunnel` | Tunnel via ngrok (needs authtoken — see dev setup doc) |
 | `npm run ngrok:authtoken` | One-time ngrok token (`$env:NGROK_AUTHTOKEN=...`) |
@@ -46,7 +49,7 @@ npm start
 | `src/db/` | Drizzle schema, migrations, queries |
 | `src/utils/` | time, day/night, hash, export, notifications |
 | `src/screens/` | Phase 1 UI |
-| `src/context/AuthContext.jsx` | mock auth + profile |
+| `src/context/AuthContext.jsx` | Supabase Google auth + local profile |
 | `app.json` | Expo config |
 
 Product specs: [`../docs/`](../docs/)

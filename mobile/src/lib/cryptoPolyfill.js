@@ -15,6 +15,9 @@ function toUint8Array(data) {
   return new Uint8Array(data);
 }
 
+/**
+ * Supabase PKCE needs crypto.subtle.digest (SHA-256). React Native does not provide it.
+ */
 export function installCryptoPolyfill() {
   if (globalThis.crypto?.subtle?.digest) return;
 

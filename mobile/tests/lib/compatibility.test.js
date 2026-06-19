@@ -83,7 +83,7 @@ describe('compatibility', () => {
     const result = evaluateBackendCompatibility({
       ...compatibleRemote,
       min_app_version: '1.0.0',
-      latest_app_version: '1.0.1',
+      latest_app_version: '9.9.9',
     });
     expect(result.ok).toBe(true);
     expect(result.updateOptional).toBe(true);

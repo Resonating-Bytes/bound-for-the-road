@@ -9,6 +9,11 @@ function isExpoGo() {
   );
 }
 
+/**
+ * OAuth redirect for Supabase.
+ * Expo Go must use exp:// (not the app custom scheme). Dev/production builds use boundfortheroad://.
+ * Add the returned URL in Supabase → Auth → URL Configuration → Redirect URLs.
+ */
 export function getAuthRedirectUri() {
   if (isExpoGo()) {
     return Linking.createURL('auth/callback');

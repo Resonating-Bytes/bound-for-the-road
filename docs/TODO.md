@@ -1,7 +1,7 @@
 # Bound for the Road — Project TODO
 
 **Last updated:** 2026-06-20  
-**Current phase:** Phase 2 — versioning complete; **next:** theme & color system (after versioning merge verified)
+**Current phase:** Phase 2 — versioning complete; **next:** theme & color system (after merge verified)
 
 **Decisions:** [DECISIONS.md](./DECISIONS.md) — do not duplicate here.  
 **Screens:** [SCREENS.md](./SCREENS.md)  
@@ -88,6 +88,7 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 - [x] Supabase project created + migrations applied (manual)
 - [x] Google sign-in via Supabase Auth (Expo Go)
 - [x] Profile upsert to Supabase (incl. `users_insert_own` for dev DB resets)
+- [x] Dev build scaffold (`expo-dev-client`, `eas.json`, bundle ID in `app.json`) — install blocked until Apple Dev
 
 ### Onboarding Part 2 — role + linking
 - [x] Role selection (teen vs adult) + adult name onboarding
@@ -105,11 +106,19 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 - [ ] Adult dashboard UX — multi-teen switcher ([SCREENS.md](./SCREENS.md)): 1 teen = static name; 2+ = dropdown; scope session/approval UI to selection
 - [x] Submit for approval, adult approve, attestation
 - [x] Push + Edge Function relay (deploy `send-approval-push`; run `eas init` for project ID — see [SUPABASE_SETUP.md](./SUPABASE_SETUP.md))
+- [ ] **Follow-up: iOS development build** (when ready for Apple Developer $99/year) — see [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md#development-build-bound-for-the-road-branding)
+  - [ ] Enroll in [Apple Developer Program](https://developer.apple.com/programs/)
+  - [ ] `npx eas-cli login` → `npx eas-cli init` (from `mobile/`)
+  - [ ] Supabase **Redirect URLs**: `boundfortheroad://**` (covers `boundfortheroad://auth/callback`)
+  - [ ] `npx eas-cli device:create` (register iPhone)
+  - [ ] `npx eas-cli build --profile development --platform ios`
+  - [ ] Install build on iPhone; daily dev via `npm run start:dev-client` (not Expo Go)
+  - [ ] OAuth system prompt should say **Bound for the Road** instead of **Expo**
+- [ ] Sign in with Apple (after iOS dev build)
 - [ ] Outbox sync to BACKEND endpoints
 - [ ] Maestro E2E happy path (dev/production build — not Expo Go)
 - [ ] Live Activity + Android foreground service
 - [ ] Deep links
-- [ ] iOS dev build / Sign in with Apple (when Apple Dev account ready)
 
 ---
 
