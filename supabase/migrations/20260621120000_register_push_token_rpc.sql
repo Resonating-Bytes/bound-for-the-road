@@ -38,3 +38,5 @@ WHERE pt.id NOT IN (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_push_tokens_token_unique ON public.push_tokens (token);
+
+UPDATE public.app_config SET value = '20260621120000' WHERE key = 'backend_revision';

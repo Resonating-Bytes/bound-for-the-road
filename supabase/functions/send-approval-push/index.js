@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { shortDisplayNameAtIndex } from '../_shared/displayName.ts';
+import { shortDisplayNameAtIndex } from '../_shared/displayName.js';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -8,37 +8,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-type PushEvent = 'session_submitted' | 'session_approved' | 'session_declined' | 'session_withdrawn';
-
-interface RequestBody {
-  event: PushEvent;
-  sessionId: string;
-  requestHash: string;
-  clientVersion?: string;
-}
-
-async function fetchLegalNamesByUserIds(
-  supabaseAdmin: ReturnType<typeof createClient>,
-  userIds: string[],
-): Promise<Map<string, string>> {
+async function fetchLegalNamesByUserIds(supabaseAdmin, userIds) {
   if (!userIds.length) return new Map();
   const { data, error } = await supabaseAdmin
     .from('users')
     .select('id, legal_name')
     .in('id', userIds);
   if (error) throw error;
-  const map = new Map<string, string>();
+  const map = new Map();
   for (const row of data ?? []) {
     map.set(row.id, row.legal_name?.trim() ?? '');
   }
   return map;
 }
 
-async function teenShortNameForAdult(
-  supabaseAdmin: ReturnType<typeof createClient>,
-  adultUserId: string,
-  teenUserId: string,
-): Promise<string> {
+async function teenShortNameForAdult(supabaseAdmin, adultUserId, teenUserId) {
   const { data: links, error: linksError } = await supabaseAdmin
     .from('links')
     .select('teen_user_id')
@@ -55,11 +39,7 @@ async function teenShortNameForAdult(
   return shortDisplayNameAtIndex(legalNames, index, 'Your teen');
 }
 
-async function adultShortNameForTeen(
-  supabaseAdmin: ReturnType<typeof createClient>,
-  teenUserId: string,
-  adultUserId: string,
-): Promise<string> {
+async function adultShortNameForTeen(supabaseAdmin, teenUserId, adultUserId) {
   const { data: links, error: linksError } = await supabaseAdmin
     .from('links')
     .select('adult_user_id')
@@ -76,7 +56,7 @@ async function adultShortNameForTeen(
   return shortDisplayNameAtIndex(legalNames, index, 'Supervisor');
 }
 
-async function sendExpoPush(messages: Record<string, unknown>[]) {
+async function sendExpoPush(messages) {
   if (!messages.length) return { ok: true, sent: 0 };
 
   const res = await fetch(EXPO_PUSH_URL, {
@@ -110,7 +90,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = (await req.json()) as RequestBody;
+    const body = await req.json();
     const { event, sessionId, requestHash } = body;
     if (!event || !sessionId || !requestHash) {
       return new Response(JSON.stringify({ error: 'invalid_body' }), {
@@ -154,10 +134,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    let recipientIds: string[] = [];
+    let recipientIds = [];
     let title = '';
     let dataType = '';
-    let bodyForRecipient: (recipientUserId: string) => Promise<string>;
+    let bodyForRecipient;
 
     if (event === 'session_submitted') {
       const { data: submission, error: submissionError } = await supabaseAdmin
@@ -330,7 +310,7 @@ Deno.serve(async (req) => {
 
     if (tokenError) throw tokenError;
 
-    const bodyByRecipient = new Map<string, string>();
+    const bodyByRecipient = new Map();
     for (const recipientId of recipientIds) {
       bodyByRecipient.set(recipientId, await bodyForRecipient(recipientId));
     }

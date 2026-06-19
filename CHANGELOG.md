@@ -13,6 +13,25 @@ App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 
 ### Fixed
 
+## [1.3.0] - 2026-06-19
+
+### Added
+
+- Per-teen adult switcher with persisted selection and filtered session lists
+- `register_push_token` RPC and unique push token index
+
+### Changed
+
+- Chevron session rows; edit/discard actions on ReviewSession detail
+- Teen discard copy; short names in list tiles and push notifications
+- `send-approval-push` edge function converted from TypeScript to JavaScript
+
+### Fixed
+
+- Revision-requested sessions open straight to edit; ReviewSession render loop
+- Push token registration so notifications stay on the right phone
+- Role-scoped in-app push handling; LinkAdult selects teen after link
+
 ## [1.2.0] - 2026-06-17
 
 ### Added

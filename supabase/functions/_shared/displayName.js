@@ -1,12 +1,12 @@
 /** First token of legal name (e.g. "Jane Doe" → "Jane"). */
-export function getFirstName(legalName: string | null | undefined): string {
+export function getFirstName(legalName) {
   const trimmed = (legalName ?? '').trim();
   if (!trimmed) return 'Driver';
   return trimmed.split(/\s+/)[0];
 }
 
 /** Last name initial for disambiguation (e.g. "Jane Doe" → "D"). */
-export function getLastInitial(legalName: string | null | undefined): string {
+export function getLastInitial(legalName) {
   const parts = (legalName ?? '')
     .trim()
     .split(/\s+/)
@@ -17,10 +17,10 @@ export function getLastInitial(legalName: string | null | undefined): string {
 }
 
 /** Short labels for a group of legal names. */
-export function shortDisplayNames(legalNames: (string | null | undefined)[]): string[] {
+export function shortDisplayNames(legalNames) {
   const list = (legalNames ?? []).map((name) => String(name ?? ''));
   const firstNames = list.map((name) => getFirstName(name));
-  const counts: Record<string, number> = {};
+  const counts = {};
   for (const first of firstNames) {
     counts[first] = (counts[first] ?? 0) + 1;
   }
@@ -35,11 +35,7 @@ export function shortDisplayNames(legalNames: (string | null | undefined)[]): st
   });
 }
 
-export function shortDisplayNameAtIndex(
-  legalNames: (string | null | undefined)[],
-  index: number,
-  fallback = 'Driver',
-): string {
+export function shortDisplayNameAtIndex(legalNames, index, fallback = 'Driver') {
   if (index < 0) return fallback;
   return shortDisplayNames(legalNames)[index] ?? fallback;
 }
