@@ -5,7 +5,7 @@ export const PUSH_EVENTS = {
   SESSION_SUBMITTED: 'session_submitted',
   SESSION_APPROVED: 'session_approved',
   SESSION_DECLINED: 'session_declined',
-  SESSION_WITHDRAWN: 'session_withdrawn',
+  SESSION_DISCARDED: 'session_withdrawn',
 };
 
 export async function notifyApprovalPush(event, { sessionId, requestHash }) {

@@ -87,17 +87,19 @@ Additional screens:
 
 Teen Save button label → **Submit for approval**.
 
-### Adult dashboard — linked teen context (deferred)
+### Adult dashboard — linked teen context
 
 When the adult dashboard shows session/approval data, it must be clear **which teen** is in view:
 
 | Linked teens | UI |
 |--------------|-----|
-| **0** | Empty state + enter invite code (current placeholder) |
-| **1** | Static label with teen name on dashboard — **no switcher** (list + remove live in linked-accounts section until switcher ships) |
-| **2+** | Prominent selected-teen label + easy switch control (dropdown or equivalent) |
+| **0** | Empty state + enter invite code |
+| **1** | Static label: “Viewing: {name}” |
+| **2+** | Horizontal name chips; selected chip uses theme accent |
 
-Switching teens updates all dashboard content scoped to that teen (approvals, active session, progress when added). Not built in the linking-only slice — implement when fleshing out adult dashboard / approvals.
+Switching teens updates progress bars and pending/approved session lists for that teen only. Selection persists per adult account (`adult_selected_teen_id_<adultUserId>`).
+
+After accepting an invite code, the adult returns to **Adult dashboard** with the newly linked teen selected.
 
 ### Teen Settings — linked accounts
 

@@ -17,7 +17,7 @@ import {
   getSubmissionForSession,
   getApprovalForHash,
   upsertApproval,
-  withdrawSubmission,
+  discardSubmittedSession,
   getSessionApprovalContext,
   resumeSession,
   discardDraft,
@@ -82,11 +82,11 @@ describe('queries', () => {
     expect(submission.superseded).toBe(false);
   });
 
-  test('withdraw submission soft-deletes saved session', async () => {
+  test('discard submitted session soft-deletes saved session', async () => {
     const active = createActiveSession(TEEN_ID);
     stopSession(active.id, '2026-06-01T15:00:00.000Z');
     await submitSession(active.id, { submittedByUserId: TEEN_ID });
-    const deleted = withdrawSubmission(active.id);
+    const deleted = discardSubmittedSession(active.id);
     expect(deleted.status).toBe('deleted');
     expect(deleted.deletedAt).not.toBeNull();
     expect(getSubmissionForSession(active.id)).toBeNull();

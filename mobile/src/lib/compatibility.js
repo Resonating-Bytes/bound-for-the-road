@@ -217,7 +217,7 @@ export function canUseRemoteSync(compatibility) {
   return compatibility.ok !== false || (!compatibility.backendStale && !compatibility.missingCapabilities?.length);
 }
 
-/** Remote write paths (submit, approve, decline, withdraw) need a compatible backend. */
+/** Remote write paths (submit, approve, decline, discard) need a compatible backend. */
 export function canUseRemoteWrite(compatibility) {
   if (FORCE_COMPATIBILITY_PREVIEW) return false;
   if (!compatibility || compatibility.skipped) return true;

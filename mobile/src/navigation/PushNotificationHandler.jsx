@@ -22,12 +22,12 @@ export function PushNotificationHandler({ userId, role }) {
     });
 
     function handleApprovalPushData(data) {
-      if (
-        data?.type === 'pending_approval' ||
-        data?.type === 'session_approved' ||
-        data?.type === 'session_declined' ||
-        data?.type === 'submission_withdrawn'
-      ) {
+      if (!data?.type) return;
+      const teenOnly = data.type === 'session_approved' || data.type === 'session_declined';
+      const adultOnly = data.type === 'pending_approval' || data.type === 'submission_withdrawn';
+      if (teenOnly && role !== 'teen') return;
+      if (adultOnly && role !== 'adult') return;
+      if (teenOnly || adultOnly) {
         emitApprovalPushReceived(data);
       }
     }

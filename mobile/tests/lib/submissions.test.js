@@ -22,7 +22,7 @@ jest.mock('../../src/db/queries', () => ({
     sessionId: 'sess-001',
   })),
   getSessionById: jest.fn(),
-  withdrawSubmission: jest.fn(() => ({ id: 'sess-001', status: 'deleted' })),
+  discardSubmittedSession: jest.fn(() => ({ id: 'sess-001', status: 'deleted' })),
   markSubmissionOutboxSynced: jest.fn(),
   clearOutboxForSession: jest.fn(),
   hasUnsyncedSubmissionOutbox: jest.fn(),
@@ -33,8 +33,8 @@ jest.mock('../../src/lib/approvalPush', () => ({
   PUSH_EVENTS: { SESSION_SUBMITTED: 'session_submitted' },
 }));
 
-import { submitSessionForApproval, withdrawSessionSubmission } from '../../src/lib/submissions';
-import { submitSession, getSubmissionForSession, withdrawSubmission } from '../../src/db/queries';
+import { submitSessionForApproval, discardSessionSubmission } from '../../src/lib/submissions';
+import { submitSession, getSubmissionForSession, discardSubmittedSession } from '../../src/db/queries';
 
 describe('submitSessionForApproval', () => {
   beforeEach(() => {
@@ -63,16 +63,16 @@ describe('submitSessionForApproval', () => {
   });
 });
 
-describe('withdrawSessionSubmission', () => {
+describe('discardSessionSubmission', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCanUseRemoteWrite.mockReturnValue(false);
     getSubmissionForSession.mockReturnValue({ requestHash: 'hash-1', sessionId: 'sess-001' });
-    withdrawSubmission.mockReturnValue({ id: 'sess-001', status: 'deleted' });
+    discardSubmittedSession.mockReturnValue({ id: 'sess-001', status: 'deleted' });
   });
 
-  test('withdraws locally when remote writes are blocked', async () => {
-    await withdrawSessionSubmission('sess-001');
-    expect(withdrawSubmission).toHaveBeenCalledWith('sess-001');
+  test('discards locally when remote writes are blocked', async () => {
+    await discardSessionSubmission('sess-001');
+    expect(discardSubmittedSession).toHaveBeenCalledWith('sess-001');
   });
 });

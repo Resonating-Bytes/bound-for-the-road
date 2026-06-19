@@ -103,8 +103,8 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 ### Next (Phase 2 continued)
 - [x] Theme color picker in Settings — categorized preset swatches + auto contrast text
 - [ ] Custom header color picker (hex / native color wheel) — see **After versioning — theme & color system**
-- [ ] Adult dashboard UX — multi-teen switcher ([SCREENS.md](./SCREENS.md)): 1 teen = static name; 2+ = dropdown; scope session/approval UI to selection
-  - [ ] **LinkAdult navigation:** after linking an additional teen, adult stays on invite screen — navigate to `AdultHome` on success (same as teen `LinkTeen` → dashboard)
+- [x] Adult dashboard UX — multi-teen switcher ([SCREENS.md](./SCREENS.md)): 1 teen = static label; 2+ = chips; scope progress + sessions
+- [x] **LinkAdult navigation:** navigate to AdultHome after successful link; select newly linked teen
 - [x] Submit for approval, adult approve, attestation
 - [x] Push + Edge Function relay (deploy `send-approval-push`; run `eas init` for project ID — see [SUPABASE_SETUP.md](./SUPABASE_SETUP.md))
 - [ ] **Follow-up: iOS development build** (when ready for Apple Developer $99/year) — see [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md#development-build-bound-for-the-road-branding)
@@ -149,7 +149,7 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 - [x] Tests: local DB version, compatibility evaluation, payload schema guard
 
 ### Still queued after versioning (Phase 2 continued)
-- [ ] Multi-teen switcher (includes LinkAdult → AdultHome after linking a 2nd+ teen)
+- [x] Multi-teen switcher (includes LinkAdult → AdultHome after linking a 2nd+ teen)
 - [ ] Outbox sync
 - [ ] Maestro E2E, Live Activity, deep links, Apple dev build
 

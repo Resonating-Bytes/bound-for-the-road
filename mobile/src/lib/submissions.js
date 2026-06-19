@@ -5,7 +5,7 @@ import {
   getSubmissionByHash,
   upsertApproval,
   getUserById,
-  withdrawSubmission,
+  discardSubmittedSession,
   returnSessionForRevision,
   healDraftAfterDecline,
   getSessionById,
@@ -157,20 +157,20 @@ export async function sendSavedSessionForApproval(sessionId) {
   return session;
 }
 
-export async function withdrawSessionSubmission(sessionId) {
+export async function discardSessionSubmission(sessionId) {
   const submission = getSubmissionForSession(sessionId);
-  const session = withdrawSubmission(sessionId);
+  const session = discardSubmittedSession(sessionId);
   clearOutboxForSession(sessionId);
   if (isSupabaseConfigured() && submission && isRemoteWriteAllowed()) {
     try {
       await markSubmissionSupersededRemote(submission.requestHash);
       await syncSessionToRemote(session);
-      await notifyApprovalPush(PUSH_EVENTS.SESSION_WITHDRAWN, {
+      await notifyApprovalPush(PUSH_EVENTS.SESSION_DISCARDED, {
         sessionId: session.id,
         requestHash: submission.requestHash,
       });
     } catch (e) {
-      console.warn('Remote withdraw sync failed:', e.message);
+      console.warn('Remote discard sync failed:', e.message);
     }
   }
   return session;

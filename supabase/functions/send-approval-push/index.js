@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
+import { shortDisplayNameAtIndex } from '../_shared/displayName.js';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -7,16 +8,55 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-type PushEvent = 'session_submitted' | 'session_approved' | 'session_declined' | 'session_withdrawn';
-
-interface RequestBody {
-  event: PushEvent;
-  sessionId: string;
-  requestHash: string;
-  clientVersion?: string;
+async function fetchLegalNamesByUserIds(supabaseAdmin, userIds) {
+  if (!userIds.length) return new Map();
+  const { data, error } = await supabaseAdmin
+    .from('users')
+    .select('id, legal_name')
+    .in('id', userIds);
+  if (error) throw error;
+  const map = new Map();
+  for (const row of data ?? []) {
+    map.set(row.id, row.legal_name?.trim() ?? '');
+  }
+  return map;
 }
 
-async function sendExpoPush(messages: Record<string, unknown>[]) {
+async function teenShortNameForAdult(supabaseAdmin, adultUserId, teenUserId) {
+  const { data: links, error: linksError } = await supabaseAdmin
+    .from('links')
+    .select('teen_user_id')
+    .eq('adult_user_id', adultUserId)
+    .eq('status', 'active');
+  if (linksError) throw linksError;
+
+  const teenIds = (links ?? []).map((row) => row.teen_user_id);
+  const index = teenIds.indexOf(teenUserId);
+  if (index < 0) return 'Your teen';
+
+  const names = await fetchLegalNamesByUserIds(supabaseAdmin, teenIds);
+  const legalNames = teenIds.map((id) => names.get(id) ?? '');
+  return shortDisplayNameAtIndex(legalNames, index, 'Your teen');
+}
+
+async function adultShortNameForTeen(supabaseAdmin, teenUserId, adultUserId) {
+  const { data: links, error: linksError } = await supabaseAdmin
+    .from('links')
+    .select('adult_user_id')
+    .eq('teen_user_id', teenUserId)
+    .eq('status', 'active');
+  if (linksError) throw linksError;
+
+  const adultIds = (links ?? []).map((row) => row.adult_user_id);
+  const index = adultIds.indexOf(adultUserId);
+  if (index < 0) return 'Supervisor';
+
+  const names = await fetchLegalNamesByUserIds(supabaseAdmin, adultIds);
+  const legalNames = adultIds.map((id) => names.get(id) ?? '');
+  return shortDisplayNameAtIndex(legalNames, index, 'Supervisor');
+}
+
+async function sendExpoPush(messages) {
   if (!messages.length) return { ok: true, sent: 0 };
 
   const res = await fetch(EXPO_PUSH_URL, {
@@ -50,7 +90,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = (await req.json()) as RequestBody;
+    const body = await req.json();
     const { event, sessionId, requestHash } = body;
     if (!event || !sessionId || !requestHash) {
       return new Response(JSON.stringify({ error: 'invalid_body' }), {
@@ -94,10 +134,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    let recipientIds: string[] = [];
+    let recipientIds = [];
     let title = '';
-    let bodyText = '';
     let dataType = '';
+    let bodyForRecipient;
 
     if (event === 'session_submitted') {
       const { data: submission, error: submissionError } = await supabaseAdmin
@@ -129,16 +169,16 @@ Deno.serve(async (req) => {
       if (linksError) throw linksError;
       recipientIds = (links ?? []).map((row) => row.adult_user_id);
 
-      const { data: teenProfile } = await supabaseAdmin
-        .from('users')
-        .select('legal_name')
-        .eq('id', session.teen_user_id)
-        .maybeSingle();
-
-      const teenName = teenProfile?.legal_name?.trim() || 'Your teen';
       title = 'Session ready to approve';
-      bodyText = `${teenName} submitted a practice session for your approval.`;
       dataType = 'pending_approval';
+      bodyForRecipient = async (recipientUserId) => {
+        const teenName = await teenShortNameForAdult(
+          supabaseAdmin,
+          recipientUserId,
+          session.teen_user_id,
+        );
+        return `${teenName} submitted a practice session for your approval.`;
+      };
     } else if (event === 'session_approved') {
       const { data: approval, error: approvalError } = await supabaseAdmin
         .from('approvals')
@@ -156,16 +196,16 @@ Deno.serve(async (req) => {
 
       recipientIds = [session.teen_user_id];
 
-      const { data: adultProfile } = await supabaseAdmin
-        .from('users')
-        .select('legal_name')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      const adultName = adultProfile?.legal_name?.trim() || 'Supervisor';
       title = 'Session approved';
-      bodyText = `${adultName} approved your practice session.`;
       dataType = 'session_approved';
+      bodyForRecipient = async (recipientUserId) => {
+        const adultName = await adultShortNameForTeen(
+          supabaseAdmin,
+          recipientUserId,
+          user.id,
+        );
+        return `${adultName} approved your practice session.`;
+      };
     } else if (event === 'session_declined') {
       const { data: link, error: linkError } = await supabaseAdmin
         .from('links')
@@ -198,16 +238,16 @@ Deno.serve(async (req) => {
 
       recipientIds = [session.teen_user_id];
 
-      const { data: adultProfile } = await supabaseAdmin
-        .from('users')
-        .select('legal_name')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      const adultName = adultProfile?.legal_name?.trim() || 'Supervisor';
       title = 'Session sent back';
-      bodyText = `${adultName} sent your practice session back for revision.`;
       dataType = 'session_declined';
+      bodyForRecipient = async (recipientUserId) => {
+        const adultName = await adultShortNameForTeen(
+          supabaseAdmin,
+          recipientUserId,
+          user.id,
+        );
+        return `${adultName} sent your practice session back for revision.`;
+      };
     } else if (event === 'session_withdrawn') {
       if (session.teen_user_id !== user.id) {
         return new Response(JSON.stringify({ error: 'forbidden' }), {
@@ -239,16 +279,16 @@ Deno.serve(async (req) => {
       if (linksError) throw linksError;
       recipientIds = (links ?? []).map((row) => row.adult_user_id);
 
-      const { data: teenProfile } = await supabaseAdmin
-        .from('users')
-        .select('legal_name')
-        .eq('id', session.teen_user_id)
-        .maybeSingle();
-
-      const teenName = teenProfile?.legal_name?.trim() || 'Your teen';
-      title = 'Session withdrawn';
-      bodyText = `${teenName} withdrew a session that was pending your approval.`;
+      title = 'Session discarded';
       dataType = 'submission_withdrawn';
+      bodyForRecipient = async (recipientUserId) => {
+        const teenName = await teenShortNameForAdult(
+          supabaseAdmin,
+          recipientUserId,
+          session.teen_user_id,
+        );
+        return `${teenName} discarded a session that was pending your approval.`;
+      };
     } else {
       return new Response(JSON.stringify({ error: 'unknown_event' }), {
         status: 400,
@@ -265,16 +305,20 @@ Deno.serve(async (req) => {
 
     const { data: tokenRows, error: tokenError } = await supabaseAdmin
       .from('push_tokens')
-      .select('token')
+      .select('token, user_id')
       .in('user_id', recipientIds);
 
     if (tokenError) throw tokenError;
 
-    const tokens = [...new Set((tokenRows ?? []).map((row) => row.token))];
-    const messages = tokens.map((token) => ({
-      to: token,
+    const bodyByRecipient = new Map();
+    for (const recipientId of recipientIds) {
+      bodyByRecipient.set(recipientId, await bodyForRecipient(recipientId));
+    }
+
+    const messages = (tokenRows ?? []).map((row) => ({
+      to: row.token,
       title,
-      body: bodyText,
+      body: bodyByRecipient.get(row.user_id) ?? title,
       sound: 'default',
       channelId: 'approvals',
       data: {
