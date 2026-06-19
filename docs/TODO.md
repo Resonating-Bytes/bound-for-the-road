@@ -1,13 +1,13 @@
 # Bound for the Road — Project TODO
 
-**Last updated:** 2026-06-19  
-**Current phase:** Phase 2 — push notifications wired; next up: outbox sync, multi-teen switcher
+**Last updated:** 2026-06-20  
+**Current phase:** Phase 2 — push/approval flow largely complete; **next batch after merge:** compatibility & versioning → theme/color system
 
 **Decisions:** [DECISIONS.md](./DECISIONS.md) — do not duplicate here.  
 **Screens:** [SCREENS.md](./SCREENS.md)  
 **Testing:** [TESTING.md](./TESTING.md) — planned harness; implement after Phase 1 feature sign-off
 
-**Supabase migrations to apply (in order):** `20260618120000_initial_schema.sql`, `20260618120001_rls_policies.sql`, `20260619120000_link_invite_rpc.sql`, `20260619130000_users_insert_own.sql` — see [SUPABASE_SETUP.md](./SUPABASE_SETUP.md).
+**Supabase migrations to apply (in order):** `20260618120000_initial_schema.sql` through `20260619170000_approvals_adult_linked_select.sql` — see [SUPABASE_SETUP.md](./SUPABASE_SETUP.md).
 
 ---
 
@@ -101,7 +101,7 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 
 ### Next (Phase 2 continued)
 - [x] Theme color picker in Settings — categorized preset swatches + auto contrast text
-- [ ] Custom header color picker (hex / native color wheel for full control)
+- [ ] Custom header color picker (hex / native color wheel) — see **After versioning — theme & color system**
 - [ ] Adult dashboard UX — multi-teen switcher ([SCREENS.md](./SCREENS.md)): 1 teen = static name; 2+ = dropdown; scope session/approval UI to selection
 - [x] Submit for approval, adult approve, attestation
 - [x] Push + Edge Function relay (deploy `send-approval-push`; run `eas init` for project ID — see [SUPABASE_SETUP.md](./SUPABASE_SETUP.md))
@@ -110,6 +110,76 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 - [ ] Live Activity + Android foreground service
 - [ ] Deep links
 - [ ] iOS dev build / Sign in with Apple (when Apple Dev account ready)
+
+---
+
+## Next batch (after merge) — compatibility & versioning
+
+**Goal:** Safe schema/API evolution so old app builds, new backends, and in-flight payloads don’t silently corrupt data.
+
+**What exists today (partial):**
+- Payload `schemaVersion: 1` in hash canonical JSON ([APPROVAL_AND_HASH.md](./APPROVAL_AND_HASH.md), `hash.js`) — field is set but no bump/migration policy yet
+- Supabase DDL via timestamped SQL files (`supabase/migrations/`) — manual apply; app does not check revision
+- Local SQLite uses `CREATE TABLE IF NOT EXISTS` only (`migrations.js`) — **no version table or incremental migrations** (CROSS_PLATFORM.md called for this; not built)
+
+**You need both layers (not either/or):**
+| Layer | What it versions | Example |
+|-------|------------------|---------|
+| **Data / payload** | Shape of hashed session JSON | `schemaVersion: 2` adds a field; old approvals still bind to v1 hashes |
+| **Data / storage** | SQLite + Postgres table columns | Local migration v3 adds column; Supabase migration adds RPC param |
+| **Software / API** | App build ↔ backend capabilities | App 1.2 requires `decline_submission` RPC + `session_withdrawn` push event; block or prompt if missing |
+
+### Plan (implement in this batch)
+- [ ] Short design note in docs (extend APPROVAL_AND_HASH or new `COMPATIBILITY.md`): version numbering, who bumps what, and client behavior on mismatch
+- [ ] **Local SQLite:** `schema_version` table + numbered incremental migrations (replace one-shot `CREATE IF NOT EXISTS`)
+- [ ] **Payload:** `schemaVersion` bump rules; backward-compatible readers; when re-hash / re-submit is required
+- [ ] **Backend revision:** track applied migration id (table or config); expose read-only `GET` / RPC for app health check (`min_app_version`, `backend_revision`, required RPC names)
+- [ ] **App startup check:** compare local expectations vs backend; degrade gracefully (read-only, block submit, or “update app” banner) — policy TBD in design note
+- [ ] **Edge functions / RPCs:** version or capability tag in `send-approval-push` request body; reject unknown events with clear error
+- [ ] Tests: local DB migrate vN→vN+1; payload v1 still verifies; mocked backend-too-old / app-too-old paths
+
+### Still queued after versioning (Phase 2 continued)
+- [ ] Multi-teen switcher
+- [ ] Outbox sync
+- [ ] Maestro E2E, Live Activity, deep links, Apple dev build
+
+---
+
+## After versioning — theme & color system
+
+**Goal:** Richer personalization beyond header-only presets; secondary color for accents across the app.
+
+**What exists today:**
+- Per-user header preset (`header_theme_id_<userId>`) in Settings — Neutrals, Saturated, Light categories
+- `resolveTheme()` sets `headerBackground`, `headerBorder`, `headerText`, `statusBarStyle` only
+- Body UI still uses hardcoded accent (`#2563eb` on primary buttons, links, loaders, etc.) — not tied to theme
+
+### Design (spike first)
+- [ ] Decide **secondary color** role: accent buttons, progress bar fill, links, selected states, section highlights?
+- [ ] **Approach A — derived:** compute from primary/header (HSL: lower saturation, higher lightness, or alpha blend on `screenBackground`); single picker, harmonious palette
+- [ ] **Approach B — configurable:** second swatch per preset (or global secondary picker); more control, more Settings UI
+- [ ] **Approach C — hybrid:** derived by default, optional per-preset `secondaryBackground` override in preset definition
+- [ ] Contrast rules for secondary on white/light backgrounds (extend `contrast.js`); vibrant presets need extra care
+- [ ] **Header text outline:** explore dark grey/black stroke or shadow on title text in `ScreenHeader` so mid-tone header colors (e.g. Slate, Sand, Amber) stay readable without flipping to pure light/dark text
+  - RN options: `textShadow*` (iOS + Android), multi-layer `Text` stroke hack, or SVG — spike which renders cleanly at 28px bold
+  - Policy: always-on outline vs only when `relativeLuminance(headerBackground)` is in a “muddy middle” band
+  - Back button icon may need matching treatment if header background is mid-tone
+  - Tests: snapshot or contrast assertions for mid-tone presets with outline enabled
+
+### Implementation
+- [ ] Extend preset model + `resolveTheme()` with `accent` / `secondaryBackground` / `accentText` (names TBD in spike)
+- [ ] Replace hardcoded `#2563eb` (and related) in shared components: `DashboardScreen`, `AdultHomeScreen`, `SettingsScreen`, `ProgressBar`, `ActivityIndicator`, status/link styles
+- [ ] **Vibrant** category — four new presets:
+  - Bright orange
+  - Hot pink
+  - Lime green
+  - Royal blue
+- [ ] `ThemePickerSection` — render Vibrant row; preview shows header + secondary sample (chip or button mock)
+- [ ] `ScreenHeader` — apply outlined/stroked title per spike; expose `headerTextOutline` (or similar) from `resolveTheme()` / `getHeaderContrast()`
+- [ ] Tests: contrast for Vibrant presets; `resolveTheme` secondary derivation (or explicit overrides); mid-tone header text legibility with outline
+- [ ] Optional (same batch or follow-up): custom hex / native color wheel for primary (and secondary if configurable)
+
+**Reading order:** `presets.js`, `resolveTheme.js`, `contrast.js`, `ScreenHeader.jsx`, `ThemePickerSection.jsx`
 
 ---
 

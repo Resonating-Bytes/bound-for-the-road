@@ -1,10 +1,11 @@
-import { eq, and, or, isNull, desc, sql } from 'drizzle-orm';
+import { eq, and, or, isNull, desc, sql, inArray } from 'drizzle-orm';
 import { getDb } from './client';
 import { users, sessions, outbox, links, settings, submissions, approvals } from './schema';
 import { generateId, nowISO, durationMinutes } from '../utils/time';
 import { classifyDayNight } from '../utils/dayNight';
 import { buildSubmitPayload, computeRequestHash, stableSubmitStringify } from '../utils/hash';
 import { IL_RULES } from '../config/states/IL';
+import { clearHeaderThemePreference } from '../theme/headerTheme';
 
 export function getUserById(userId) {
   const db = getDb();
@@ -34,13 +35,53 @@ export function upsertUser(profile) {
   return row;
 }
 
+export function listSessionIdsForTeen(teenUserId) {
+  const db = getDb();
+  return db
+    .select({ id: sessions.id })
+    .from(sessions)
+    .where(eq(sessions.teenUserId, teenUserId))
+    .all()
+    .map((row) => row.id);
+}
+
+function deleteOutboxForUser(userId, sessionIds) {
+  const db = getDb();
+  db.delete(outbox).where(eq(outbox.userId, userId)).run();
+
+  if (!sessionIds.length) return;
+
+  const sessionIdSet = new Set(sessionIds);
+  const rows = db.select().from(outbox).all();
+  for (const row of rows) {
+    if (row.userId) continue;
+    try {
+      const payload = JSON.parse(row.payloadJson);
+      if (payload.sessionId && sessionIdSet.has(payload.sessionId)) {
+        db.delete(outbox).where(eq(outbox.id, row.id)).run();
+      }
+    } catch {
+      // ignore malformed outbox payloads
+    }
+  }
+}
+
 export function deleteAllUserData(userId) {
   const db = getDb();
+  const sessionIds = listSessionIdsForTeen(userId);
+  deleteOutboxForUser(userId, sessionIds);
+  if (sessionIds.length) {
+    db.delete(submissions).where(inArray(submissions.sessionId, sessionIds)).run();
+    db.delete(approvals).where(inArray(approvals.sessionId, sessionIds)).run();
+  }
+  db.delete(approvals).where(eq(approvals.approvedByUserId, userId)).run();
+  db.delete(submissions).where(eq(submissions.submittedByUserId, userId)).run();
   db.delete(sessions).where(eq(sessions.teenUserId, userId)).run();
   db.delete(links).where(or(eq(links.teenUserId, userId), eq(links.adultUserId, userId))).run();
   db.delete(settings).where(eq(settings.key, roleChosenKey(userId))).run();
   db.delete(settings).where(eq(settings.key, linkInviteDeferredKey(userId))).run();
   db.delete(users).where(eq(users.id, userId)).run();
+  clearHeaderThemePreference(userId);
 }
 
 export function createActiveSession(teenUserId, stateCode = 'IL') {
@@ -219,7 +260,7 @@ export async function submitSession(
       superseded: false,
     })
     .run();
-  enqueueOutbox('session_submitted', { sessionId, requestHash });
+  enqueueOutbox('session_submitted', { sessionId, requestHash }, submittedByUserId);
   return getSessionById(sessionId);
 }
 
@@ -409,13 +450,14 @@ export function getProgress(teenUserId) {
   return { totalMinutes, nightMinutes, dayMinutes: totalMinutes - nightMinutes };
 }
 
-export function enqueueOutbox(operation, payload) {
+export function enqueueOutbox(operation, payload, userId) {
   const db = getDb();
   db.insert(outbox)
     .values({
       id: generateId(),
       operation,
       payloadJson: JSON.stringify(payload),
+      userId,
       createdAt: nowISO(),
       syncedAt: null,
     })
