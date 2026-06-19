@@ -9,6 +9,7 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { Screen } from './src/components/Screen';
 import { ThemeProvider, ThemeStatusBar } from './src/context/ThemeContext';
+import { DEFAULT_COLORS } from './src/theme/colors';
 import { isSupabaseConfigured } from './src/lib/supabase';
 import { createSessionFromUrl } from './src/lib/googleAuth';
 
@@ -59,7 +60,7 @@ export default function App() {
     return (
       <SafeAreaProvider>
         <Screen style={styles.center}>
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={DEFAULT_COLORS.accent} />
         </Screen>
       </SafeAreaProvider>
     );

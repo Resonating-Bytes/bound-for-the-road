@@ -4,10 +4,13 @@ import { useAuth } from '../../context/AuthContext';
 import { Screen } from '../../components/Screen';
 import { StatePickerField } from '../../components/StatePickerField';
 import { DEFAULT_STATE_CODE } from '../../config/usStates';
-import { shared } from './sharedStyles';
+import { useTheme } from '../../context/ThemeContext';
+import { shared, themeAccentStyles } from './sharedStyles';
 
 export function OnboardingStateScreen({ navigation }) {
   const { user, saveProfile } = useAuth();
+  const { theme } = useTheme();
+  const accent = themeAccentStyles(theme);
   const [stateCode, setStateCode] = useState(user?.stateCode ?? DEFAULT_STATE_CODE);
 
   function next() {
@@ -28,8 +31,8 @@ export function OnboardingStateScreen({ navigation }) {
         <Text style={shared.title}>Your state</Text>
         <Text style={shared.hint}>Where you hold your learner's permit.</Text>
         <StatePickerField value={stateCode} onChange={setStateCode} />
-        <Pressable style={shared.button} onPress={next}>
-          <Text style={shared.buttonText}>Continue</Text>
+        <Pressable style={[shared.button, accent.button]} onPress={next}>
+          <Text style={[shared.buttonText, accent.buttonText]}>Continue</Text>
         </Pressable>
       </View>
     </Screen>

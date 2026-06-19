@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { DEFAULT_COLORS } from '../theme/colors';
 
 export class ErrorBoundary extends Component {
   state = { error: null };
@@ -14,7 +15,10 @@ export class ErrorBoundary extends Component {
         <View style={styles.container}>
           <Text style={styles.title}>Something went wrong</Text>
           <Text style={styles.message}>{String(this.state.error?.message ?? this.state.error)}</Text>
-          <Pressable style={styles.button} onPress={() => this.setState({ error: null })}>
+          <Pressable
+            style={[styles.button, { backgroundColor: DEFAULT_COLORS.accent }]}
+            onPress={() => this.setState({ error: null })}
+          >
             <Text style={styles.buttonText}>Try again</Text>
           </Pressable>
         </View>
@@ -34,7 +38,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: '700', color: '#dc2626', marginBottom: 12 },
   message: { fontSize: 15, color: '#5a6b7c', lineHeight: 22, marginBottom: 20 },
   button: {
-    backgroundColor: '#2563eb',
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',

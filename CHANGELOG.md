@@ -13,6 +13,21 @@ App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 
 ### Fixed
 
+## [1.2.0] - 2026-06-17
+
+### Added
+
+- Header theme presets with curated **accent colors** (Neutrals, Saturated, Light, **Vibrant**)
+- Per-user header color picker in Settings (header swatch + accent chip preview)
+- Header title **halo** on all screen headers for readability on mid-tone backgrounds
+
+### Changed
+
+- Default theme preset is **Charcoal** with original blue accent for buttons and links
+- Primary actions, links, loaders, and progress bar use `theme.accent` instead of hardcoded blue
+- Teen dashboard header title renamed to **Teen dashboard** (matches Adult dashboard)
+- **Scarlet** preset (renamed from Crimson); Eric’s curated accent/header values across presets
+
 ## [1.1.0] - 2026-06-17
 
 ### Added

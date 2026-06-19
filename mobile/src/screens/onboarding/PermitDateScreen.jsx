@@ -4,10 +4,13 @@ import { useAuth } from '../../context/AuthContext';
 import { Screen } from '../../components/Screen';
 import { DatePickerField } from '../../components/DatePickerField';
 import { toISODateOnly } from '../../utils/time';
-import { shared } from './sharedStyles';
+import { useTheme } from '../../context/ThemeContext';
+import { shared, themeAccentStyles } from './sharedStyles';
 
 export function OnboardingPermitScreen() {
   const { user, saveProfile } = useAuth();
+  const { theme } = useTheme();
+  const accent = themeAccentStyles(theme);
   const [permitDate, setPermitDate] = useState(
     user?.permitIssueDate ?? toISODateOnly(new Date()),
   );
@@ -33,8 +36,8 @@ export function OnboardingPermitScreen() {
           onChange={setPermitDate}
           maximumDate={new Date()}
         />
-        <Pressable style={shared.button} onPress={finish}>
-          <Text style={shared.buttonText}>Continue</Text>
+        <Pressable style={[shared.button, accent.button]} onPress={finish}>
+          <Text style={[shared.buttonText, accent.buttonText]}>Continue</Text>
         </Pressable>
       </View>
     </Screen>

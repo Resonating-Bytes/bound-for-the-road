@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { View, Text, Platform, Pressable, StyleSheet } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { formatDate, parseISODate, toISODateOnly } from '../utils/time';
+import { useTheme } from '../context/ThemeContext';
 
 export function DatePickerField({ value, onChange, minimumDate, maximumDate, compact = false }) {
+  const { theme } = useTheme();
   const [date, setDate] = useState(() => parseISODate(value, maximumDate ?? new Date()));
   const [showPicker, setShowPicker] = useState(false);
 
@@ -30,7 +32,9 @@ export function DatePickerField({ value, onChange, minimumDate, maximumDate, com
         <View style={styles.compactRow}>
           <Text style={styles.compactDate}>{value ? formatDate(value) : 'Not set'}</Text>
           <Pressable onPress={() => setShowPicker((open) => !open)} hitSlop={8}>
-            <Text style={styles.editLink}>{showPicker ? 'Done' : 'Edit'}</Text>
+            <Text style={[styles.editLink, { color: theme.accent }]}>
+              {showPicker ? 'Done' : 'Edit'}
+            </Text>
           </Pressable>
         </View>
         {showPicker && Platform.OS === 'ios' ? (
@@ -109,7 +113,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   compactDate: { fontSize: 16, color: '#1a2b3c' },
-  editLink: { color: '#2563eb', fontSize: 16, fontWeight: '600' },
+  editLink: { fontSize: 16, fontWeight: '600' },
   androidBtn: {
     backgroundColor: '#fff',
     borderWidth: 1,

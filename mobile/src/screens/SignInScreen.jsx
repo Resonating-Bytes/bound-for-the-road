@@ -3,9 +3,11 @@ import { Text, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-nat
 import { useAuth } from '../context/AuthContext';
 import { Screen } from '../components/Screen';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
+import { useTheme } from '../context/ThemeContext';
 
 export function SignInScreen() {
   const { supabaseAuth, signInWithGoogle, mockSignIn } = useAuth();
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
 
   async function handleGoogleSignIn() {
@@ -44,11 +46,17 @@ export function SignInScreen() {
           <Text style={styles.body}>
             Supabase is not configured. Using local mock sign-in for offline development.
           </Text>
-          <Pressable style={styles.mockButton} onPress={handleMockSignIn} disabled={loading}>
+          <Pressable
+            style={[styles.mockButton, { backgroundColor: theme.accent }]}
+            onPress={handleMockSignIn}
+            disabled={loading}
+          >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={theme.accentText} />
             ) : (
-              <Text style={styles.mockButtonText}>Continue (mock sign-in)</Text>
+              <Text style={[styles.mockButtonText, { color: theme.accentText }]}>
+                Continue (mock sign-in)
+              </Text>
             )}
           </Pressable>
         </>
@@ -66,11 +74,10 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 16, color: '#5a6b7c', marginBottom: 24 },
   body: { fontSize: 16, lineHeight: 24, color: '#2a3b4c', marginBottom: 24 },
   mockButton: {
-    backgroundColor: '#2563eb',
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 10,
     alignItems: 'center',
   },
-  mockButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  mockButtonText: { fontSize: 16, fontWeight: '600' },
 });

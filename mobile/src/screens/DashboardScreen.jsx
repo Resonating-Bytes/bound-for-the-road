@@ -36,6 +36,7 @@ import {
   sendSavedSessionForApproval,
 } from '../lib/submissions';
 import { useCompatibility } from '../context/CompatibilityContext';
+import { useTheme } from '../context/ThemeContext';
 import { getSessionDisplayStatus } from '../utils/sessionStatus';
 import { groupSessionsForDashboard } from '../utils/dashboardSessions';
 import { useApprovalPushRefresh } from '../hooks/useApprovalPushRefresh';
@@ -43,6 +44,7 @@ import { IL_RULES } from '../config/states/IL';
 import { formatDate, formatDuration, addMonths } from '../utils/time';
 import { dayNightLabel } from '../utils/dayNight';
 import { renderExportTemplate } from '../utils/export';
+import { TEEN_DASHBOARD_TITLE } from '../theme/headerTitleEffects';
 import {
   scheduleSessionNudge,
   cancelSessionNotifications,
@@ -52,6 +54,7 @@ import {
 export function DashboardScreen({ navigation }) {
   const { userId, user } = useAuth();
   const { canRemoteWrite } = useCompatibility();
+  const { theme } = useTheme();
   const [sessions, setSessions] = useState([]);
   const [progress, setProgress] = useState({ totalMinutes: 0, nightMinutes: 0 });
   const [statusBySessionId, setStatusBySessionId] = useState({});
@@ -147,7 +150,7 @@ export function DashboardScreen({ navigation }) {
           </Pressable>
           <View style={styles.topActions}>
             <Pressable onPress={() => handleEdit(item.id)}>
-              <Text style={styles.editLink}>Edit</Text>
+              <Text style={[styles.editLink, { color: theme.accent }]}>Edit</Text>
             </Pressable>
             {showWithdraw ? (
               <Pressable onPress={() => handleWithdraw(item.id)}>
@@ -172,7 +175,7 @@ export function DashboardScreen({ navigation }) {
         ) : null}
         {showSend ? (
           <Pressable style={styles.sendRow} onPress={() => handleSendForApproval(item.id)}>
-            <Text style={styles.sendLink}>Send for approval</Text>
+            <Text style={[styles.sendLink, { color: theme.accent }]}>Send for approval</Text>
           </Pressable>
         ) : null}
       </View>
@@ -295,7 +298,7 @@ export function DashboardScreen({ navigation }) {
   return (
     <Screen withHeader>
       <ScreenHeader
-        title="Dashboard"
+        title={TEEN_DASHBOARD_TITLE}
         rightAction={
           <IconCircleButton
             icon="settings-outline"
@@ -325,8 +328,8 @@ export function DashboardScreen({ navigation }) {
       />
 
       <View style={styles.actions}>
-        <Pressable style={styles.primaryBtn} onPress={handleStart}>
-          <Text style={styles.primaryBtnText}>Start session</Text>
+        <Pressable style={[styles.primaryBtn, { backgroundColor: theme.accent }]} onPress={handleStart}>
+          <Text style={[styles.primaryBtnText, { color: theme.accentText }]}>Start session</Text>
         </Pressable>
         <Pressable style={styles.secondaryBtn} onPress={handleExportAll}>
           <Text style={styles.secondaryBtnText}>Export all</Text>
@@ -360,12 +363,11 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   primaryBtn: {
     flex: 1,
-    backgroundColor: '#2563eb',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
   },
-  primaryBtnText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  primaryBtnText: { fontWeight: '600', fontSize: 16 },
   secondaryBtn: {
     flex: 1,
     backgroundColor: '#fff',
@@ -426,7 +428,7 @@ const styles = StyleSheet.create({
   statusSavedLocal: { color: '#1d4ed8' },
   statusNeedsRevision: { color: '#dc2626' },
   statusSuperseded: { color: '#9333ea' },
-  editLink: { color: '#2563eb', fontWeight: '600', fontSize: 14 },
-  sendLink: { color: '#2563eb', fontWeight: '600', fontSize: 14 },
+  editLink: { fontWeight: '600', fontSize: 14 },
+  sendLink: { fontWeight: '600', fontSize: 14 },
   withdrawLink: { color: '#dc2626', fontWeight: '600', fontSize: 14 },
 });

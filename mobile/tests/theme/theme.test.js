@@ -10,7 +10,13 @@ import {
   writeHeaderThemePresetId,
 } from '../../src/theme/headerTheme';
 import { resolveTheme } from '../../src/theme/resolveTheme';
-import { DEFAULT_PRESET_ID, getPresetById } from '../../src/theme/presets';
+import { DEFAULT_PRESET_ID, getPresetById, getPresetsByCategory } from '../../src/theme/presets';
+import {
+  getScreenHeaderTitleStyle,
+  getTitleEffectColor,
+  HEADER_TITLE_HALO,
+  SCREEN_HEADER_TITLE_FONT_SIZE,
+} from '../../src/theme/headerTitleEffects';
 
 describe('theme', () => {
   beforeEach(() => {
@@ -19,11 +25,58 @@ describe('theme', () => {
   });
 
   test('resolveTheme applies preset header colors', () => {
+    const oceanPreset = getPresetById('ocean');
     const ocean = resolveTheme('ocean');
-    expect(ocean.headerBackground).toBe('#dbeafe');
-    expect(ocean.headerBorder).toBe('#bfdbfe');
+    expect(ocean.headerBackground).toBe(oceanPreset.headerBackground);
+    expect(ocean.headerBorder).toBe(oceanPreset.headerBorder);
     expect(ocean.headerText).toBe('#1a2b3c');
     expect(ocean.statusBarStyle).toBe('dark');
+    expect(ocean.accent).toBe(oceanPreset.accent);
+    expect(ocean.accentText).toBe('#f8fafc');
+    expect(ocean.headerTitleHalo).toEqual({
+      textShadowColor: 'rgba(255, 255, 255, 1)',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: HEADER_TITLE_HALO.radius,
+    });
+  });
+
+  test('getTitleEffectColor flips for light vs dark header text', () => {
+    expect(getTitleEffectColor('#1e293b')).toContain('15, 23, 42');
+    expect(getTitleEffectColor('#dbeafe')).toContain('255, 255, 255');
+  });
+
+  test('curated accent per preset', () => {
+    expect(resolveTheme('lilac').accent).toBe(getPresetById('lilac').accent);
+    expect(resolveTheme('sand').accent).toBe(getPresetById('sand').accent);
+    expect(resolveTheme('midnight').accent).toBe(getPresetById('midnight').accent);
+    expect(resolveTheme('royalBlue').accent).toBe(getPresetById('royalBlue').accent);
+  });
+
+  test('vibrant category has four presets with halo', () => {
+    const vibrant = getPresetsByCategory().find((c) => c.key === 'vibrant');
+    expect(vibrant?.presets).toHaveLength(4);
+    for (const preset of vibrant.presets) {
+      const theme = resolveTheme(preset.id);
+      expect(theme.accent).toBeTruthy();
+      expect(theme.headerTitleHalo.textShadowRadius).toBe(HEADER_TITLE_HALO.radius);
+    }
+  });
+
+  test('getScreenHeaderTitleStyle applies production typography and halo', () => {
+    const [typography, halo] = getScreenHeaderTitleStyle('#a0a0a0', '#f8fafc');
+    expect(typography).toEqual({
+      fontSize: SCREEN_HEADER_TITLE_FONT_SIZE,
+      fontWeight: '700',
+      color: '#f8fafc',
+    });
+    expect(halo.textShadowRadius).toBe(HEADER_TITLE_HALO.radius);
+    expect(halo.textShadowColor).toBe('rgba(15, 23, 42, 1)');
+  });
+
+  test('resolveTheme headerTitleHalo matches getScreenHeaderTitleStyle', () => {
+    const slate = resolveTheme('slate');
+    const [, halo] = getScreenHeaderTitleStyle(slate.headerBackground, slate.headerText);
+    expect(slate.headerTitleHalo).toEqual(halo);
   });
 
   test('resolveTheme auto-contrasts text on dark presets', () => {
@@ -31,9 +84,18 @@ describe('theme', () => {
     expect(slate.headerText).toBe('#f8fafc');
     expect(slate.statusBarStyle).toBe('light');
 
-    const crimson = resolveTheme('crimson');
-    expect(crimson.headerText).toBe('#f8fafc');
-    expect(crimson.statusBarStyle).toBe('light');
+    const scarlet = resolveTheme('scarlet');
+    expect(scarlet.headerText).toBe('#f8fafc');
+    expect(scarlet.statusBarStyle).toBe('light');
+  });
+
+  test('default preset is charcoal with original blue accent', () => {
+    const charcoalPreset = getPresetById('charcoal');
+    const theme = resolveTheme(DEFAULT_PRESET_ID);
+    expect(DEFAULT_PRESET_ID).toBe('charcoal');
+    expect(theme.headerBackground).toBe(charcoalPreset.headerBackground);
+    expect(theme.accent).toBe(charcoalPreset.accent);
+    expect(theme.accentText).toBe('#f8fafc');
   });
 
   test('resolveTheme falls back to default for unknown id', () => {
@@ -50,10 +112,10 @@ describe('theme', () => {
   });
 
   test('migrates legacy device-global header theme key to active user', () => {
-    setSettingValue('header_theme_id', 'crimson');
-    expect(readHeaderThemePresetId('user-a')).toBe('crimson');
+    setSettingValue('header_theme_id', 'scarlet');
+    expect(readHeaderThemePresetId('user-a')).toBe('scarlet');
     expect(getSettingValue('header_theme_id')).toBeNull();
-    expect(getSettingValue(headerThemeSettingKey('user-a'))).toBe('crimson');
+    expect(getSettingValue(headerThemeSettingKey('user-a'))).toBe('scarlet');
   });
 
   test('deleteAllUserData clears only that user header theme', () => {

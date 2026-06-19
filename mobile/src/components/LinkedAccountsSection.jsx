@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet, Alert, ActivityIndicator } from 'rea
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchLinkedPartners, removeLink } from '../lib/links';
+import { useTheme } from '../context/ThemeContext';
 
 export function LinkedAccountsSection({
   userId,
@@ -13,6 +14,7 @@ export function LinkedAccountsSection({
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState(null);
+  const { theme } = useTheme();
 
   const loadPartners = useCallback(async () => {
     if (!userId) return;
@@ -70,7 +72,7 @@ export function LinkedAccountsSection({
       <Text style={styles.sectionTitle}>Linked accounts</Text>
 
       {loading ? (
-        <ActivityIndicator style={styles.loader} color="#2563eb" />
+        <ActivityIndicator style={styles.loader} color={theme.accent} />
       ) : partners.length ? (
         <View style={styles.list}>
           {partners.map((partner, index) => (

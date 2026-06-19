@@ -1,6 +1,9 @@
 import { View, Text, StyleSheet } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
-export function ProgressBar({ label, currentMinutes, targetHours, color = '#2563eb' }) {
+export function ProgressBar({ label, currentMinutes, targetHours, color }) {
+  const { theme } = useTheme();
+  const fillColor = color ?? theme.accent;
   const targetMinutes = targetHours * 60;
   const pct = targetMinutes > 0 ? Math.min(100, (currentMinutes / targetMinutes) * 100) : 0;
   const currentHours = Math.round((currentMinutes / 60) * 10) / 10;
@@ -14,7 +17,7 @@ export function ProgressBar({ label, currentMinutes, targetHours, color = '#2563
         </Text>
       </View>
       <View style={styles.track}>
-        <View style={[styles.fill, { width: `${pct}%`, backgroundColor: color }]} />
+        <View style={[styles.fill, { width: `${pct}%`, backgroundColor: fillColor }]} />
       </View>
     </View>
   );

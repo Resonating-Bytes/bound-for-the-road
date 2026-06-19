@@ -104,6 +104,7 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 - [x] Theme color picker in Settings — categorized preset swatches + auto contrast text
 - [ ] Custom header color picker (hex / native color wheel) — see **After versioning — theme & color system**
 - [ ] Adult dashboard UX — multi-teen switcher ([SCREENS.md](./SCREENS.md)): 1 teen = static name; 2+ = dropdown; scope session/approval UI to selection
+  - [ ] **LinkAdult navigation:** after linking an additional teen, adult stays on invite screen — navigate to `AdultHome` on success (same as teen `LinkTeen` → dashboard)
 - [x] Submit for approval, adult approve, attestation
 - [x] Push + Edge Function relay (deploy `send-approval-push`; run `eas init` for project ID — see [SUPABASE_SETUP.md](./SUPABASE_SETUP.md))
 - [ ] **Follow-up: iOS development build** (when ready for Apple Developer $99/year) — see [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md#development-build-bound-for-the-road-branding)
@@ -148,7 +149,7 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 - [x] Tests: local DB version, compatibility evaluation, payload schema guard
 
 ### Still queued after versioning (Phase 2 continued)
-- [ ] Multi-teen switcher
+- [ ] Multi-teen switcher (includes LinkAdult → AdultHome after linking a 2nd+ teen)
 - [ ] Outbox sync
 - [ ] Maestro E2E, Live Activity, deep links, Apple dev build
 
@@ -159,36 +160,35 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 **Goal:** Richer personalization beyond header-only presets; **accent color** for highlights across the app (buttons, links, progress, selected states).
 
 **What exists today:**
-- Per-user header preset (`header_theme_id_<userId>`) in Settings — Neutrals, Saturated, Light categories
-- `resolveTheme()` sets `headerBackground`, `headerBorder`, `headerText`, `statusBarStyle` only
-- Body UI still uses hardcoded accent (`#2563eb` on primary buttons, links, loaders, etc.) — not tied to theme
+- Per-user header preset (`header_theme_id_<userId>`) in Settings — Neutrals, Saturated, Light, **Vibrant** categories
+- `resolveTheme()` sets header colors, **curated accent per preset**, `accentText`, and **halo** on header titles (always on; tweak `HEADER_TITLE_HALO` in `headerTitleEffects.js`)
+- Body UI uses `theme.accent` / `theme.accentText` for primary actions, links, loaders, progress bar, theme picker selection ring
+- Theme picker shows header swatch + accent chip per preset
 
-### Design (spike first)
-- [ ] Decide **accent color** role: primary action buttons, progress bar fill, links, selected states, section highlights?
-- [ ] **Approach A — derived:** compute accent from primary/header (HSL: lower saturation, higher lightness, or alpha blend on `screenBackground`); single picker, harmonious palette
-- [ ] **Approach B — configurable:** second swatch per preset (or global accent picker); more control, more Settings UI — label it **Accent** in user-facing copy
-- [ ] **Approach C — hybrid:** derived by default, optional per-preset `accent` override in preset definition
-- [ ] Contrast rules for accent on white/light backgrounds (extend `contrast.js`); vibrant presets need extra care
-- [ ] **Header text outline:** explore dark grey/black stroke or shadow on title text in `ScreenHeader` so mid-tone header colors (e.g. Slate, Sand, Amber) stay readable without flipping to pure light/dark text
-  - RN options: `textShadow*` (iOS + Android), multi-layer `Text` stroke hack, or SVG — spike which renders cleanly at 28px bold
-  - Policy: always-on outline vs only when `relativeLuminance(headerBackground)` is in a “muddy middle” band
-  - Back button icon may need matching treatment if header background is mid-tone
-  - Tests: snapshot or contrast assertions for mid-tone presets with outline enabled
+### Design (completed 2026-06)
+- [x] **Accent approach:** hybrid — curated `accent` on each preset; derived fallback in `resolveAccentForPreset()` when missing
+- [x] **Header title effect:** halo (`HEADER_TITLE_HALO`: radius 3, opacity 1), always on
+- [x] Contrast for accent on light backgrounds via `getAccentTextColor()` in `accent.js`
+- [x] Theme spike removed; production tuning via `HEADER_TITLE_HALO` in `headerTitleEffects.js`
 
-### Implementation
-- [ ] Extend preset model + `resolveTheme()` with `accent`, `accentText`, and related tokens (names finalized in spike)
-- [ ] Replace hardcoded `#2563eb` (and related) in shared components: `DashboardScreen`, `AdultHomeScreen`, `SettingsScreen`, `ProgressBar`, `ActivityIndicator`, status/link styles
-- [ ] **Vibrant** category — four new presets:
-  - Bright orange
-  - Hot pink
-  - Lime green
-  - Royal blue
-- [ ] `ThemePickerSection` — render Vibrant row; preview shows header + accent sample (chip or button mock)
-- [ ] `ScreenHeader` — apply outlined/stroked title per spike; expose `headerTextOutline` (or similar) from `resolveTheme()` / `getHeaderContrast()`
-- [ ] Tests: contrast for Vibrant presets; `resolveTheme` accent derivation (or explicit overrides); mid-tone header text legibility with outline
-- [ ] Optional (same batch or follow-up): custom hex / native color wheel for header (and accent if configurable)
+### Implementation (completed 2026-06)
+- [x] Extend preset model + `resolveTheme()` with `accent`, `accentText`, `headerTitleHalo`
+- [x] Rename teen dashboard header title to **Teen dashboard**
+- [x] Replace hardcoded `#2563eb` in production screens/components (spike/dev files may still reference blue)
+- [x] `ThemePickerSection` — selected swatch uses preset accent; accent chip under each swatch
+- [x] **Vibrant** category — bright orange, hot pink, lime green, royal blue
+- [x] `ScreenHeader` — applies halo via `ScreenHeaderTitle`
+- [x] Tests: `resolveTheme` accent + halo assertions
+- [x] Removed theme spike screen, SVG outline exploration, and `react-native-svg` dependency
 
-**Reading order:** `presets.js`, `resolveTheme.js`, `contrast.js`, `ScreenHeader.jsx`, `ThemePickerSection.jsx`
+### Future milestone — customization & expansion
+- [ ] **Custom accent hex** — Settings UI, per-user persistence (`accent_hex_<userId>` or similar), wire into `resolveAccentForPreset()` override hook in `accent.js`
+- [ ] **Custom header hex** — native color wheel / hex field (same Settings milestone or sub-page)
+- [x] Per-preset accent tuning after dogfooding (adjust `presets.js` values only — no new UI)
+- [x] **Onboarding title halo** — not needed (no header bar on onboarding screens)
+- [x] Version bump + CHANGELOG when merging theme work to `main`
+
+**Reading order:** `presets.js`, `resolveTheme.js`, `accent.js`, `headerTitleEffects.js`, `ScreenHeader.jsx`, `ThemePickerSection.jsx`
 
 ---
 

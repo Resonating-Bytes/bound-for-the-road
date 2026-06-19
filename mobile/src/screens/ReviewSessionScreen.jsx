@@ -27,10 +27,12 @@ import { cancelSessionNotifications, scheduleSessionNudge } from '../utils/notif
 import { isSupabaseConfigured } from '../lib/supabase';
 import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { useTheme } from '../context/ThemeContext';
 
 export function ReviewSessionScreen({ route, navigation }) {
   const { sessionId, editing, editBackup, staleExpired } = route.params ?? {};
   const { userId } = useAuth();
+  const { theme } = useTheme();
   const { canRemoteWrite } = useCompatibility();
   const session = getSessionById(sessionId);
   const [notes, setNotes] = useState(session?.notes ?? '');
@@ -204,11 +206,15 @@ export function ReviewSessionScreen({ route, navigation }) {
         {isDraft && (
           <View style={styles.actions}>
             <Pressable
-              style={[styles.saveBtn, saving && styles.disabled]}
+              style={[
+                styles.saveBtn,
+                { backgroundColor: theme.accent },
+                saving && styles.disabled,
+              ]}
               onPress={handleSave}
               disabled={saving}
             >
-              <Text style={styles.saveBtnText}>
+              <Text style={[styles.saveBtnText, { color: theme.accentText }]}>
                 {saving
                   ? 'Saving…'
                   : submitBlocked
@@ -298,12 +304,11 @@ const styles = StyleSheet.create({
   },
   actions: { gap: 10 },
   saveBtn: {
-    backgroundColor: '#2563eb',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
   },
-  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  saveBtnText: { fontWeight: '700', fontSize: 16 },
   secondaryBtn: {
     backgroundColor: '#fff',
     paddingVertical: 14,

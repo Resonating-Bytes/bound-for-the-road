@@ -23,9 +23,11 @@ import { fetchLinkedTeenSummaries } from '../lib/teenProgress';
 import { groupAdultDashboardSections } from '../utils/dashboardSessions';
 import { formatDate, formatDuration } from '../utils/time';
 import { dayNightLabel } from '../utils/dayNight';
+import { useTheme } from '../context/ThemeContext';
 
 export function AdultHomeScreen({ navigation }) {
   const { userId } = useAuth();
+  const { theme } = useTheme();
   const [pending, setPending] = useState([]);
   const [approved, setApproved] = useState([]);
   const [teenSummaries, setTeenSummaries] = useState([]);
@@ -127,7 +129,9 @@ export function AdultHomeScreen({ navigation }) {
             </Text>
           ) : null}
         </View>
-        <Text style={styles.reviewLink}>{isApproved ? 'View' : 'Review'}</Text>
+        <Text style={[styles.reviewLink, { color: theme.accent }]}>
+          {isApproved ? 'View' : 'Review'}
+        </Text>
       </Pressable>
     );
   }
@@ -147,15 +151,20 @@ export function AdultHomeScreen({ navigation }) {
 
       <View style={styles.body}>
         {loading ? (
-          <ActivityIndicator style={styles.loader} size="large" color="#2563eb" />
+          <ActivityIndicator style={styles.loader} size="large" color={theme.accent} />
         ) : teenSummaries.length === 0 ? (
           <View style={styles.emptyBlock}>
             <Text style={styles.emptyTitle}>No linked drivers yet</Text>
             <Text style={styles.emptyBody}>
               Enter an invite code from your teen to review and approve their practice sessions.
             </Text>
-            <Pressable style={styles.primaryBtn} onPress={() => navigation.navigate('LinkAdult')}>
-              <Text style={styles.primaryBtnText}>Enter invite code</Text>
+            <Pressable
+              style={[styles.primaryBtn, { backgroundColor: theme.accent }]}
+              onPress={() => navigation.navigate('LinkAdult')}
+            >
+              <Text style={[styles.primaryBtnText, { color: theme.accentText }]}>
+                Enter invite code
+              </Text>
             </Pressable>
           </View>
         ) : (
@@ -202,12 +211,11 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: '600', color: '#1a2b3c', marginBottom: 8 },
   emptyBody: { fontSize: 15, lineHeight: 22, color: '#5a6b7c', marginBottom: 20 },
   primaryBtn: {
-    backgroundColor: '#2563eb',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
   },
-  primaryBtnText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  primaryBtnText: { fontWeight: '600', fontSize: 16 },
   emptyList: { color: '#6a7b8c', fontSize: 15, marginTop: 8 },
   row: {
     backgroundColor: '#fff',
@@ -225,5 +233,5 @@ const styles = StyleSheet.create({
   rowDate: { fontSize: 15, color: '#1a2b3c', marginTop: 2 },
   rowMeta: { fontSize: 14, color: '#5a6b7c', marginTop: 2 },
   approvedMeta: { fontSize: 13, color: '#15803d', marginTop: 6 },
-  reviewLink: { color: '#2563eb', fontWeight: '600' },
+  reviewLink: { fontWeight: '600' },
 });
