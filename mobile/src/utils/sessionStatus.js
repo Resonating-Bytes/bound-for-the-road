@@ -3,7 +3,17 @@ import { formatDate } from './time';
 /**
  * Derive Phase 2 display status for a saved session row.
  */
-export function getSessionDisplayStatus(session, { submission, approval, latestApproval, approverName }) {
+export function getSessionDisplayStatus(
+  session,
+  {
+    submission,
+    approval,
+    latestApproval,
+    approverName,
+    pendingRemoteSync = false,
+    canRemoteWrite = true,
+  },
+) {
   if (!session || session.status !== 'saved') {
     return { key: 'draft', label: 'Not submitted' };
   }
@@ -21,6 +31,17 @@ export function getSessionDisplayStatus(session, { submission, approval, latestA
     return {
       key: 'superseded',
       label: 'Superseded — approval on prior version',
+    };
+  }
+
+  if (submission && !submission.superseded && pendingRemoteSync) {
+    const label = canRemoteWrite
+      ? 'Saved on device — ready to send for approval'
+      : 'Saved on device — update app to send for approval';
+    return {
+      key: 'saved_local',
+      label,
+      submission,
     };
   }
 

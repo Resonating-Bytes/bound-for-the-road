@@ -2,6 +2,10 @@ jest.mock('../../src/context/AuthContext', () => ({
   useAuth: () => ({ userId: 'teen-001' }),
 }));
 
+jest.mock('../../src/context/CompatibilityContext', () => ({
+  useCompatibility: () => ({ canRemoteWrite: true }),
+}));
+
 jest.mock('../../src/db/queries', () => ({
   getSessionById: jest.fn(),
   hasActiveLink: jest.fn(() => true),
@@ -89,6 +93,13 @@ describe('ReviewSessionScreen', () => {
     expect(getByText('Discard')).toBeTruthy();
     expect(getByText('Submit for approval')).toBeTruthy();
     expect(queryByText('Back')).toBeNull();
+  });
+
+  test('shows back to dashboard when session is no longer draft', async () => {
+    getSessionById.mockReturnValue({ ...draftSession, status: 'saved' });
+    const { getByText, queryByText } = await renderReview({ sessionId: 'sess-001', editing: false });
+    expect(getByText('Back to dashboard')).toBeTruthy();
+    expect(queryByText('Submit for approval')).toBeNull();
   });
 
   test('hides Resume and shows Back when editing saved entry', async () => {

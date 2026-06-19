@@ -13,6 +13,7 @@ interface RequestBody {
   event: PushEvent;
   sessionId: string;
   requestHash: string;
+  clientVersion?: string;
 }
 
 async function sendExpoPush(messages: Record<string, unknown>[]) {

@@ -12,9 +12,29 @@ import {
   listSavedSessions,
   getApprovalForHash,
   getDraftSession,
+  markSubmissionOutboxSynced,
+  clearOutboxForSession,
+  hasUnsyncedSubmissionOutbox,
 } from '../db/queries';
 import { generateId, nowISO } from '../utils/time';
 import { notifyApprovalPush, PUSH_EVENTS } from './approvalPush';
+import { canUseRemoteWrite, getCachedCompatibility, assertRemoteWriteAllowed } from './compatibility';
+
+function isRemoteWriteAllowed() {
+  if (!isSupabaseConfigured()) return false;
+  return canUseRemoteWrite(getCachedCompatibility());
+}
+
+async function pushSubmittedSessionToRemote(sessionId, session, submission) {
+  await syncSessionToRemote(session);
+  await supersedeAllRemoteSubmissionsForSession(sessionId);
+  await syncSubmissionToRemote(submission);
+  await notifyApprovalPush(PUSH_EVENTS.SESSION_SUBMITTED, {
+    sessionId: session.id,
+    requestHash: submission.requestHash,
+  });
+  markSubmissionOutboxSynced(sessionId);
+}
 
 function mapSessionToRemote(session) {
   return {
@@ -98,31 +118,60 @@ export async function syncSessionReopenedForEdit(sessionId) {
   await syncSessionToRemote(session);
 }
 
+/** Save session to the local log only (counts toward progress). */
+export async function saveSessionToLog(sessionId, opts) {
+  return submitSession(sessionId, opts);
+}
+
+/**
+ * Save locally and send for supervisor approval when remote writes are allowed.
+ * @returns {{ session: object; remoteSynced: boolean; pendingRemote?: boolean }}
+ */
 export async function submitSessionForApproval(sessionId, opts) {
   const session = await submitSession(sessionId, opts);
   const submission = getSubmissionForSession(sessionId);
-  if (isSupabaseConfigured() && submission) {
-    await syncSessionToRemote(session);
-    await supersedeAllRemoteSubmissionsForSession(sessionId);
-    await syncSubmissionToRemote(submission);
-    await notifyApprovalPush(PUSH_EVENTS.SESSION_SUBMITTED, {
-      sessionId: session.id,
-      requestHash: submission.requestHash,
-    });
+  if (!isSupabaseConfigured() || !submission) {
+    return { session, remoteSynced: false };
   }
+  if (!isRemoteWriteAllowed()) {
+    return { session, remoteSynced: false, pendingRemote: true };
+  }
+  await pushSubmittedSessionToRemote(sessionId, session, submission);
+  return { session, remoteSynced: true };
+}
+
+/** Send a locally saved session to the supervisor after the app is updated. */
+export async function sendSavedSessionForApproval(sessionId) {
+  if (!isRemoteWriteAllowed()) {
+    throw new Error('Update the app before sending for supervisor approval.');
+  }
+  const session = getSessionById(sessionId);
+  const submission = getSubmissionForSession(sessionId);
+  if (!session || session.status !== 'saved' || !submission) {
+    throw new Error('This session is not ready to send for approval.');
+  }
+  if (!hasUnsyncedSubmissionOutbox(sessionId)) {
+    throw new Error('This session was already sent for approval.');
+  }
+  await pushSubmittedSessionToRemote(sessionId, session, submission);
   return session;
 }
 
 export async function withdrawSessionSubmission(sessionId) {
   const submission = getSubmissionForSession(sessionId);
   const session = withdrawSubmission(sessionId);
-  if (isSupabaseConfigured() && submission) {
-    await markSubmissionSupersededRemote(submission.requestHash);
-    await syncSessionToRemote(session);
-    await notifyApprovalPush(PUSH_EVENTS.SESSION_WITHDRAWN, {
-      sessionId: session.id,
-      requestHash: submission.requestHash,
-    });
+  clearOutboxForSession(sessionId);
+  if (isSupabaseConfigured() && submission && isRemoteWriteAllowed()) {
+    try {
+      await markSubmissionSupersededRemote(submission.requestHash);
+      await syncSessionToRemote(session);
+      await notifyApprovalPush(PUSH_EVENTS.SESSION_WITHDRAWN, {
+        sessionId: session.id,
+        requestHash: submission.requestHash,
+      });
+    } catch (e) {
+      console.warn('Remote withdraw sync failed:', e.message);
+    }
   }
   return session;
 }
@@ -329,6 +378,8 @@ export async function approveSubmissionRemote({
     throw new Error('Supabase is required to approve sessions.');
   }
 
+  assertRemoteWriteAllowed();
+
   await assertSubmissionStillPending(sessionId, requestHash);
 
   const approval = {
@@ -358,6 +409,8 @@ export async function declineSubmissionRemote({ sessionId, requestHash }) {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase is required to send a session back.');
   }
+
+  assertRemoteWriteAllowed();
 
   await assertSubmissionStillPending(sessionId, requestHash);
 

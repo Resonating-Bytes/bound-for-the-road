@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { applyMigrations } from '../../src/db/migrations';
+import { runSchemaMigrations } from '../../src/db/schemaMigrations';
 
 let dbInstance = null;
 let sqliteInstance = null;
@@ -10,7 +10,7 @@ export function initTestDb() {
     sqliteInstance.close();
   }
   sqliteInstance = new Database(':memory:');
-  applyMigrations(sqliteInstance);
+  runSchemaMigrations(sqliteInstance);
   dbInstance = drizzle(sqliteInstance);
   return dbInstance;
 }

@@ -1,4 +1,5 @@
 import { getSupabase, isSupabaseConfigured } from './supabase';
+import { APP_VERSION } from '../config/compatibility';
 
 export const PUSH_EVENTS = {
   SESSION_SUBMITTED: 'session_submitted',
@@ -12,7 +13,7 @@ export async function notifyApprovalPush(event, { sessionId, requestHash }) {
 
   try {
     const { error } = await getSupabase().functions.invoke('send-approval-push', {
-      body: { event, sessionId, requestHash },
+      body: { event, sessionId, requestHash, clientVersion: APP_VERSION },
     });
     if (error) {
       console.warn('Approval push invoke failed:', error.message);

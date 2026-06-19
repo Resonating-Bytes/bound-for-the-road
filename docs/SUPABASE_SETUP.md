@@ -24,6 +24,10 @@ Decisions: [BACKEND.md](./BACKEND.md) · [DATA_MODEL.md](./DATA_MODEL.md) · [AU
 4. Paste contents of `supabase/migrations/20260619120000_link_invite_rpc.sql` → **Run** (required for teen/adult linking)
 5. Paste contents of `supabase/migrations/20260619130000_users_insert_own.sql` → **Run** (recreate profile row after dev DB reset)
 6. Paste contents of `supabase/migrations/20260619140000_submissions_teen_update.sql` → **Run** (teen withdraw before approval)
+7. Continue through `20260619170000_approvals_adult_linked_select.sql` (decline RPC, send-back, linked adult approvals)
+8. Paste `20260620120000_app_compatibility.sql` → **Run** (app ↔ backend version check RPC)
+
+See [COMPATIBILITY.md](./COMPATIBILITY.md) for version bump workflow.
 
 **Option B — Supabase CLI**
 

@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { useCompatibility } from '../context/CompatibilityContext';
 import {
   getSessionById,
   discardDraft,
@@ -23,12 +24,14 @@ import { classifyDayNight, dayNightLabel } from '../utils/dayNight';
 import { getCurfewWarning } from '../utils/curfew';
 import { IL_RULES } from '../config/states/IL';
 import { cancelSessionNotifications, scheduleSessionNudge } from '../utils/notifications';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
 
 export function ReviewSessionScreen({ route, navigation }) {
   const { sessionId, editing, editBackup, staleExpired } = route.params ?? {};
   const { userId } = useAuth();
+  const { canRemoteWrite } = useCompatibility();
   const session = getSessionById(sessionId);
   const [notes, setNotes] = useState(session?.notes ?? '');
   const [saving, setSaving] = useState(false);
@@ -45,6 +48,7 @@ export function ReviewSessionScreen({ route, navigation }) {
   const dayNight = classifyDayNight(session.startedAt);
   const curfewWarning = getCurfewWarning(session.startedAt, session.endedAt);
   const isDraft = session.status === 'draft';
+  const submitBlocked = isSupabaseConfigured() && !canRemoteWrite;
 
   const originalNotes = editing ? (editBackup?.notes ?? '') : (session.notes ?? '');
   const notesChanged = notes !== originalNotes;
@@ -54,7 +58,7 @@ export function ReviewSessionScreen({ route, navigation }) {
   }
 
   async function handleSave() {
-    if (!hasActiveLink(userId)) {
+    if (!submitBlocked && !hasActiveLink(userId)) {
       Alert.alert(
         'Link a supervisor first',
         'Submit for approval requires a linked supervising adult. Invite one from Settings, or choose Invite later and come back when linked.',
@@ -64,25 +68,33 @@ export function ReviewSessionScreen({ route, navigation }) {
     if (mins < IL_RULES.minSessionWarnMinutes) {
       Alert.alert(
         'Short session',
-        'This session is under 5 minutes. Short sessions may not be useful for your log. Submit anyway?',
+        'This session is under 5 minutes. Short sessions may not be useful for your log. Save anyway?',
         [
           { text: 'Go back', style: 'cancel' },
-          { text: 'Submit anyway', onPress: () => doSubmit() },
+          { text: 'Save anyway', onPress: () => doSave() },
         ],
       );
       return;
     }
-    await doSubmit();
+    await doSave();
   }
 
-  async function doSubmit() {
+  async function doSave() {
     setSaving(true);
     try {
-      await submitSessionForApproval(sessionId, { notes, submittedByUserId: userId });
+      const result = await submitSessionForApproval(sessionId, { notes, submittedByUserId: userId });
       await cancelSessionNotifications(sessionId);
+      if (result.pendingRemote) {
+        Alert.alert(
+          'Saved on this device',
+          'Your practice time is recorded. Update the app to send this session to your supervisor for approval.',
+          [{ text: 'OK', onPress: goDashboard }],
+        );
+        return;
+      }
       goDashboard();
     } catch (e) {
-      Alert.alert('Error', e.message ?? 'Could not submit session.');
+      Alert.alert('Error', e.message ?? 'Could not save session.');
     } finally {
       setSaving(false);
     }
@@ -169,6 +181,13 @@ export function ReviewSessionScreen({ route, navigation }) {
 
         {curfewWarning && <Text style={styles.warning}>{curfewWarning}</Text>}
 
+        {isDraft && submitBlocked && (
+          <Text style={styles.warning}>
+            Submit for approval is unavailable until you update the app (see the banner above). You can
+            still save this session to your log on this device.
+          </Text>
+        )}
+
         {isDraft && (
           <>
             <Text style={styles.label}>Notes (optional)</Text>
@@ -190,7 +209,11 @@ export function ReviewSessionScreen({ route, navigation }) {
               disabled={saving}
             >
               <Text style={styles.saveBtnText}>
-                {saving ? 'Submitting…' : 'Submit for approval'}
+                {saving
+                  ? 'Saving…'
+                  : submitBlocked
+                    ? 'Save to log'
+                    : 'Submit for approval'}
               </Text>
             </Pressable>
             {!editing && (
@@ -207,6 +230,14 @@ export function ReviewSessionScreen({ route, navigation }) {
                 <Text style={styles.discardBtnText}>Discard</Text>
               </Pressable>
             )}
+          </View>
+        )}
+
+        {!isDraft && !editing && (
+          <View style={styles.actions}>
+            <Pressable style={styles.secondaryBtn} onPress={goDashboard}>
+              <Text style={styles.secondaryBtnText}>Back to dashboard</Text>
+            </Pressable>
           </View>
         )}
 

@@ -5,6 +5,7 @@ import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { LinkedAccountsSection } from '../components/LinkedAccountsSection';
 import { ThemePickerSection } from '../components/ThemePickerSection';
+import { AppVersionSection } from '../components/AppVersionSection';
 import { DatePickerField } from '../components/DatePickerField';
 import { toISODateOnly } from '../utils/time';
 import { canShowBackButton, navigateBackOrHome } from '../navigation/helpers';
@@ -79,6 +80,8 @@ export function SettingsScreen({ navigation }) {
         <Text style={styles.meta}>Role: {isTeen ? 'Teen driver' : 'Supervising adult'}</Text>
 
         <ThemePickerSection />
+
+        <AppVersionSection />
 
         <Text style={styles.label}>Legal name</Text>
         <TextInput style={styles.input} value={name} onChangeText={setName} />

@@ -1,6 +1,6 @@
 import { openDatabaseSync } from 'expo-sqlite';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
-import { applyMigrations } from './migrations';
+import { runSchemaMigrations } from './schemaMigrations';
 
 let dbInstance = null;
 
@@ -17,7 +17,7 @@ export function getSqlite() {
 
 export function initDb() {
   const sqlite = openDatabaseSync('boundfortheroad.db');
-  applyMigrations(sqlite);
+  runSchemaMigrations(sqlite);
   dbInstance = drizzle(sqlite);
   return dbInstance;
 }

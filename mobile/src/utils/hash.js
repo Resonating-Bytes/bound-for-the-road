@@ -1,5 +1,9 @@
 import * as Crypto from 'expo-crypto';
 import { nowISO } from './time';
+import { CURRENT_PAYLOAD_SCHEMA_VERSION } from '../config/compatibility';
+import { assertPayloadSchemaSupported } from '../lib/compatibility';
+
+export { CURRENT_PAYLOAD_SCHEMA_VERSION, SUPPORTED_PAYLOAD_SCHEMA_VERSION } from '../config/compatibility';
 
 const MVP_PAYLOAD_KEYS = [
   'schemaVersion',
@@ -66,7 +70,7 @@ export function buildSavePayload({
   savedByUserId,
 }) {
   return {
-    schemaVersion: 1,
+    schemaVersion: CURRENT_PAYLOAD_SCHEMA_VERSION,
     sessionId,
     stateCode,
     startedAt,
@@ -93,7 +97,7 @@ export function buildSubmitPayload({
   submittedByUserId,
 }) {
   return {
-    schemaVersion: 1,
+    schemaVersion: CURRENT_PAYLOAD_SCHEMA_VERSION,
     sessionId,
     stateCode,
     startedAt,
@@ -126,6 +130,7 @@ export async function verifyStoredHash(session) {
     typeof session.payloadJson === 'string'
       ? JSON.parse(session.payloadJson)
       : session.payloadJson;
+  assertPayloadSchemaSupported(payload?.schemaVersion);
   const recomputed = await computeRequestHash(payload);
   return recomputed === session.requestHash;
 }
