@@ -9,25 +9,29 @@ import {
   ScrollView,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { useCompatibility } from '../context/CompatibilityContext';
 import {
   getSessionById,
-  saveSession,
   discardDraft,
   resumeSession,
   softDeleteSession,
   restoreSavedSession,
+  hasActiveLink,
 } from '../db/queries';
+import { submitSessionForApproval } from '../lib/submissions';
 import { formatDateTime, formatDuration, durationMinutes } from '../utils/time';
 import { classifyDayNight, dayNightLabel } from '../utils/dayNight';
-import { truncateHash } from '../utils/hash';
 import { getCurfewWarning } from '../utils/curfew';
 import { IL_RULES } from '../config/states/IL';
-import { cancelSessionNudge, scheduleSessionNudge } from '../utils/notifications';
+import { cancelSessionNotifications, scheduleSessionNudge } from '../utils/notifications';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { Screen } from '../components/Screen';
+import { ScreenHeader } from '../components/ScreenHeader';
 
 export function ReviewSessionScreen({ route, navigation }) {
   const { sessionId, editing, editBackup, staleExpired } = route.params ?? {};
   const { userId } = useAuth();
+  const { canRemoteWrite } = useCompatibility();
   const session = getSessionById(sessionId);
   const [notes, setNotes] = useState(session?.notes ?? '');
   const [saving, setSaving] = useState(false);
@@ -44,6 +48,7 @@ export function ReviewSessionScreen({ route, navigation }) {
   const dayNight = classifyDayNight(session.startedAt);
   const curfewWarning = getCurfewWarning(session.startedAt, session.endedAt);
   const isDraft = session.status === 'draft';
+  const submitBlocked = isSupabaseConfigured() && !canRemoteWrite;
 
   const originalNotes = editing ? (editBackup?.notes ?? '') : (session.notes ?? '');
   const notesChanged = notes !== originalNotes;
@@ -53,6 +58,13 @@ export function ReviewSessionScreen({ route, navigation }) {
   }
 
   async function handleSave() {
+    if (!submitBlocked && !hasActiveLink(userId)) {
+      Alert.alert(
+        'Link a supervisor first',
+        'Submit for approval requires a linked supervising adult. Invite one from Settings, or choose Invite later and come back when linked.',
+      );
+      return;
+    }
     if (mins < IL_RULES.minSessionWarnMinutes) {
       Alert.alert(
         'Short session',
@@ -70,8 +82,16 @@ export function ReviewSessionScreen({ route, navigation }) {
   async function doSave() {
     setSaving(true);
     try {
-      await saveSession(sessionId, { notes, savedByUserId: userId });
-      await cancelSessionNudge(sessionId);
+      const result = await submitSessionForApproval(sessionId, { notes, submittedByUserId: userId });
+      await cancelSessionNotifications(sessionId);
+      if (result.pendingRemote) {
+        Alert.alert(
+          'Saved on this device',
+          'Your practice time is recorded. Update the app to send this session to your supervisor for approval.',
+          [{ text: 'OK', onPress: goDashboard }],
+        );
+        return;
+      }
       goDashboard();
     } catch (e) {
       Alert.alert('Error', e.message ?? 'Could not save session.');
@@ -105,7 +125,7 @@ export function ReviewSessionScreen({ route, navigation }) {
         text: 'Discard',
         style: 'destructive',
         onPress: async () => {
-          await cancelSessionNudge(sessionId);
+          await cancelSessionNotifications(sessionId);
           discardDraft(sessionId);
           goDashboard();
         },
@@ -129,7 +149,7 @@ export function ReviewSessionScreen({ route, navigation }) {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            await cancelSessionNudge(sessionId);
+            await cancelSessionNotifications(sessionId);
             softDeleteSession(sessionId);
             goDashboard();
           },
@@ -139,28 +159,34 @@ export function ReviewSessionScreen({ route, navigation }) {
   }
 
   return (
-    <Screen>
+    <Screen withHeader>
+      <ScreenHeader
+        title={editing ? 'Edit session' : 'Review session'}
+        onBack={editing ? handleBackFromEdit : undefined}
+      />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        <Text style={styles.title}>{editing ? 'Edit session' : 'Review session'}</Text>
-
         <View style={styles.card}>
           <Row label="Start" value={formatDateTime(session.startedAt)} />
           <Row label="End" value={formatDateTime(session.endedAt)} />
           <Row label="Duration" value={formatDuration(mins)} />
           <Row label="Day / night" value={dayNightLabel(session.dayNight ?? dayNight)} />
-          {session.requestHash && !editing && (
-            <Row label="Record hash" value={`${truncateHash(session.requestHash)}…`} />
-          )}
         </View>
 
         {staleExpired && (
           <Text style={styles.warning}>
             This session was running over {IL_RULES.staleActiveHours} hours and was automatically
-            stopped. Review the times, then save or discard.
+            stopped. Review the times, then submit or discard.
           </Text>
         )}
 
         {curfewWarning && <Text style={styles.warning}>{curfewWarning}</Text>}
+
+        {isDraft && submitBlocked && (
+          <Text style={styles.warning}>
+            Submit for approval is unavailable until you update the app (see the banner above). You can
+            still save this session to your log on this device.
+          </Text>
+        )}
 
         {isDraft && (
           <>
@@ -182,7 +208,13 @@ export function ReviewSessionScreen({ route, navigation }) {
               onPress={handleSave}
               disabled={saving}
             >
-              <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save'}</Text>
+              <Text style={styles.saveBtnText}>
+                {saving
+                  ? 'Saving…'
+                  : submitBlocked
+                    ? 'Save to log'
+                    : 'Submit for approval'}
+              </Text>
             </Pressable>
             {!editing && (
               <Pressable style={styles.secondaryBtn} onPress={handleResume}>
@@ -190,14 +222,22 @@ export function ReviewSessionScreen({ route, navigation }) {
               </Pressable>
             )}
             {editing ? (
-              <Pressable style={styles.secondaryBtn} onPress={handleBackFromEdit}>
-                <Text style={styles.secondaryBtnText}>Back</Text>
+              <Pressable style={styles.discardBtn} onPress={handleBackFromEdit}>
+                <Text style={styles.discardBtnText}>Discard edits</Text>
               </Pressable>
             ) : (
               <Pressable style={styles.discardBtn} onPress={handleDiscardDraft}>
                 <Text style={styles.discardBtnText}>Discard</Text>
               </Pressable>
             )}
+          </View>
+        )}
+
+        {!isDraft && !editing && (
+          <View style={styles.actions}>
+            <Pressable style={styles.secondaryBtn} onPress={goDashboard}>
+              <Text style={styles.secondaryBtnText}>Back to dashboard</Text>
+            </Pressable>
           </View>
         )}
 
@@ -224,7 +264,6 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40 },
   missing: { padding: 20, fontSize: 16, color: '#5a6b7c' },
-  title: { fontSize: 24, fontWeight: '700', color: '#1a2b3c', marginBottom: 16 },
   card: {
     backgroundColor: '#fff',
     borderRadius: 10,

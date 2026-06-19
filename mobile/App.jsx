@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
-import { StatusBar } from 'expo-status-bar';
 import { Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
 import { initDb } from './src/db/client';
 import { AuthProvider } from './src/context/AuthContext';
+import { CompatibilityProvider } from './src/context/CompatibilityContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { Screen } from './src/components/Screen';
+import { ThemeProvider, ThemeStatusBar } from './src/context/ThemeContext';
 import { isSupabaseConfigured } from './src/lib/supabase';
 import { createSessionFromUrl } from './src/lib/googleAuth';
 
@@ -67,10 +68,14 @@ export default function App() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
-        <AuthProvider>
-          <RootNavigator />
-          <StatusBar style="dark" />
-        </AuthProvider>
+        <CompatibilityProvider>
+          <AuthProvider>
+            <ThemeProvider>
+              <RootNavigator />
+              <ThemeStatusBar />
+            </ThemeProvider>
+          </AuthProvider>
+        </CompatibilityProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
   );

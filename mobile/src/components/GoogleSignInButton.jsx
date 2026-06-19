@@ -56,6 +56,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     marginRight: 12,
+    resizeMode: 'contain',
   },
   label: {
     color: '#1f1f1f',

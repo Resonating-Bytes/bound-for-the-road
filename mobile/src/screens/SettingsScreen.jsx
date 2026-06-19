@@ -2,15 +2,25 @@ import { useState } from 'react';
 import { Text, TextInput, Pressable, StyleSheet, Alert, ScrollView } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { Screen } from '../components/Screen';
+import { ScreenHeader } from '../components/ScreenHeader';
+import { LinkedAccountsSection } from '../components/LinkedAccountsSection';
+import { ThemePickerSection } from '../components/ThemePickerSection';
+import { AppVersionSection } from '../components/AppVersionSection';
 import { DatePickerField } from '../components/DatePickerField';
 import { toISODateOnly } from '../utils/time';
+import { canShowBackButton, navigateBackOrHome } from '../navigation/helpers';
 
 export function SettingsScreen({ navigation }) {
-  const { user, saveProfile, signOut, deleteAllData } = useAuth();
+  const { user, linked, saveProfile, signOut, deleteAllData, requiresLink, refreshLinks } = useAuth();
   const [name, setName] = useState(user?.legalName ?? '');
   const [permitDate, setPermitDate] = useState(
     user?.permitIssueDate ?? toISODateOnly(new Date()),
   );
+  const isTeen = user?.role === 'teen';
+
+  function handleBack() {
+    navigateBackOrHome(navigation, { linked, role: user?.role });
+  }
 
   function handleSaveProfile() {
     if (!name.trim()) {
@@ -19,16 +29,17 @@ export function SettingsScreen({ navigation }) {
     }
     saveProfile({
       legalName: name.trim(),
+      role: user.role,
       dateOfBirth: user.dateOfBirth,
       stateCode: user.stateCode,
-      permitIssueDate: permitDate,
+      permitIssueDate: isTeen ? permitDate : user.permitIssueDate,
       email: user.email,
     });
     Alert.alert('Saved', 'Profile updated.');
   }
 
   function handleSignOut() {
-    Alert.alert('Sign out?', 'Your local driving log stays on this device.', [
+    Alert.alert('Sign out?', 'Your local driving log stays on this device. Use this to switch Google accounts.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign out',
@@ -42,7 +53,7 @@ export function SettingsScreen({ navigation }) {
   function handleDeleteAll() {
     Alert.alert(
       'Delete all data?',
-      'This permanently removes your profile and all sessions on this device.',
+      'This permanently removes your profile and all sessions on this device. Your cloud account is not deleted — sign out to switch accounts.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -56,41 +67,66 @@ export function SettingsScreen({ navigation }) {
     );
   }
 
+  function handleInvite() {
+    navigation.navigate(isTeen ? 'LinkTeen' : 'LinkAdult');
+  }
+
+  const showBack = canShowBackButton(navigation, linked);
+
   return (
-    <Screen>
+    <Screen withHeader>
+      <ScreenHeader title="Settings" onBack={showBack ? handleBack : undefined} />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Settings</Text>
+        <Text style={styles.meta}>Role: {isTeen ? 'Teen driver' : 'Supervising adult'}</Text>
 
-      <Text style={styles.label}>Legal name</Text>
-      <TextInput style={styles.input} value={name} onChangeText={setName} />
+        <ThemePickerSection />
 
-      <Text style={styles.label}>Permit issue date</Text>
-      <DatePickerField value={permitDate} onChange={setPermitDate} maximumDate={new Date()} />
+        <AppVersionSection />
 
-      <Pressable style={styles.primaryBtn} onPress={handleSaveProfile}>
-        <Text style={styles.primaryBtnText}>Save profile</Text>
-      </Pressable>
+        <Text style={styles.label}>Legal name</Text>
+        <TextInput style={styles.input} value={name} onChangeText={setName} />
 
-      <Pressable style={styles.secondaryBtn} onPress={handleSignOut}>
-        <Text style={styles.secondaryBtnText}>Sign out</Text>
-      </Pressable>
+        {isTeen ? (
+          <>
+            <Text style={styles.label}>Permit issue date</Text>
+            <DatePickerField
+              value={permitDate}
+              onChange={setPermitDate}
+              maximumDate={new Date()}
+              compact
+            />
+          </>
+        ) : null}
 
-      <Pressable style={styles.dangerBtn} onPress={handleDeleteAll}>
-        <Text style={styles.dangerBtnText}>Delete all my data on this device</Text>
-      </Pressable>
+        <Pressable style={styles.primaryBtn} onPress={handleSaveProfile}>
+          <Text style={styles.primaryBtnText}>Save profile</Text>
+        </Pressable>
 
-      <Pressable onPress={() => navigation.goBack()}>
-        <Text style={styles.backLink}>Back to dashboard</Text>
-      </Pressable>
-    </ScrollView>
+        {requiresLink ? (
+          <LinkedAccountsSection
+            userId={user?.id}
+            role={user?.role}
+            refreshLinks={refreshLinks}
+            onInvite={handleInvite}
+          />
+        ) : null}
+
+        <Pressable style={styles.secondaryBtn} onPress={handleSignOut}>
+          <Text style={styles.secondaryBtnText}>Sign out</Text>
+        </Pressable>
+
+        <Pressable style={styles.dangerBtn} onPress={handleDeleteAll}>
+          <Text style={styles.dangerBtnText}>Delete all my data on this device</Text>
+        </Pressable>
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40 },
-  title: { fontSize: 24, fontWeight: '700', color: '#1a2b3c', marginBottom: 20 },
+  content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 },
+  meta: { fontSize: 14, color: '#6a7b8c', marginBottom: 20 },
   label: { fontSize: 15, fontWeight: '600', color: '#1a2b3c', marginBottom: 6 },
   input: {
     backgroundColor: '#fff',
@@ -106,7 +142,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 24,
   },
   primaryBtnText: { color: '#fff', fontWeight: '600', fontSize: 16 },
   secondaryBtn: {
@@ -121,5 +157,4 @@ const styles = StyleSheet.create({
   secondaryBtnText: { color: '#1a2b3c', fontWeight: '600', fontSize: 16 },
   dangerBtn: { paddingVertical: 14, alignItems: 'center', marginBottom: 24 },
   dangerBtnText: { color: '#dc2626', fontWeight: '600', fontSize: 16 },
-  backLink: { color: '#2563eb', textAlign: 'center', fontSize: 16 },
 });

@@ -87,6 +87,7 @@ Full flow: [ONBOARDING.md](./ONBOARDING.md). MVP overrides:
 | Push | FCM/APNs via Expo Push API |
 | Lock screen | Live Activity (iOS) + foreground service (Android) |
 | Server data retention | Default **2 years** for synced records; user-configurable UI post-MVP ([WISHLIST.md](./WISHLIST.md)) |
+| Adult multi-teen context | One linked teen → static label with teen name (no switcher). Two or more → show who is selected and an easy control to switch (dropdown or equivalent). Adult dashboard content (approvals, session presence) scopes to the selected teen. Deferred until adult dashboard is fleshed out — not part of the linking-only slice |
 
 ---
 
@@ -95,7 +96,6 @@ Full flow: [ONBOARDING.md](./ONBOARDING.md). MVP overrides:
 | Topic | Notes |
 |-------|-------|
 | Pricing | Free / one-time / subscription — decide before submission |
-| Multi-teen dashboard | One adult linked to many teens — confirm adult dashboard scope in Phase 2 vs later |
 
 ---
 
@@ -103,5 +103,6 @@ Full flow: [ONBOARDING.md](./ONBOARDING.md). MVP overrides:
 
 | Date | Change |
 |------|--------|
+| 2026-06-17 | Adult multi-teen dashboard: static name when one teen linked; picker/switcher when multiple (deferred past linking slice) |
 | 2026-06-17 | Cherry-pick from planning archive: stale-session guardrail, retention default, multi-teen open item |
 | 2026-06-07 | Initial consolidated decisions from planning sessions |

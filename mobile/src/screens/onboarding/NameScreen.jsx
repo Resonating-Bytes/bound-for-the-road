@@ -13,6 +13,7 @@ export function OnboardingNameScreen({ navigation }) {
     if (!trimmed) return;
     saveProfile({
       legalName: trimmed,
+      role: 'teen',
       dateOfBirth: user?.dateOfBirth,
       stateCode: user?.stateCode ?? 'IL',
       permitIssueDate: user?.permitIssueDate,
@@ -25,7 +26,7 @@ export function OnboardingNameScreen({ navigation }) {
     <Screen>
       <View style={shared.content}>
       <Text style={shared.title}>Your legal name</Text>
-      <Text style={shared.hint}>Used on your driving log export.</Text>
+      <Text style={shared.hint}>Use your full legal name — it appears on your driving log.</Text>
       <TextInput
         style={shared.input}
         value={name}

@@ -1,68 +1,229 @@
 import { NavigationContainer } from '@react-navigation/native';
+
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
 import { useAuth } from '../context/AuthContext';
+
 import { SignInScreen } from '../screens/SignInScreen';
+
 import { ActivityIndicator, StyleSheet } from 'react-native';
+
 import { Screen } from '../components/Screen';
 
+import { getInitialMainRoute, getMainNavigatorKey } from './helpers';
+import { isLinkInviteDeferred } from '../db/queries';
+import { navigationRef } from './navigationRef';
+import { PushNotificationHandler } from './PushNotificationHandler';
+
+
+
 const AuthStack = createNativeStackNavigator();
-const AppStack = createNativeStackNavigator();
+
+const SetupStack = createNativeStackNavigator();
+
+const TeenStack = createNativeStackNavigator();
+
+const AdultStack = createNativeStackNavigator();
+
+
 
 function AuthNavigator() {
+
   return (
+
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+
       <AuthStack.Screen name="SignIn" component={SignInScreen} />
+
     </AuthStack.Navigator>
+
   );
+
 }
 
-function AppNavigator({ profileComplete }) {
-  const initialRoute = profileComplete ? 'Dashboard' : 'OnboardingName';
 
+
+function SetupNavigator({ initialRouteName }) {
   return (
-    <AppStack.Navigator
-      key={profileComplete ? 'main' : 'onboarding'}
-      initialRouteName={initialRoute}
+    <SetupStack.Navigator
+      initialRouteName={initialRouteName}
       screenOptions={{ headerShown: false }}
     >
-      <AppStack.Screen
+
+      <SetupStack.Screen
+
+        name="OnboardingRole"
+
+        getComponent={() => require('../screens/onboarding/RoleScreen').OnboardingRoleScreen}
+
+      />
+
+      <SetupStack.Screen
+
         name="OnboardingName"
+
         getComponent={() => require('../screens/onboarding/NameScreen').OnboardingNameScreen}
+
       />
-      <AppStack.Screen
+
+      <SetupStack.Screen
+
+        name="OnboardingAdultName"
+
+        getComponent={() => require('../screens/onboarding/AdultNameScreen').OnboardingAdultNameScreen}
+
+      />
+
+      <SetupStack.Screen
+
         name="OnboardingDOB"
+
         getComponent={() => require('../screens/onboarding/DOBScreen').OnboardingDOBScreen}
+
       />
-      <AppStack.Screen
+
+      <SetupStack.Screen
+
         name="OnboardingState"
+
         getComponent={() => require('../screens/onboarding/StateScreen').OnboardingStateScreen}
+
       />
-      <AppStack.Screen
+
+      <SetupStack.Screen
+
         name="OnboardingPermit"
+
         getComponent={() => require('../screens/onboarding/PermitDateScreen').OnboardingPermitScreen}
+
       />
-      <AppStack.Screen
-        name="Dashboard"
-        getComponent={() => require('../screens/DashboardScreen').DashboardScreen}
-      />
-      <AppStack.Screen
-        name="ActiveSession"
-        getComponent={() => require('../screens/ActiveSessionScreen').ActiveSessionScreen}
-      />
-      <AppStack.Screen
-        name="ReviewSession"
-        getComponent={() => require('../screens/ReviewSessionScreen').ReviewSessionScreen}
-      />
-      <AppStack.Screen
-        name="Settings"
-        getComponent={() => require('../screens/SettingsScreen').SettingsScreen}
-      />
-    </AppStack.Navigator>
+
+    </SetupStack.Navigator>
+
   );
+
 }
 
+
+
+function TeenNavigator({ navigatorKey, initialRouteName }) {
+
+  return (
+
+    <TeenStack.Navigator
+
+      key={navigatorKey}
+
+      initialRouteName={initialRouteName}
+
+      screenOptions={{ headerShown: false }}
+
+    >
+
+      <TeenStack.Screen
+
+        name="Dashboard"
+
+        getComponent={() => require('../screens/DashboardScreen').DashboardScreen}
+
+      />
+
+      <TeenStack.Screen
+
+        name="LinkTeen"
+
+        getComponent={() => require('../screens/linking/LinkTeenScreen').LinkTeenScreen}
+
+      />
+
+      <TeenStack.Screen
+
+        name="ActiveSession"
+
+        getComponent={() => require('../screens/ActiveSessionScreen').ActiveSessionScreen}
+
+      />
+
+      <TeenStack.Screen
+
+        name="ReviewSession"
+
+        getComponent={() => require('../screens/ReviewSessionScreen').ReviewSessionScreen}
+
+      />
+
+      <TeenStack.Screen
+
+        name="Settings"
+
+        getComponent={() => require('../screens/SettingsScreen').SettingsScreen}
+
+      />
+
+    </TeenStack.Navigator>
+
+  );
+
+}
+
+
+
+function AdultNavigator({ navigatorKey, initialRouteName }) {
+
+  return (
+
+    <AdultStack.Navigator
+
+      key={navigatorKey}
+
+      initialRouteName={initialRouteName}
+
+      screenOptions={{ headerShown: false }}
+
+    >
+
+      <AdultStack.Screen
+
+        name="AdultHome"
+
+        getComponent={() => require('../screens/AdultHomeScreen').AdultHomeScreen}
+
+      />
+
+      <AdultStack.Screen
+
+        name="ApproveSession"
+
+        getComponent={() => require('../screens/ApproveSessionScreen').ApproveSessionScreen}
+
+      />
+
+      <AdultStack.Screen
+
+        name="LinkAdult"
+
+        getComponent={() => require('../screens/linking/LinkAdultScreen').LinkAdultScreen}
+
+      />
+
+      <AdultStack.Screen
+
+        name="Settings"
+
+        getComponent={() => require('../screens/SettingsScreen').SettingsScreen}
+
+      />
+
+    </AdultStack.Navigator>
+
+  );
+
+}
+
+
+
 export function RootNavigator() {
-  const { ready, userId, profileComplete } = useAuth();
+  const { ready, userId, user, roleChosen, profileComplete, linked, requiresLink } = useAuth();
 
   if (!ready) {
     return (
@@ -72,13 +233,60 @@ export function RootNavigator() {
     );
   }
 
+  let containerKey = 'auth';
+  let content = null;
+  let showPushHandler = false;
+
+  if (!userId) {
+    content = <AuthNavigator />;
+  } else if (!roleChosen || !profileComplete) {
+    containerKey = `setup-${userId}`;
+    const setupInitial =
+      roleChosen && user?.role
+        ? user.role === 'adult'
+          ? 'OnboardingAdultName'
+          : 'OnboardingName'
+        : 'OnboardingRole';
+    content = <SetupNavigator key={containerKey} initialRouteName={setupInitial} />;
+  } else {
+    const linkInviteDeferred = isLinkInviteDeferred(userId);
+    const initialRouteName = getInitialMainRoute({
+      role: user?.role,
+      requiresLink,
+      linked,
+      linkInviteDeferred,
+    });
+    containerKey = getMainNavigatorKey({
+      role: user?.role,
+      requiresLink,
+      linked,
+      linkInviteDeferred,
+    });
+    content =
+      user?.role === 'adult' ? (
+        <AdultNavigator navigatorKey={containerKey} initialRouteName={initialRouteName} />
+      ) : (
+        <TeenNavigator navigatorKey={containerKey} initialRouteName={initialRouteName} />
+      );
+    showPushHandler = true;
+  }
+
   return (
-    <NavigationContainer>
-      {userId ? <AppNavigator profileComplete={profileComplete} /> : <AuthNavigator />}
+    <NavigationContainer ref={navigationRef} key={containerKey}>
+      {content}
+      {showPushHandler && userId ? (
+        <PushNotificationHandler userId={userId} role={user?.role} />
+      ) : null}
     </NavigationContainer>
   );
 }
 
+
+
 const styles = StyleSheet.create({
+
   loading: { justifyContent: 'center', alignItems: 'center' },
+
 });
+
+

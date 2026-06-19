@@ -1,17 +1,20 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
   Pressable,
   StyleSheet,
-  FlatList,
+  SectionList,
   Share,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { ProgressBar } from '../components/ProgressBar';
 import { Screen } from '../components/Screen';
+import { ScreenHeader } from '../components/ScreenHeader';
+import { IconCircleButton } from '../components/IconCircleButton';
 import {
   listSavedSessions,
   getProgress,
@@ -21,39 +24,85 @@ import {
   reopenSavedSession,
   getSessionById,
   expireStaleActiveSession,
+  getSessionApprovalContext,
+  hasUnsyncedSubmissionOutbox,
 } from '../db/queries';
+import {
+  syncApprovalsForTeen,
+  syncDeclinedSubmissionsForTeen,
+  withdrawSessionSubmission,
+  fetchRemoteUserName,
+  syncSessionReopenedForEdit,
+  sendSavedSessionForApproval,
+} from '../lib/submissions';
+import { useCompatibility } from '../context/CompatibilityContext';
+import { getSessionDisplayStatus } from '../utils/sessionStatus';
+import { groupSessionsForDashboard } from '../utils/dashboardSessions';
+import { useApprovalPushRefresh } from '../hooks/useApprovalPushRefresh';
 import { IL_RULES } from '../config/states/IL';
 import { formatDate, formatDuration, addMonths } from '../utils/time';
 import { dayNightLabel } from '../utils/dayNight';
 import { renderExportTemplate } from '../utils/export';
 import {
   scheduleSessionNudge,
-  cancelSessionNudge,
+  cancelSessionNotifications,
   notifyStaleSessionExpired,
 } from '../utils/notifications';
 
 export function DashboardScreen({ navigation }) {
   const { userId, user } = useAuth();
+  const { canRemoteWrite } = useCompatibility();
   const [sessions, setSessions] = useState([]);
   const [progress, setProgress] = useState({ totalMinutes: 0, nightMinutes: 0 });
+  const [statusBySessionId, setStatusBySessionId] = useState({});
+  const [refreshing, setRefreshing] = useState(false);
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback(async () => {
     if (!userId) return;
-    setSessions(listSavedSessions(userId));
+    try {
+      await syncApprovalsForTeen(userId);
+      await syncDeclinedSubmissionsForTeen(userId);
+    } catch {
+      // Offline — show local approval state only
+    }
+    const rows = listSavedSessions(userId);
+    setSessions(rows);
     setProgress(getProgress(userId));
-  }, [userId]);
+
+    const statuses = {};
+    await Promise.all(
+      rows.map(async (session) => {
+        const ctx = getSessionApprovalContext(session.id);
+        let approverName;
+        if (ctx?.approval?.approvedByUserId) {
+          approverName = await fetchRemoteUserName(ctx.approval.approvedByUserId);
+        }
+        statuses[session.id] = getSessionDisplayStatus(session, {
+          submission: ctx?.submission,
+          approval: ctx?.approval,
+          latestApproval: ctx?.latestApproval,
+          approverName,
+          pendingRemoteSync: hasUnsyncedSubmissionOutbox(session.id),
+          canRemoteWrite,
+        });
+      }),
+    );
+    setStatusBySessionId(statuses);
+  }, [userId, canRemoteWrite]);
 
   useFocusEffect(
     useCallback(() => {
-      if (!userId) return;
-      refresh();
-
+      if (!userId) return undefined;
       let cancelled = false;
+
       (async () => {
+        await refresh();
+        if (cancelled) return;
+
         const expired = expireStaleActiveSession(userId);
         if (cancelled) return;
         if (expired) {
-          await cancelSessionNudge(expired.id);
+          await cancelSessionNotifications(expired.id);
           await notifyStaleSessionExpired(expired.id);
           navigation.replace('ReviewSession', { sessionId: expired.id, staleExpired: true });
           return;
@@ -76,6 +125,67 @@ export function DashboardScreen({ navigation }) {
       };
     }, [userId, navigation, refresh]),
   );
+
+  const sessionSections = useMemo(
+    () => groupSessionsForDashboard(sessions, statusBySessionId),
+    [sessions, statusBySessionId],
+  );
+
+  function renderSessionRow(item) {
+    const status = statusBySessionId[item.id];
+    const showWithdraw = status?.key === 'pending' || status?.key === 'saved_local';
+    const showSend = status?.key === 'saved_local' && canRemoteWrite;
+
+    return (
+      <View style={styles.row}>
+        <View style={styles.rowTop}>
+          <Pressable style={styles.rowMain} onPress={() => handleEdit(item.id)}>
+            <Text style={styles.rowDate}>{formatDate(item.startedAt)}</Text>
+            <Text style={styles.rowMeta}>
+              {formatDuration(item.durationMinutes ?? 0)} · {dayNightLabel(item.dayNight)}
+            </Text>
+          </Pressable>
+          <View style={styles.topActions}>
+            <Pressable onPress={() => handleEdit(item.id)}>
+              <Text style={styles.editLink}>Edit</Text>
+            </Pressable>
+            {showWithdraw ? (
+              <Pressable onPress={() => handleWithdraw(item.id)}>
+                <Text style={styles.withdrawLink}>Withdraw</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+        {status?.label ? (
+          <Text
+            style={[
+              styles.statusText,
+              status.key === 'approved' && styles.statusApproved,
+              status.key === 'pending' && styles.statusPending,
+              status.key === 'saved_local' && styles.statusSavedLocal,
+              status.key === 'needs_revision' && styles.statusNeedsRevision,
+              status.key === 'superseded' && styles.statusSuperseded,
+            ]}
+          >
+            {status.label}
+          </Text>
+        ) : null}
+        {showSend ? (
+          <Pressable style={styles.sendRow} onPress={() => handleSendForApproval(item.id)}>
+            <Text style={styles.sendLink}>Send for approval</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    );
+  }
+
+  useApprovalPushRefresh(['session_approved', 'session_declined'], refresh);
+
+  async function handlePullRefresh() {
+    setRefreshing(true);
+    await refresh();
+    setRefreshing(false);
+  }
 
   async function handleStart() {
     const active = getActiveSession(userId);
@@ -101,7 +211,29 @@ export function DashboardScreen({ navigation }) {
 
   function handleEdit(sessionId) {
     const before = getSessionById(sessionId);
+    const ctx = getSessionApprovalContext(sessionId);
+    if (ctx?.approval) {
+      Alert.alert(
+        'Edit approved session?',
+        'Editing will require your supervisor to approve the updated record.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Edit',
+            onPress: () => openEdit(sessionId, before),
+          },
+        ],
+      );
+      return;
+    }
+    openEdit(sessionId, before);
+  }
+
+  function openEdit(sessionId, before) {
     reopenSavedSession(sessionId);
+    syncSessionReopenedForEdit(sessionId).catch((e) => {
+      console.warn('Remote edit sync failed:', e.message);
+    });
     navigation.navigate('ReviewSession', {
       sessionId,
       editing: true,
@@ -113,19 +245,67 @@ export function DashboardScreen({ navigation }) {
     });
   }
 
+  function handleSendForApproval(sessionId) {
+    Alert.alert(
+      'Send for approval?',
+      'Your supervisor will be notified to review this session.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send',
+          onPress: async () => {
+            try {
+              await sendSavedSessionForApproval(sessionId);
+              refresh();
+            } catch (e) {
+              Alert.alert('Error', e.message ?? 'Could not send for approval.');
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  function handleWithdraw(sessionId) {
+    Alert.alert(
+      'Withdraw submission?',
+      'This removes the session from your log and clears it from your supervisor\'s pending list.',
+      [
+        { text: 'Keep pending', style: 'cancel' },
+        {
+          text: 'Withdraw',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await withdrawSessionSubmission(sessionId);
+              refresh();
+            } catch (e) {
+              Alert.alert('Error', e.message ?? 'Could not withdraw submission.');
+            }
+          },
+        },
+      ],
+    );
+  }
+
   const eligibility = user?.permitIssueDate
     ? addMonths(user.permitIssueDate, IL_RULES.holdingMonths)
     : null;
 
   return (
-    <Screen style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>Dashboard</Text>
-        <Pressable onPress={() => navigation.navigate('Settings')}>
-          <Text style={styles.link}>Settings</Text>
-        </Pressable>
-      </View>
+    <Screen withHeader>
+      <ScreenHeader
+        title="Dashboard"
+        rightAction={
+          <IconCircleButton
+            icon="settings-outline"
+            onPress={() => navigation.navigate('Settings')}
+            accessibilityLabel="Settings"
+          />
+        }
+      />
 
+      <View style={styles.body}>
       {eligibility && (
         <Text style={styles.eligibility}>
           Earliest license eligibility: {formatDate(eligibility)}
@@ -153,33 +333,29 @@ export function DashboardScreen({ navigation }) {
         </Pressable>
       </View>
 
-      <Text style={styles.sectionTitle}>Saved sessions</Text>
-      <FlatList
-        data={sessions}
+      <SectionList
+        style={styles.list}
+        contentContainerStyle={sessionSections.length === 0 ? styles.listEmpty : undefined}
+        sections={sessionSections}
         keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} />}
-        ListEmptyComponent={<Text style={styles.empty}>No saved sessions yet.</Text>}
-        renderItem={({ item }) => (
-          <Pressable style={styles.row} onPress={() => handleEdit(item.id)}>
-            <View>
-              <Text style={styles.rowDate}>{formatDate(item.startedAt)}</Text>
-              <Text style={styles.rowMeta}>
-                {formatDuration(item.durationMinutes ?? 0)} · {dayNightLabel(item.dayNight)}
-              </Text>
-            </View>
-            <Text style={styles.editLink}>Edit</Text>
-          </Pressable>
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handlePullRefresh} />
+        }
+        stickySectionHeadersEnabled={false}
+        ListEmptyComponent={<Text style={styles.empty}>No submitted sessions yet.</Text>}
+        renderSectionHeader={({ section: { title } }) => (
+          <Text style={styles.listSectionTitle}>{title}</Text>
         )}
+        renderItem={({ item }) => renderSessionRow(item)}
       />
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 20, paddingTop: 8 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: 28, fontWeight: '700', color: '#1a2b3c', marginBottom: 4 },
-  link: { color: '#2563eb', fontSize: 16, fontWeight: '600' },
+  container: { flex: 1 },
+  body: { flex: 1, paddingHorizontal: 20, paddingTop: 16 },
   eligibility: { fontSize: 14, color: '#5a6b7c', marginBottom: 16 },
   actions: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   primaryBtn: {
@@ -200,20 +376,57 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
   },
   secondaryBtnText: { color: '#1a2b3c', fontWeight: '600', fontSize: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1a2b3c', marginBottom: 8 },
+  listSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1a2b3c',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  list: { flex: 1 },
+  listEmpty: { flexGrow: 1 },
   empty: { color: '#6a7b8c', fontSize: 15, marginTop: 8 },
   row: {
     backgroundColor: '#fff',
     padding: 14,
     borderRadius: 10,
     marginBottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
+  rowTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  rowMain: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 8,
+  },
+  topActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginLeft: 8,
+    paddingTop: 2,
+  },
+  sendRow: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    alignItems: 'flex-start',
+  },
   rowDate: { fontSize: 16, fontWeight: '600', color: '#1a2b3c' },
   rowMeta: { fontSize: 14, color: '#5a6b7c', marginTop: 2 },
-  editLink: { color: '#2563eb', fontWeight: '600' },
+  statusText: { fontSize: 13, marginTop: 8, color: '#5a6b7c' },
+  statusApproved: { color: '#15803d' },
+  statusPending: { color: '#b45309' },
+  statusSavedLocal: { color: '#1d4ed8' },
+  statusNeedsRevision: { color: '#dc2626' },
+  statusSuperseded: { color: '#9333ea' },
+  editLink: { color: '#2563eb', fontWeight: '600', fontSize: 14 },
+  sendLink: { color: '#2563eb', fontWeight: '600', fontSize: 14 },
+  withdrawLink: { color: '#dc2626', fontWeight: '600', fontSize: 14 },
 });

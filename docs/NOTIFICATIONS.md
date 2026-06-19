@@ -29,13 +29,20 @@ Decisions: [DECISIONS.md](./DECISIONS.md)
 
 ## Phase 2 — push matrix
 
-| Event | Recipients | Notes |
-|-------|------------|-------|
+| Event | Recipients | Status |
+|-------|------------|--------|
 | Session started | All linked adults | Wishlist: proximity filter |
-| Adult claimed "I'm with the driver" | Other adults (info) | Active supervisor locked |
-| Session submitted | Eligible approver(s) | |
-| Session approved | Teen | |
+| Adult claimed "I'm with the driver" | Other adults (info) | Not implemented |
+| Session submitted | Eligible approver(s) | **Implemented** — `send-approval-push` → linked adults |
+| Session approved | Teen | **Implemented** — `send-approval-push` → teen |
 | Session deleted | Active supervisor if joined | Optional |
+
+### Approval push (implemented)
+
+- Teen submits → Edge Function notifies linked adults (`pending_approval` payload).
+- Adult approves → Edge Function notifies teen (`session_approved` payload).
+- Tap opens **Approve session** (adult) or **Dashboard** (teen) via `navigationRef`.
+- Pull-to-refresh and screen focus remain the in-app fallback ([DECISIONS.md](./DECISIONS.md)).
 
 After join, operational alerts → **teen + active supervisor** only.
 

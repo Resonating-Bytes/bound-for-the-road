@@ -58,6 +58,7 @@ export const MIGRATION_STATEMENTS = [
     id TEXT PRIMARY KEY NOT NULL,
     operation TEXT NOT NULL,
     payload_json TEXT NOT NULL,
+    user_id TEXT,
     created_at TEXT NOT NULL,
     synced_at TEXT
   )`,

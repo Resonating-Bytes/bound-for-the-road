@@ -31,6 +31,12 @@
       "expo-asset",
       "expo-web-browser",
       "expo-dev-client"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "7d0da270-cecb-4fe8-b9c0-283b425c6967"
+      }
+    },
+    "owner": "resonating-bytes"
   }
 }

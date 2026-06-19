@@ -1,10 +1,11 @@
-import { eq, and, isNull, desc, sql } from 'drizzle-orm';
+import { eq, and, or, isNull, desc, sql, inArray } from 'drizzle-orm';
 import { getDb } from './client';
-import { users, sessions, outbox } from './schema';
+import { users, sessions, outbox, links, settings, submissions, approvals } from './schema';
 import { generateId, nowISO, durationMinutes } from '../utils/time';
 import { classifyDayNight } from '../utils/dayNight';
-import { buildSavePayload, computeRequestHash, stableStringify } from '../utils/hash';
+import { buildSubmitPayload, computeRequestHash, stableSubmitStringify } from '../utils/hash';
 import { IL_RULES } from '../config/states/IL';
+import { clearHeaderThemePreference } from '../theme/headerTheme';
 
 export function getUserById(userId) {
   const db = getDb();
@@ -34,10 +35,53 @@ export function upsertUser(profile) {
   return row;
 }
 
+export function listSessionIdsForTeen(teenUserId) {
+  const db = getDb();
+  return db
+    .select({ id: sessions.id })
+    .from(sessions)
+    .where(eq(sessions.teenUserId, teenUserId))
+    .all()
+    .map((row) => row.id);
+}
+
+function deleteOutboxForUser(userId, sessionIds) {
+  const db = getDb();
+  db.delete(outbox).where(eq(outbox.userId, userId)).run();
+
+  if (!sessionIds.length) return;
+
+  const sessionIdSet = new Set(sessionIds);
+  const rows = db.select().from(outbox).all();
+  for (const row of rows) {
+    if (row.userId) continue;
+    try {
+      const payload = JSON.parse(row.payloadJson);
+      if (payload.sessionId && sessionIdSet.has(payload.sessionId)) {
+        db.delete(outbox).where(eq(outbox.id, row.id)).run();
+      }
+    } catch {
+      // ignore malformed outbox payloads
+    }
+  }
+}
+
 export function deleteAllUserData(userId) {
   const db = getDb();
+  const sessionIds = listSessionIdsForTeen(userId);
+  deleteOutboxForUser(userId, sessionIds);
+  if (sessionIds.length) {
+    db.delete(submissions).where(inArray(submissions.sessionId, sessionIds)).run();
+    db.delete(approvals).where(inArray(approvals.sessionId, sessionIds)).run();
+  }
+  db.delete(approvals).where(eq(approvals.approvedByUserId, userId)).run();
+  db.delete(submissions).where(eq(submissions.submittedByUserId, userId)).run();
   db.delete(sessions).where(eq(sessions.teenUserId, userId)).run();
+  db.delete(links).where(or(eq(links.teenUserId, userId), eq(links.adultUserId, userId))).run();
+  db.delete(settings).where(eq(settings.key, roleChosenKey(userId))).run();
+  db.delete(settings).where(eq(settings.key, linkInviteDeferredKey(userId))).run();
   db.delete(users).where(eq(users.id, userId)).run();
+  clearHeaderThemePreference(userId);
 }
 
 export function createActiveSession(teenUserId, stateCode = 'IL') {
@@ -137,6 +181,7 @@ export function resumeSession(sessionId) {
 export function reopenSavedSession(sessionId) {
   const db = getDb();
   const now = nowISO();
+  supersedeSubmissionsForSession(sessionId);
   db.update(sessions)
     .set({
       status: 'draft',
@@ -165,28 +210,34 @@ export function restoreSavedSession(sessionId, backup) {
   return getSessionById(sessionId);
 }
 
-export async function saveSession(sessionId, { notes, savedByUserId }) {
+export async function submitSession(
+  sessionId,
+  { notes, submittedByUserId, endedBy = 'teen', activeSupervisorId = null, activeSupervisorJoinedAt = null },
+) {
   const session = getSessionById(sessionId);
   if (!session || session.status !== 'draft') {
-    throw new Error('Session must be in draft status to save');
+    throw new Error('Session must be in draft status to submit');
   }
   const mins = durationMinutes(session.startedAt, session.endedAt);
   const dayNight = classifyDayNight(session.startedAt);
-  const payload = buildSavePayload({
+  const payload = buildSubmitPayload({
     sessionId: session.id,
     stateCode: session.stateCode,
     startedAt: session.startedAt,
     endedAt: session.endedAt,
+    endedBy,
+    activeSupervisorId: activeSupervisorId ?? session.activeSupervisorId ?? null,
+    activeSupervisorJoinedAt,
     durationMinutes: mins,
     dayNight,
     notes: notes ?? session.notes ?? null,
-    savedByUserId,
+    submittedByUserId,
   });
   const requestHash = await computeRequestHash(payload);
-  const canonical = stableStringify(payload);
+  const canonical = stableSubmitStringify(payload);
   const now = nowISO();
-  getDb()
-    .update(sessions)
+  const db = getDb();
+  db.update(sessions)
     .set({
       status: 'saved',
       durationMinutes: mins,
@@ -198,8 +249,159 @@ export async function saveSession(sessionId, { notes, savedByUserId }) {
     })
     .where(eq(sessions.id, sessionId))
     .run();
-  enqueueOutbox('session_saved', { sessionId, requestHash });
+  supersedeSubmissionsForSession(sessionId);
+  db.insert(submissions)
+    .values({
+      requestHash,
+      sessionId,
+      payloadJson: canonical,
+      submittedAt: payload.submittedAt,
+      submittedByUserId,
+      superseded: false,
+    })
+    .run();
+  enqueueOutbox('session_submitted', { sessionId, requestHash }, submittedByUserId);
   return getSessionById(sessionId);
+}
+
+/** @deprecated Use submitSession — kept for tests migrating from Phase 1 naming */
+export async function saveSession(sessionId, opts) {
+  return submitSession(sessionId, {
+    notes: opts.notes,
+    submittedByUserId: opts.savedByUserId ?? opts.submittedByUserId,
+  });
+}
+
+export function supersedeSubmissionsForSession(sessionId) {
+  getDb()
+    .update(submissions)
+    .set({ superseded: true })
+    .where(eq(submissions.sessionId, sessionId))
+    .run();
+}
+
+export function getSubmissionForSession(sessionId) {
+  const db = getDb();
+  return (
+    db
+      .select()
+      .from(submissions)
+      .where(and(eq(submissions.sessionId, sessionId), eq(submissions.superseded, false)))
+      .get() ?? null
+  );
+}
+
+export function getSubmissionByHash(requestHash) {
+  const db = getDb();
+  return db.select().from(submissions).where(eq(submissions.requestHash, requestHash)).get() ?? null;
+}
+
+export function getApprovalForHash(requestHash) {
+  const db = getDb();
+  return db.select().from(approvals).where(eq(approvals.requestHash, requestHash)).get() ?? null;
+}
+
+export function getLatestApprovalForSession(sessionId) {
+  const db = getDb();
+  return (
+    db
+      .select()
+      .from(approvals)
+      .where(eq(approvals.sessionId, sessionId))
+      .orderBy(desc(approvals.approvedAt))
+      .get() ?? null
+  );
+}
+
+export function upsertApproval(approval) {
+  const db = getDb();
+  const existing = db.select().from(approvals).where(eq(approvals.id, approval.id)).get();
+  const row = {
+    id: approval.id,
+    requestHash: approval.requestHash,
+    sessionId: approval.sessionId,
+    approvedByUserId: approval.approvedByUserId,
+    approvedAt: approval.approvedAt,
+    joinedSession: approval.joinedSession ?? null,
+    supervisorInVehicleName: approval.supervisorInVehicleName ?? null,
+    approverPresent: approval.approverPresent ?? null,
+  };
+  if (existing) {
+    db.update(approvals).set(row).where(eq(approvals.id, approval.id)).run();
+  } else {
+    db.insert(approvals).values(row).run();
+  }
+  return row;
+}
+
+export function returnSessionForRevision(sessionId) {
+  const session = getSessionById(sessionId);
+  if (!session || session.status !== 'saved') {
+    throw new Error('Only saved sessions can be returned for revision');
+  }
+  if (session.requestHash && getApprovalForHash(session.requestHash)) {
+    throw new Error('Approved sessions cannot be returned for revision');
+  }
+  supersedeSubmissionsForSession(sessionId);
+  const now = nowISO();
+  getDb()
+    .update(sessions)
+    .set({
+      requestHash: null,
+      payloadJson: null,
+      updatedAt: now,
+    })
+    .where(eq(sessions.id, sessionId))
+    .run();
+  return getSessionById(sessionId);
+}
+
+/** Restore a declined draft (legacy) back to saved for dashboard listing. */
+export function healDraftAfterDecline(sessionId) {
+  const session = getSessionById(sessionId);
+  if (!session || session.status !== 'draft' || !session.endedAt) {
+    return null;
+  }
+  if (session.requestHash && getApprovalForHash(session.requestHash)) {
+    return null;
+  }
+  supersedeSubmissionsForSession(sessionId);
+  const now = nowISO();
+  getDb()
+    .update(sessions)
+    .set({
+      status: 'saved',
+      requestHash: null,
+      payloadJson: null,
+      updatedAt: now,
+    })
+    .where(eq(sessions.id, sessionId))
+    .run();
+  return getSessionById(sessionId);
+}
+
+export function withdrawSubmission(sessionId) {
+  const session = getSessionById(sessionId);
+  if (!session || session.status !== 'saved') {
+    throw new Error('Only submitted sessions can be withdrawn');
+  }
+  if (session.requestHash && getApprovalForHash(session.requestHash)) {
+    throw new Error('Approved sessions cannot be withdrawn');
+  }
+  supersedeSubmissionsForSession(sessionId);
+  softDeleteSession(sessionId);
+  return getSessionById(sessionId);
+}
+
+export function getSessionApprovalContext(sessionId) {
+  const session = getSessionById(sessionId);
+  if (!session) return null;
+  return {
+    session,
+    submission: getSubmissionForSession(sessionId),
+    approval: session.requestHash ? getApprovalForHash(session.requestHash) : null,
+    latestApproval: getLatestApprovalForSession(sessionId),
+  };
 }
 
 export function softDeleteSession(sessionId) {
@@ -248,17 +450,70 @@ export function getProgress(teenUserId) {
   return { totalMinutes, nightMinutes, dayMinutes: totalMinutes - nightMinutes };
 }
 
-export function enqueueOutbox(operation, payload) {
+export function enqueueOutbox(operation, payload, userId) {
   const db = getDb();
   db.insert(outbox)
     .values({
       id: generateId(),
       operation,
       payloadJson: JSON.stringify(payload),
+      userId,
       createdAt: nowISO(),
       syncedAt: null,
     })
     .run();
+}
+
+export function hasUnsyncedSubmissionOutbox(sessionId) {
+  const db = getDb();
+  const rows = db
+    .select()
+    .from(outbox)
+    .where(and(eq(outbox.operation, 'session_submitted'), isNull(outbox.syncedAt)))
+    .all();
+  return rows.some((row) => {
+    try {
+      const payload = JSON.parse(row.payloadJson);
+      return payload.sessionId === sessionId;
+    } catch {
+      return false;
+    }
+  });
+}
+
+export function markSubmissionOutboxSynced(sessionId) {
+  const db = getDb();
+  const rows = db
+    .select()
+    .from(outbox)
+    .where(and(eq(outbox.operation, 'session_submitted'), isNull(outbox.syncedAt)))
+    .all();
+  const now = nowISO();
+  for (const row of rows) {
+    try {
+      const payload = JSON.parse(row.payloadJson);
+      if (payload.sessionId === sessionId) {
+        db.update(outbox).set({ syncedAt: now }).where(eq(outbox.id, row.id)).run();
+      }
+    } catch {
+      // ignore malformed outbox payloads
+    }
+  }
+}
+
+export function clearOutboxForSession(sessionId) {
+  const db = getDb();
+  const rows = db.select().from(outbox).all();
+  for (const row of rows) {
+    try {
+      const payload = JSON.parse(row.payloadJson);
+      if (payload.sessionId === sessionId) {
+        db.delete(outbox).where(eq(outbox.id, row.id)).run();
+      }
+    } catch {
+      // ignore malformed outbox payloads
+    }
+  }
 }
 
 export function isProfileComplete(user) {
@@ -268,4 +523,140 @@ export function isProfileComplete(user) {
       user?.stateCode &&
       user?.permitIssueDate,
   );
+}
+
+export function isAdultProfileComplete(user) {
+  return Boolean(user?.role === 'adult' && user?.legalName?.trim());
+}
+
+export function isProfileCompleteForRole(user) {
+  if (!user?.role) return false;
+  if (user.role === 'adult') return isAdultProfileComplete(user);
+  return isProfileComplete(user);
+}
+
+function roleChosenKey(userId) {
+  return `role_chosen_${userId}`;
+}
+
+function linkInviteDeferredKey(userId) {
+  return `link_invite_deferred_${userId}`;
+}
+
+export function getSettingValue(key) {
+  const db = getDb();
+  const row = db.select().from(settings).where(eq(settings.key, key)).get();
+  return row?.value ?? null;
+}
+
+export function setSettingValue(key, value) {
+  const db = getDb();
+  const existing = db.select().from(settings).where(eq(settings.key, key)).get();
+  if (existing) {
+    db.update(settings).set({ value }).where(eq(settings.key, key)).run();
+  } else {
+    db.insert(settings).values({ key, value }).run();
+  }
+}
+
+export function isLinkInviteDeferred(userId) {
+  const db = getDb();
+  const row = db.select().from(settings).where(eq(settings.key, linkInviteDeferredKey(userId))).get();
+  return row?.value === '1';
+}
+
+export function setLinkInviteDeferred(userId, deferred) {
+  const db = getDb();
+  const key = linkInviteDeferredKey(userId);
+  const existing = db.select().from(settings).where(eq(settings.key, key)).get();
+  if (deferred) {
+    if (existing) {
+      db.update(settings).set({ value: '1' }).where(eq(settings.key, key)).run();
+    } else {
+      db.insert(settings).values({ key, value: '1' }).run();
+    }
+    return;
+  }
+  if (existing) {
+    db.delete(settings).where(eq(settings.key, key)).run();
+  }
+}
+
+export function isRoleChosen(userId) {
+  const db = getDb();
+  const row = db.select().from(settings).where(eq(settings.key, roleChosenKey(userId))).get();
+  return row?.value === '1';
+}
+
+export function setRoleChosen(userId) {
+  const db = getDb();
+  const key = roleChosenKey(userId);
+  const existing = db.select().from(settings).where(eq(settings.key, key)).get();
+  if (existing) {
+    db.update(settings).set({ value: '1' }).where(eq(settings.key, key)).run();
+  } else {
+    db.insert(settings).values({ key, value: '1' }).run();
+  }
+}
+
+export function ensureRoleChosenForLegacyProfile(user) {
+  if (!user?.id) return;
+  if (isRoleChosen(user.id)) return;
+  if (user.role === 'teen' && isProfileComplete(user)) {
+    setRoleChosen(user.id);
+  }
+}
+
+export function maybeMarkRoleChosenFromRemote(userId, remoteProfile) {
+  if (!remoteProfile || isRoleChosen(userId)) return;
+  const role = remoteProfile.role ?? 'teen';
+  const hasName = Boolean(remoteProfile.legal_name?.trim());
+  if (role === 'adult' && hasName) {
+    setRoleChosen(userId);
+    return;
+  }
+  if (role === 'teen' && hasName && remoteProfile.date_of_birth && remoteProfile.permit_issue_date) {
+    setRoleChosen(userId);
+  }
+}
+
+export function upsertLink(link) {
+  const db = getDb();
+  const existing = db.select().from(links).where(eq(links.id, link.id)).get();
+  const row = {
+    id: link.id,
+    teenUserId: link.teenUserId,
+    adultUserId: link.adultUserId,
+    status: link.status,
+    createdAt: link.createdAt,
+  };
+  if (existing) {
+    db.update(links).set(row).where(eq(links.id, link.id)).run();
+  } else {
+    db.insert(links).values(row).run();
+  }
+  return row;
+}
+
+export function getActiveLinksForUser(userId) {
+  const db = getDb();
+  return db
+    .select()
+    .from(links)
+    .where(
+      and(
+        eq(links.status, 'active'),
+        or(eq(links.teenUserId, userId), eq(links.adultUserId, userId)),
+      ),
+    )
+    .all();
+}
+
+export function hasActiveLink(userId) {
+  return getActiveLinksForUser(userId).length > 0;
+}
+
+export function deleteLink(linkId) {
+  const db = getDb();
+  db.delete(links).where(eq(links.id, linkId)).run();
 }

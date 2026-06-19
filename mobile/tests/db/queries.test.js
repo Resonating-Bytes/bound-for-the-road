@@ -13,6 +13,12 @@ import {
   createActiveSession,
   stopSession,
   saveSession,
+  submitSession,
+  getSubmissionForSession,
+  getApprovalForHash,
+  upsertApproval,
+  withdrawSubmission,
+  getSessionApprovalContext,
   resumeSession,
   discardDraft,
   reopenSavedSession,
@@ -24,7 +30,10 @@ import {
   getActiveSession,
   expireStaleActiveSession,
   isActiveSessionStale,
+  deleteAllUserData,
 } from '../../src/db/queries';
+import { getDb } from '../../src/db/client';
+import { outbox } from '../../src/db/schema';
 
 const TEEN_ID = 'teen-001';
 
@@ -51,7 +60,7 @@ describe('queries', () => {
     jest.useRealTimers();
   });
 
-  test('active → draft → saved lifecycle', async () => {
+  test('active → draft → submitted lifecycle', async () => {
     const active = createActiveSession(TEEN_ID);
     expect(active.status).toBe('active');
 
@@ -59,14 +68,48 @@ describe('queries', () => {
     expect(draft.status).toBe('draft');
     expect(draft.endedAt).toBe('2026-06-01T15:00:00.000Z');
 
-    const saved = await saveSession(draft.id, {
+    const saved = await submitSession(draft.id, {
       notes: 'Practice loop',
-      savedByUserId: TEEN_ID,
+      submittedByUserId: TEEN_ID,
     });
     expect(saved.status).toBe('saved');
     expect(saved.durationMinutes).toBeGreaterThan(0);
     expect(saved.requestHash).toMatch(/^[a-f0-9]{64}$/);
-    expect(saved.payloadJson).toContain('"sessionId"');
+    expect(saved.payloadJson).toContain('"submittedAt"');
+
+    const submission = getSubmissionForSession(saved.id);
+    expect(submission.requestHash).toBe(saved.requestHash);
+    expect(submission.superseded).toBe(false);
+  });
+
+  test('withdraw submission soft-deletes saved session', async () => {
+    const active = createActiveSession(TEEN_ID);
+    stopSession(active.id, '2026-06-01T15:00:00.000Z');
+    await submitSession(active.id, { submittedByUserId: TEEN_ID });
+    const deleted = withdrawSubmission(active.id);
+    expect(deleted.status).toBe('deleted');
+    expect(deleted.deletedAt).not.toBeNull();
+    expect(getSubmissionForSession(active.id)).toBeNull();
+    expect(listSavedSessions(TEEN_ID)).toHaveLength(0);
+  });
+
+  test('approval context reflects approved hash', async () => {
+    const active = createActiveSession(TEEN_ID);
+    stopSession(active.id, '2026-06-01T15:00:00.000Z');
+    const saved = await submitSession(active.id, { submittedByUserId: TEEN_ID });
+    upsertApproval({
+      id: 'appr-1',
+      requestHash: saved.requestHash,
+      sessionId: saved.id,
+      approvedByUserId: 'adult-1',
+      approvedAt: '2026-06-01T16:00:00.000Z',
+      joinedSession: true,
+      supervisorInVehicleName: 'Pat',
+      approverPresent: 'co_present',
+    });
+    const ctx = getSessionApprovalContext(saved.id);
+    expect(getApprovalForHash(saved.requestHash)?.approvedByUserId).toBe('adult-1');
+    expect(ctx.approval.requestHash).toBe(saved.requestHash);
   });
 
   test('resume clears endedAt and returns to active', () => {
@@ -135,5 +178,41 @@ describe('queries', () => {
     const progress = getProgress(TEEN_ID);
     expect(progress.totalMinutes).toBeGreaterThan(0);
     expect(listSavedSessions(TEEN_ID)).toHaveLength(1);
+  });
+
+  test('submit enqueues outbox row with user id', async () => {
+    const active = createActiveSession(TEEN_ID);
+    stopSession(active.id, '2026-06-01T15:00:00.000Z');
+    await submitSession(active.id, { submittedByUserId: TEEN_ID });
+    const rows = getDb().select().from(outbox).all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].userId).toBe(TEEN_ID);
+    expect(rows[0].operation).toBe('session_submitted');
+  });
+
+  test('deleteAllUserData clears outbox for user', async () => {
+    const active = createActiveSession(TEEN_ID);
+    stopSession(active.id, '2026-06-01T15:00:00.000Z');
+    await submitSession(active.id, { submittedByUserId: TEEN_ID });
+    expect(getDb().select().from(outbox).all()).toHaveLength(1);
+    deleteAllUserData(TEEN_ID);
+    expect(getDb().select().from(outbox).all()).toHaveLength(0);
+  });
+
+  test('deleteAllUserData clears legacy outbox rows without user_id', () => {
+    const active = createActiveSession(TEEN_ID);
+    getDb()
+      .insert(outbox)
+      .values({
+        id: 'outbox-legacy',
+        operation: 'session_submitted',
+        payloadJson: JSON.stringify({ sessionId: active.id, requestHash: 'abc' }),
+        userId: null,
+        createdAt: '2026-06-01T10:00:00.000Z',
+        syncedAt: null,
+      })
+      .run();
+    deleteAllUserData(TEEN_ID);
+    expect(getDb().select().from(outbox).all()).toHaveLength(0);
   });
 });

@@ -44,6 +44,9 @@ export async function signInWithGoogleOAuth() {
     options: {
       redirectTo,
       skipBrowserRedirect: true,
+      queryParams: {
+        prompt: 'select_account',
+      },
     },
   });
   if (error) throw error;
