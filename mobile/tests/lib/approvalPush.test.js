@@ -7,6 +7,8 @@ jest.mock('../../src/lib/supabase', () => ({
   })),
 }));
 
+import { APP_VERSION } from '../../src/config/compatibility';
+
 describe('approvalPush', () => {
   beforeEach(() => {
     mockInvoke.mockClear();
@@ -25,7 +27,7 @@ describe('approvalPush', () => {
         event: 'session_submitted',
         sessionId: 'session-1',
         requestHash: 'hash-1',
-        clientVersion: '1.0.0',
+        clientVersion: APP_VERSION,
       },
     });
   });
