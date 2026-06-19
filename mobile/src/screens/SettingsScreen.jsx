@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Text, TextInput, Pressable, StyleSheet, Alert, ScrollView } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { Screen } from '../components/Screen';
-import { BackButton } from '../components/BackButton';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { LinkedAccountsSection } from '../components/LinkedAccountsSection';
 import { DatePickerField } from '../components/DatePickerField';
 import { toISODateOnly } from '../utils/time';
@@ -69,13 +69,12 @@ export function SettingsScreen({ navigation }) {
     navigation.navigate(isTeen ? 'LinkTeen' : 'LinkAdult');
   }
 
+  const showBack = canShowBackButton(navigation, linked);
+
   return (
-    <Screen>
-      {canShowBackButton(navigation, linked) ? (
-        <BackButton onPress={handleBack} />
-      ) : null}
+    <Screen withHeader>
+      <ScreenHeader title="Settings" onBack={showBack ? handleBack : undefined} />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Settings</Text>
         <Text style={styles.meta}>Role: {isTeen ? 'Teen driver' : 'Supervising adult'}</Text>
 
         <Text style={styles.label}>Legal name</Text>
@@ -120,8 +119,7 @@ export function SettingsScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 52, paddingBottom: 40 },
-  title: { fontSize: 24, fontWeight: '700', color: '#1a2b3c', marginBottom: 8 },
+  content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 },
   meta: { fontSize: 14, color: '#6a7b8c', marginBottom: 20 },
   label: { fontSize: 15, fontWeight: '600', color: '#1a2b3c', marginBottom: 6 },
   input: {

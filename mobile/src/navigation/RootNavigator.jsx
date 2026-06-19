@@ -190,6 +190,14 @@ function AdultNavigator({ navigatorKey, initialRouteName }) {
 
       <AdultStack.Screen
 
+        name="ApproveSession"
+
+        getComponent={() => require('../screens/ApproveSessionScreen').ApproveSessionScreen}
+
+      />
+
+      <AdultStack.Screen
+
         name="LinkAdult"
 
         getComponent={() => require('../screens/linking/LinkAdultScreen').LinkAdultScreen}

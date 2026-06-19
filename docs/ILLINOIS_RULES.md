@@ -62,7 +62,6 @@ Each session row should include:
 - Duration (minutes or h:mm)
 - Day or night
 - Optional notes
-- Record hash (truncated)
 - Driver legal name
 - Permit issue date / eligibility date (header)
 

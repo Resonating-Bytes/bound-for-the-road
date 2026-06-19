@@ -1,6 +1,5 @@
 import { formatDate, formatDateTime, formatDuration, addMonths } from './time';
 import { dayNightLabel } from './dayNight';
-import { truncateHash } from './hash';
 import { IL_RULES, hoursFromMinutes } from '../config/states/IL';
 
 export function renderExportTemplate(sessionRows, user) {
@@ -34,7 +33,6 @@ export function renderExportTemplate(sessionRows, user) {
     lines.push(`  Duration: ${formatDuration(s.durationMinutes ?? 0)}`);
     lines.push(`  Day/Night: ${dayNightLabel(s.dayNight)}`);
     if (s.notes) lines.push(`  Notes: ${s.notes}`);
-    if (s.requestHash) lines.push(`  Record hash: ${truncateHash(s.requestHash)}…`);
   });
 
   const totalMin = sessionRows.reduce((sum, s) => sum + (s.durationMinutes ?? 0), 0);

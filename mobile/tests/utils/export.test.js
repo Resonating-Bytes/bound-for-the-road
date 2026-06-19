@@ -36,7 +36,7 @@ describe('export', () => {
     expect(text).toContain('Neighborhood loop');
     expect(text).toContain('Total practice: 2.5 / 50 hours');
     expect(text).toContain('Night practice: 1.5 / 10 hours');
-    expect(text).toContain('Record hash: abcdef12…');
+    expect(text).not.toContain('Record hash');
     expect(text).toContain('Disclaimer: Summarized for convenience');
   });
 

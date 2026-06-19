@@ -13,6 +13,12 @@ import {
   createActiveSession,
   stopSession,
   saveSession,
+  submitSession,
+  getSubmissionForSession,
+  getApprovalForHash,
+  upsertApproval,
+  withdrawSubmission,
+  getSessionApprovalContext,
   resumeSession,
   discardDraft,
   reopenSavedSession,
@@ -51,7 +57,7 @@ describe('queries', () => {
     jest.useRealTimers();
   });
 
-  test('active → draft → saved lifecycle', async () => {
+  test('active → draft → submitted lifecycle', async () => {
     const active = createActiveSession(TEEN_ID);
     expect(active.status).toBe('active');
 
@@ -59,14 +65,47 @@ describe('queries', () => {
     expect(draft.status).toBe('draft');
     expect(draft.endedAt).toBe('2026-06-01T15:00:00.000Z');
 
-    const saved = await saveSession(draft.id, {
+    const saved = await submitSession(draft.id, {
       notes: 'Practice loop',
-      savedByUserId: TEEN_ID,
+      submittedByUserId: TEEN_ID,
     });
     expect(saved.status).toBe('saved');
     expect(saved.durationMinutes).toBeGreaterThan(0);
     expect(saved.requestHash).toMatch(/^[a-f0-9]{64}$/);
-    expect(saved.payloadJson).toContain('"sessionId"');
+    expect(saved.payloadJson).toContain('"submittedAt"');
+
+    const submission = getSubmissionForSession(saved.id);
+    expect(submission.requestHash).toBe(saved.requestHash);
+    expect(submission.superseded).toBe(false);
+  });
+
+  test('withdraw submission returns session to draft', async () => {
+    const active = createActiveSession(TEEN_ID);
+    stopSession(active.id, '2026-06-01T15:00:00.000Z');
+    await submitSession(active.id, { submittedByUserId: TEEN_ID });
+    const draft = withdrawSubmission(active.id);
+    expect(draft.status).toBe('draft');
+    expect(draft.requestHash).toBeNull();
+    expect(getSubmissionForSession(active.id)).toBeNull();
+  });
+
+  test('approval context reflects approved hash', async () => {
+    const active = createActiveSession(TEEN_ID);
+    stopSession(active.id, '2026-06-01T15:00:00.000Z');
+    const saved = await submitSession(active.id, { submittedByUserId: TEEN_ID });
+    upsertApproval({
+      id: 'appr-1',
+      requestHash: saved.requestHash,
+      sessionId: saved.id,
+      approvedByUserId: 'adult-1',
+      approvedAt: '2026-06-01T16:00:00.000Z',
+      joinedSession: true,
+      supervisorInVehicleName: 'Pat',
+      approverPresent: 'co_present',
+    });
+    const ctx = getSessionApprovalContext(saved.id);
+    expect(getApprovalForHash(saved.requestHash)?.approvedByUserId).toBe('adult-1');
+    expect(ctx.approval.requestHash).toBe(saved.requestHash);
   });
 
   test('resume clears endedAt and returns to active', () => {

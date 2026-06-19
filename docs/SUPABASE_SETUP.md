@@ -23,6 +23,7 @@ Decisions: [BACKEND.md](./BACKEND.md) · [DATA_MODEL.md](./DATA_MODEL.md) · [AU
 3. Paste contents of `supabase/migrations/20260618120001_rls_policies.sql` → **Run**
 4. Paste contents of `supabase/migrations/20260619120000_link_invite_rpc.sql` → **Run** (required for teen/adult linking)
 5. Paste contents of `supabase/migrations/20260619130000_users_insert_own.sql` → **Run** (recreate profile row after dev DB reset)
+6. Paste contents of `supabase/migrations/20260619140000_submissions_teen_update.sql` → **Run** (teen withdraw before approval)
 
 **Option B — Supabase CLI**
 

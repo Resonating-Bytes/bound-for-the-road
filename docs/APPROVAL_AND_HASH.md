@@ -103,7 +103,7 @@ Attestation UI required before Approve ([DECISIONS.md](./DECISIONS.md)).
 | Newer hash than approved | "Superseded — approval on prior version" |
 | Session &lt; 5 min (submitted anyway) | Warning badge on record |
 
-Export footer (optional): `Record ID: a1b2…c3` (truncated hash).
+Export does **not** include internal record hashes — those stay in the database for integrity only.
 
 ---
 
