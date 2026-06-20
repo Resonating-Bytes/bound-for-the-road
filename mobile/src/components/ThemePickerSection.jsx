@@ -12,7 +12,7 @@ import { getPresetsByCategory } from '../theme/presets';
 
 export function ThemePickerSection() {
 
-  const { presetId, setPresetId, selectedPreset } = useTheme();
+  const { presetId, setPresetId, selectedPreset, theme } = useTheme();
 
   const categories = getPresetsByCategory();
 
@@ -22,13 +22,18 @@ export function ThemePickerSection() {
 
     <View style={styles.section}>
 
-      <Text style={styles.label}>Header color</Text>
+      <Text style={styles.label}>Theme picker</Text>
 
-      <Text style={styles.hint}>Applies to the top bar on every screen.</Text>
+      <Text style={styles.hint}>Change the appearance of the app to fit your mood.</Text>
 
-      <Text style={styles.selectedLabel}>{selectedPreset?.label ?? 'Charcoal'}</Text>
-
-
+      <View style={styles.accentPreview}>
+        <Text style={styles.accentPreviewLabel}>Accent color preview</Text>
+        <View style={[styles.accentPreviewBtn, { backgroundColor: theme.accent }]}>
+          <Text style={[styles.accentPreviewBtnText, { color: theme.accentText }]}>
+            Preview
+          </Text>
+        </View>
+      </View>
 
       {categories.map((category) => (
 
@@ -169,6 +174,40 @@ const styles = StyleSheet.create({
     color: '#5a6b7c',
 
     marginBottom: 16,
+
+  },
+
+  accentPreview: {
+
+    marginBottom: 20,
+
+  },
+
+  accentPreviewLabel: {
+
+    fontSize: 14,
+
+    color: '#6a7b8c',
+
+    marginBottom: 10,
+
+  },
+
+  accentPreviewBtn: {
+
+    paddingVertical: 14,
+
+    borderRadius: 10,
+
+    alignItems: 'center',
+
+  },
+
+  accentPreviewBtnText: {
+
+    fontWeight: '600',
+
+    fontSize: 16,
 
   },
 

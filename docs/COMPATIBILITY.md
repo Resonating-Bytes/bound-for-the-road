@@ -10,7 +10,7 @@ Related: [APPROVAL_AND_HASH.md](./APPROVAL_AND_HASH.md) · [OFFLINE_SYNC.md](./O
 
 | Layer | Where | Current | Who bumps |
 |-------|--------|---------|-----------|
-| **App** | `mobile/app.json` `expo.version` | `1.3.0` | Release / EAS build; bump with [CHANGELOG.md](../CHANGELOG.md). Runtime reads via `APP_VERSION`; `mobile/package.json` `version` mirrors it for npm. |
+| **App** | `mobile/app.json` `expo.version` | `1.4.0` | Release / EAS build; bump with [CHANGELOG.md](../CHANGELOG.md). Runtime reads via `APP_VERSION`; `mobile/package.json` `version` mirrors it for npm. |
 | **Local DB** | `schema_meta.local_db_version` | `2` | Mobile dev when SQLite shape changes |
 | **Payload hash** | `schemaVersion` in canonical JSON | `1` | Mobile dev when hash-relevant fields change |
 | **Backend** | `app_config.backend_revision` | migration id | Apply new Supabase migration + update seed row |
@@ -44,7 +44,7 @@ Lexicographic compare works for `backend_revision` (timestamp migration filename
 
 ```json
 {
-  "backend_revision": "20260621120000",
+  "backend_revision": "20260622120000",
   "min_app_version": "1.0.0",
   "payload_schema_version": "1",
   "capabilities": ["decline_submission", "send_approval_push", "..."]
@@ -53,7 +53,7 @@ Lexicographic compare works for `backend_revision` (timestamp migration filename
 
 Callable by `anon` and `authenticated` (read-only, no secrets).
 
-After applying `20260620120000_app_compatibility.sql`, update `backend_revision` in `app_config` whenever a later migration requires a newer app build. `20260621120000_register_push_token_rpc.sql` sets `backend_revision` to `20260621120000` and adds the `register_push_token` RPC (unique push token index).
+After applying `20260620120000_app_compatibility.sql`, update `backend_revision` in `app_config` whenever a later migration requires a newer app build. `20260621120000_register_push_token_rpc.sql` adds the `register_push_token` RPC. `20260622120000_delete_my_account_rpc.sql` adds hard account deletion.
 
 ---
 

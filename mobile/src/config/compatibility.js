@@ -6,7 +6,7 @@ import appJson from '../../app.json';
 export const APP_VERSION = appJson.expo.version;
 
 /** Oldest backend_revision this app build supports (Supabase migration id). */
-export const MIN_BACKEND_REVISION = '20260621120000';
+export const MIN_BACKEND_REVISION = '20260622120000';
 
 export const CURRENT_PAYLOAD_SCHEMA_VERSION = 1;
 export const SUPPORTED_PAYLOAD_SCHEMA_VERSION = 1;

@@ -16,6 +16,8 @@ export function LinkAdultScreen({ navigation }) {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const codeComplete = code.length === 6;
+
   async function handleAccept() {
     const normalized = normalizeInviteCode(code);
     if (normalized.length !== 6) {
@@ -67,10 +69,10 @@ export function LinkAdultScreen({ navigation }) {
           style={[
             shared.button,
             accent.button,
-            (loading || !code.trim()) && shared.buttonDisabled,
+            (loading || !codeComplete) && shared.buttonDisabled,
           ]}
           onPress={handleAccept}
-          disabled={loading || !code.trim()}
+          disabled={loading || !codeComplete}
         >
           <Text style={[shared.buttonText, accent.buttonText]}>
             {loading ? 'Linking…' : 'Link accounts'}

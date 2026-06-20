@@ -9,7 +9,7 @@ import { APP_VERSION } from '../config/compatibility';
 import { openAppUpdateUrl } from './ScreenHeaderBanners';
 import { useTheme } from '../context/ThemeContext';
 
-export function AppVersionSection() {
+export function AppVersionSection({ hideSectionTitle = false }) {
   const { theme } = useTheme();
   const { compatibility, loading, refresh } = useCompatibility();
   const active = getActiveCompatibilityDisplay(compatibility);
@@ -20,7 +20,7 @@ export function AppVersionSection() {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>App Updates</Text>
+      {hideSectionTitle ? null : <Text style={styles.sectionTitle}>App Updates</Text>}
       <Text style={styles.metaLine}>This device: {APP_VERSION}</Text>
       {updateStatus.required && remote?.min_app_version ? (
         <Text style={styles.metaLine}>Required version: {remote.min_app_version}</Text>

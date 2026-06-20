@@ -10,6 +10,7 @@ export function LinkedAccountsSection({
   role,
   refreshLinks,
   onInvite,
+  hideSectionTitle = false,
 }) {
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -69,7 +70,7 @@ export function LinkedAccountsSection({
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Linked accounts</Text>
+      {hideSectionTitle ? null : <Text style={styles.sectionTitle}>Linked accounts</Text>}
 
       {loading ? (
         <ActivityIndicator style={styles.loader} color={theme.accent} />
