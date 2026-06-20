@@ -2,7 +2,7 @@
 
 How we version releases and what GitHub enforces on pull requests.
 
-Related: [COMPATIBILITY.md](./COMPATIBILITY.md)
+Related: [COMPATIBILITY.md](./COMPATIBILITY.md) · [AGENT_VERSIONING.md](./AGENT_VERSIONING.md) (agent PR checklist)
 
 ---
 
