@@ -209,7 +209,47 @@ export function restoreSavedSession(sessionId, backup) {
       requestHash: backup.requestHash,
       payloadJson: backup.payloadJson,
       notes: backup.notes ?? null,
+      startedAt: backup.startedAt,
+      endedAt: backup.endedAt,
+      durationMinutes: backup.durationMinutes,
+      dayNight: backup.dayNight,
       updatedAt: now,
+    })
+    .where(eq(sessions.id, sessionId))
+    .run();
+  return getSessionById(sessionId);
+}
+
+/** Update draft session fields; recomputes duration and day/night from times. */
+export function updateDraftSessionFields(
+  sessionId,
+  { startedAt, endedAt, notes } = {},
+) {
+  const session = getSessionById(sessionId);
+  if (!session || session.status !== 'draft') {
+    throw new Error('Session must be in draft status to edit');
+  }
+
+  const nextStart = startedAt ?? session.startedAt;
+  const nextEnd = endedAt ?? session.endedAt;
+  if (!nextStart || !nextEnd) {
+    throw new Error('Start and end times are required');
+  }
+  if (new Date(nextEnd).getTime() <= new Date(nextStart).getTime()) {
+    throw new Error('End time must be after start time');
+  }
+
+  const mins = durationMinutes(nextStart, nextEnd);
+  const dayNight = classifyDayNight(nextStart);
+  const db = getDb();
+  db.update(sessions)
+    .set({
+      startedAt: nextStart,
+      endedAt: nextEnd,
+      durationMinutes: mins,
+      dayNight,
+      ...(notes !== undefined ? { notes } : {}),
+      updatedAt: nowISO(),
     })
     .where(eq(sessions.id, sessionId))
     .run();

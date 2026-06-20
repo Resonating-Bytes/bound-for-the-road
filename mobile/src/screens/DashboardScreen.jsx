@@ -40,6 +40,7 @@ import { useCompatibility } from '../context/CompatibilityContext';
 import { useTheme } from '../context/ThemeContext';
 import { getSessionDisplayStatus } from '../utils/sessionStatus';
 import { groupSessionsForDashboard } from '../utils/dashboardSessions';
+import { createSessionEditBackup } from '../utils/sessionEdit';
 import { useApprovalPushRefresh } from '../hooks/useApprovalPushRefresh';
 import { useOutboxSyncRefresh } from '../hooks/useOutboxSyncRefresh';
 import { IL_RULES } from '../config/states/IL';
@@ -176,11 +177,7 @@ export function DashboardScreen({ navigation }) {
     navigation.navigate('ReviewSession', {
       sessionId,
       editing: true,
-      editBackup: {
-        requestHash: before.requestHash,
-        payloadJson: before.payloadJson,
-        notes: before.notes,
-      },
+      editBackup: createSessionEditBackup(before),
     });
   }
 
@@ -292,7 +289,6 @@ export function DashboardScreen({ navigation }) {
         label="Night practice"
         currentMinutes={progress.nightMinutes}
         targetHours={IL_RULES.nightHours}
-        color="#6366f1"
       />
 
       <View style={styles.actions}>

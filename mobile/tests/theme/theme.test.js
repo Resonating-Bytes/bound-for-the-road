@@ -51,9 +51,9 @@ describe('theme', () => {
 
   test('curated accent per preset', () => {
     expect(resolveTheme('lilac').accent).toBe(getPresetById('lilac').accent);
-    expect(resolveTheme('sand').accent).toBe(getPresetById('sand').accent);
+    expect(resolveTheme('espresso').accent).toBe(getPresetById('espresso').accent);
     expect(resolveTheme('midnight').accent).toBe(getPresetById('midnight').accent);
-    expect(resolveTheme('royalBlue').accent).toBe(getPresetById('royalBlue').accent);
+    expect(resolveTheme('violet').accent).toBe(getPresetById('violet').accent);
   });
 
   test('vibrant category has four presets with halo', () => {

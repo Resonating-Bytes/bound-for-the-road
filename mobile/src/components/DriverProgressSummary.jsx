@@ -26,7 +26,6 @@ export function DriverProgressSummary({
         label="Night practice"
         currentMinutes={progress.nightMinutes}
         targetHours={IL_RULES.nightHours}
-        color="#6366f1"
       />
     </View>
   );

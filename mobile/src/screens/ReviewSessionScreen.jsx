@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import {
   getSessionApprovalContext,
   getApprovalForHash,
   hasUnsyncedSubmissionOutbox,
+  updateDraftSessionFields,
 } from '../db/queries';
 import {
   submitSessionForApproval,
@@ -37,8 +38,11 @@ import { cancelSessionNotifications, scheduleSessionNudge } from '../utils/notif
 import { isSupabaseConfigured } from '../lib/supabase';
 import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { DateTimePickerField } from '../components/DateTimePickerField';
 import { useTheme } from '../context/ThemeContext';
 import { getSessionDisplayStatus } from '../utils/sessionStatus';
+import { createSessionEditBackup } from '../utils/sessionEdit';
+import { useKeyboardScrollAlign } from '../hooks/useKeyboardScrollAlign';
 
 export function ReviewSessionScreen({ route, navigation }) {
   const { sessionId, editing, editBackup, staleExpired } = route.params ?? {};
@@ -47,9 +51,14 @@ export function ReviewSessionScreen({ route, navigation }) {
   const { canRemoteWrite } = useCompatibility();
   const session = getSessionById(sessionId);
   const [notes, setNotes] = useState(session?.notes ?? '');
+  const [startedAt, setStartedAt] = useState(session?.startedAt ?? null);
+  const [endedAt, setEndedAt] = useState(session?.endedAt ?? null);
   const [saving, setSaving] = useState(false);
   const [displayStatus, setDisplayStatus] = useState(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const notesFieldRef = useRef(null);
+  const { scrollRef, scrollInputIntoView, onScroll, contentPaddingBottom } =
+    useKeyboardScrollAlign(40);
 
   useEffect(() => {
     if (!session || session.status !== 'saved') {
@@ -85,11 +94,14 @@ export function ReviewSessionScreen({ route, navigation }) {
 
   useEffect(() => {
     if (!editing || !sessionId) return;
-    const row = getSessionById(sessionId);
+    let row = getSessionById(sessionId);
     if (row?.status === 'saved') {
       reopenSavedSession(sessionId);
+      row = getSessionById(sessionId);
     }
-    setNotes(getSessionById(sessionId)?.notes ?? '');
+    setNotes(row?.notes ?? '');
+    setStartedAt(row?.startedAt ?? null);
+    setEndedAt(row?.endedAt ?? null);
   }, [sessionId, editing]);
 
   if (!session) {
@@ -100,16 +112,43 @@ export function ReviewSessionScreen({ route, navigation }) {
     );
   }
 
-  const mins = durationMinutes(session.startedAt, session.endedAt);
-  const dayNight = classifyDayNight(session.startedAt);
-  const curfewWarning = getCurfewWarning(session.startedAt, session.endedAt);
+  const displayStart = startedAt ?? session.startedAt;
+  const displayEnd = endedAt ?? session.endedAt;
+  const mins = durationMinutes(displayStart, displayEnd);
+  const dayNight = classifyDayNight(displayStart);
+  const curfewWarning = getCurfewWarning(displayStart, displayEnd);
   const isDraft = session.status === 'draft';
   const submitBlocked = isSupabaseConfigured() && !canRemoteWrite;
+  const showTimeEditor = isDraft || editing;
   const showNotesEditor = isDraft || editing;
   const showDraftActions = isDraft || editing;
+  const now = new Date();
 
   const originalNotes = editing ? (editBackup?.notes ?? '') : (session.notes ?? '');
-  const notesChanged = notes !== originalNotes;
+  const originalStart = editing ? editBackup?.startedAt : session.startedAt;
+  const originalEnd = editing ? editBackup?.endedAt : session.endedAt;
+  const hasEdits =
+    notes !== (originalNotes ?? '') ||
+    displayStart !== originalStart ||
+    displayEnd !== originalEnd;
+
+  function applyTimeChange(nextStart, nextEnd) {
+    try {
+      updateDraftSessionFields(sessionId, { startedAt: nextStart, endedAt: nextEnd });
+      setStartedAt(nextStart);
+      setEndedAt(nextEnd);
+    } catch (e) {
+      Alert.alert('Invalid times', e.message ?? 'Could not update session times.');
+    }
+  }
+
+  function handleStartChange(nextStart) {
+    applyTimeChange(nextStart, displayEnd);
+  }
+
+  function handleEndChange(nextEnd) {
+    applyTimeChange(displayStart, nextEnd);
+  }
 
   function goDashboard() {
     navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
@@ -148,6 +187,11 @@ export function ReviewSessionScreen({ route, navigation }) {
   async function doSave() {
     setSaving(true);
     try {
+      updateDraftSessionFields(sessionId, {
+        startedAt: displayStart,
+        endedAt: displayEnd,
+        notes,
+      });
       const result = await submitSessionForApproval(sessionId, { notes, submittedByUserId: userId });
       await cancelSessionNotifications(sessionId);
       if (result.pendingRemote) {
@@ -178,7 +222,7 @@ export function ReviewSessionScreen({ route, navigation }) {
   }
 
   function handleBackFromEdit() {
-    if (!notesChanged) {
+    if (!hasEdits) {
       revertEdit();
       return;
     }
@@ -284,11 +328,7 @@ export function ReviewSessionScreen({ route, navigation }) {
     navigation.navigate('ReviewSession', {
       sessionId,
       editing: true,
-      editBackup: {
-        requestHash: before.requestHash,
-        payloadJson: before.payloadJson,
-        notes: before.notes,
-      },
+      editBackup: createSessionEditBackup(before),
     });
   }
 
@@ -328,12 +368,41 @@ export function ReviewSessionScreen({ route, navigation }) {
           editing ? handleBackFromEdit : !isDraft ? handleBackFromSavedReview : undefined
         }
       />
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <ScrollView
+        ref={scrollRef}
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}
+        keyboardShouldPersistTaps="handled"
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+      >
         <View style={styles.card}>
-          <Row label="Start" value={formatDateTime(session.startedAt)} />
-          <Row label="End" value={formatDateTime(session.endedAt)} />
+          {showTimeEditor ? (
+            <>
+              <Text style={styles.fieldLabel}>Start</Text>
+              <DateTimePickerField
+                value={displayStart}
+                onChange={handleStartChange}
+                maximumDate={displayEnd ? new Date(displayEnd) : now}
+                accessibilityLabel="Edit start time"
+              />
+              <Text style={styles.fieldLabel}>End</Text>
+              <DateTimePickerField
+                value={displayEnd}
+                onChange={handleEndChange}
+                minimumDate={displayStart ? new Date(displayStart) : undefined}
+                maximumDate={now}
+                accessibilityLabel="Edit end time"
+              />
+            </>
+          ) : (
+            <>
+              <Row label="Start" value={formatDateTime(session.startedAt)} />
+              <Row label="End" value={formatDateTime(session.endedAt)} />
+            </>
+          )}
           <Row label="Duration" value={formatDuration(mins)} />
-          <Row label="Day / night" value={dayNightLabel(session.dayNight ?? dayNight)} />
+          <Row label="Day / night" value={dayNightLabel(dayNight)} />
         </View>
 
         {staleExpired && (
@@ -377,13 +446,16 @@ export function ReviewSessionScreen({ route, navigation }) {
         {showNotesEditor && (
           <>
             <Text style={styles.label}>Notes (optional)</Text>
-            <TextInput
-              style={styles.input}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Route, weather, supervisor name…"
-              multiline
-            />
+            <View ref={notesFieldRef} collapsable={false}>
+              <TextInput
+                style={styles.input}
+                value={notes}
+                onChangeText={setNotes}
+                onFocus={() => scrollInputIntoView(notesFieldRef)}
+                placeholder="Route, weather, supervisor name…"
+                multiline
+              />
+            </View>
           </>
         )}
 
@@ -492,6 +564,13 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   rowLabel: { color: '#5a6b7c', fontSize: 15 },
   rowValue: { color: '#1a2b3c', fontSize: 15, fontWeight: '500', flexShrink: 1, textAlign: 'right' },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a2b3c',
+    marginBottom: 6,
+    marginTop: 4,
+  },
   warning: {
     backgroundColor: '#fef3c7',
     color: '#92400e',
