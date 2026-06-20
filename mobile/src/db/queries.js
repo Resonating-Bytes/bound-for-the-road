@@ -1,4 +1,4 @@
-import { eq, and, or, isNull, desc, sql, inArray } from 'drizzle-orm';
+import { eq, and, or, isNull, desc, asc, sql, inArray } from 'drizzle-orm';
 import { getDb } from './client';
 import { users, sessions, outbox, links, settings, submissions, approvals, userAliases } from './schema';
 import { generateId, nowISO, durationMinutes } from '../utils/time';
@@ -187,6 +187,7 @@ export function reopenSavedSession(sessionId) {
   const db = getDb();
   const now = nowISO();
   supersedeSubmissionsForSession(sessionId);
+  clearOutboxForSession(sessionId);
   db.update(sessions)
     .set({
       status: 'draft',
@@ -467,6 +468,25 @@ export function enqueueOutbox(operation, payload, userId) {
       syncedAt: null,
     })
     .run();
+}
+
+export function listPendingOutboxRows() {
+  const db = getDb();
+  return db
+    .select()
+    .from(outbox)
+    .where(isNull(outbox.syncedAt))
+    .orderBy(asc(outbox.createdAt))
+    .all();
+}
+
+export function countPendingOutbox() {
+  return listPendingOutboxRows().length;
+}
+
+export function markOutboxRowSynced(outboxId) {
+  const db = getDb();
+  db.update(outbox).set({ syncedAt: nowISO() }).where(eq(outbox.id, outboxId)).run();
 }
 
 export function hasUnsyncedSubmissionOutbox(sessionId) {

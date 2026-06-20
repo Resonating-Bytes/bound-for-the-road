@@ -14,7 +14,7 @@ import { Screen } from '../../components/Screen';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { removeLink } from '../../lib/links';
 import { removeUserNickname, saveUserNickname } from '../../lib/userAliases';
-import { clampName, MAX_NICKNAME_LENGTH } from '../../utils/names';
+import { limitNameLength, clampName, MAX_NICKNAME_LENGTH } from '../../utils/names';
 import { useTheme } from '../../context/ThemeContext';
 
 export function SettingsLinkedAccountDetailScreen({ route, navigation }) {
@@ -60,7 +60,7 @@ export function SettingsLinkedAccountDetailScreen({ route, navigation }) {
       if (clearedWithNickname || (savedNickname && matchesDisplay)) {
         await removeUserNickname(user.id, partner.partnerId);
       } else {
-        await saveUserNickname(user.id, partner.partnerId, trimmed);
+        await saveUserNickname(user.id, partner.partnerId, clampName(trimmed, MAX_NICKNAME_LENGTH));
       }
       navigation.goBack();
     } catch (e) {
@@ -121,7 +121,7 @@ export function SettingsLinkedAccountDetailScreen({ route, navigation }) {
         <TextInput
           style={styles.input}
           value={nickname}
-          onChangeText={(text) => setNickname(clampName(text, MAX_NICKNAME_LENGTH))}
+          onChangeText={(text) => setNickname(limitNameLength(text, MAX_NICKNAME_LENGTH))}
           placeholder={baseDisplay || 'Nickname'}
           autoCapitalize="words"
         />

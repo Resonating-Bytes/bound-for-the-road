@@ -15,12 +15,12 @@ export function canShowBackButton(navigation, linked) {
 }
 
 export function navigateBackOrHome(navigation, { linked, role }) {
-  if (linked) {
-    resetToHome(navigation, role);
-    return;
-  }
   if (navigation.canGoBack()) {
     navigation.goBack();
+    return;
+  }
+  if (linked) {
+    resetToHome(navigation, role);
   }
 }
 

@@ -31,6 +31,8 @@ import {
   expireStaleActiveSession,
   isActiveSessionStale,
   deleteAllUserData,
+  listPendingOutboxRows,
+  markOutboxRowSynced,
 } from '../../src/db/queries';
 import { getDb } from '../../src/db/client';
 import { outbox } from '../../src/db/schema';
@@ -188,6 +190,16 @@ describe('queries', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].userId).toBe(TEEN_ID);
     expect(rows[0].operation).toBe('session_submitted');
+  });
+
+  test('listPendingOutboxRows returns unsynced rows in order', async () => {
+    const active = createActiveSession(TEEN_ID);
+    stopSession(active.id, '2026-06-01T15:00:00.000Z');
+    await submitSession(active.id, { submittedByUserId: TEEN_ID });
+    const pending = listPendingOutboxRows();
+    expect(pending).toHaveLength(1);
+    markOutboxRowSynced(pending[0].id);
+    expect(listPendingOutboxRows()).toHaveLength(0);
   });
 
   test('deleteAllUserData clears outbox for user', async () => {

@@ -35,9 +35,9 @@ export function getSessionDisplayStatus(
   }
 
   if (submission && !submission.superseded && pendingRemoteSync) {
-    const label = canRemoteWrite
-      ? 'Saved on device — ready to send for approval'
-      : 'Saved on device — update app to send for approval';
+    const label = !canRemoteWrite
+      ? 'Saved on device — update app to send for approval'
+      : 'Saved on device — pending sync';
     return {
       key: 'saved_local',
       label,

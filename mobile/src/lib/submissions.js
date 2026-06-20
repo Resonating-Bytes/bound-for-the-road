@@ -21,13 +21,14 @@ import {
 import { generateId, nowISO } from '../utils/time';
 import { notifyApprovalPush, PUSH_EVENTS } from './approvalPush';
 import { canUseRemoteWrite, getCachedCompatibility, assertRemoteWriteAllowed } from './compatibility';
+import { isNetworkOnline, isNetworkFailureError } from './network';
 
 function isRemoteWriteAllowed() {
   if (!isSupabaseConfigured()) return false;
   return canUseRemoteWrite(getCachedCompatibility());
 }
 
-async function pushSubmittedSessionToRemote(sessionId, session, submission) {
+export async function pushSubmittedSessionToRemote(sessionId, session, submission) {
   await syncSessionToRemote(session);
   await supersedeAllRemoteSubmissionsForSession(sessionId);
   await syncSubmissionToRemote(submission);
@@ -69,23 +70,36 @@ function mapRemoteApproval(row) {
   };
 }
 
+async function requireAuthUserId() {
+  const {
+    data: { user },
+    error,
+  } = await getSupabase().auth.getUser();
+  if (error || !user?.id) {
+    throw new Error('Not signed in');
+  }
+  return user.id;
+}
+
 export async function syncSessionToRemote(session) {
   if (!isSupabaseConfigured()) return;
-  const { error } = await getSupabase()
-    .from('sessions')
-    .upsert(mapSessionToRemote(session), { onConflict: 'id' });
+  const authUserId = await requireAuthUserId();
+  const remote = mapSessionToRemote(session);
+  remote.teen_user_id = authUserId;
+  const { error } = await getSupabase().from('sessions').upsert(remote, { onConflict: 'id' });
   if (error) throw error;
 }
 
 export async function syncSubmissionToRemote(submission) {
   if (!isSupabaseConfigured()) return;
+  const authUserId = await requireAuthUserId();
   const { error } = await getSupabase().from('submissions').upsert(
     {
       request_hash: submission.requestHash,
       session_id: submission.sessionId,
       payload_json: submission.payloadJson,
       submitted_at: submission.submittedAt,
-      submitted_by_user_id: submission.submittedByUserId,
+      submitted_by_user_id: authUserId,
       superseded: submission.superseded,
     },
     { onConflict: 'request_hash' },
@@ -127,7 +141,7 @@ export async function saveSessionToLog(sessionId, opts) {
 
 /**
  * Save locally and send for supervisor approval when remote writes are allowed.
- * @returns {{ session: object; remoteSynced: boolean; pendingRemote?: boolean }}
+ * @returns {{ session: object; remoteSynced: boolean; pendingRemote?: boolean; pendingReason?: 'offline' | 'blocked' }}
  */
 export async function submitSessionForApproval(sessionId, opts) {
   const session = await submitSession(sessionId, opts);
@@ -136,13 +150,24 @@ export async function submitSessionForApproval(sessionId, opts) {
     return { session, remoteSynced: false };
   }
   if (!isRemoteWriteAllowed()) {
-    return { session, remoteSynced: false, pendingRemote: true };
+    return { session, remoteSynced: false, pendingRemote: true, pendingReason: 'blocked' };
   }
-  await pushSubmittedSessionToRemote(sessionId, session, submission);
-  return { session, remoteSynced: true };
+  if (!(await isNetworkOnline())) {
+    return { session, remoteSynced: false, pendingRemote: true, pendingReason: 'offline' };
+  }
+  try {
+    await pushSubmittedSessionToRemote(sessionId, session, submission);
+    return { session, remoteSynced: true };
+  } catch (e) {
+    if (isNetworkFailureError(e)) {
+      console.warn('Remote submit failed offline; queued for outbox replay:', e.message);
+      return { session, remoteSynced: false, pendingRemote: true, pendingReason: 'offline' };
+    }
+    throw e;
+  }
 }
 
-/** Send a locally saved session to the supervisor after the app is updated. */
+/** When remote writes are allowed, push a saved session that was queued offline. */
 export async function sendSavedSessionForApproval(sessionId) {
   if (!isRemoteWriteAllowed()) {
     throw new Error('Update the app before sending for supervisor approval.');
@@ -155,7 +180,17 @@ export async function sendSavedSessionForApproval(sessionId) {
   if (!hasUnsyncedSubmissionOutbox(sessionId)) {
     throw new Error('This session was already sent for approval.');
   }
-  await pushSubmittedSessionToRemote(sessionId, session, submission);
+  if (!(await isNetworkOnline())) {
+    throw new Error('Connect to the internet to send for supervisor approval.');
+  }
+  try {
+    await pushSubmittedSessionToRemote(sessionId, session, submission);
+  } catch (e) {
+    if (isNetworkFailureError(e)) {
+      throw new Error('Connect to the internet to send for supervisor approval.');
+    }
+    throw new Error(e.message ?? 'Could not send for approval. Try again when online.');
+  }
   return session;
 }
 

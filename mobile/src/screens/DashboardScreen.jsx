@@ -34,11 +34,14 @@ import {
   resolveApproverName,
   syncSessionReopenedForEdit,
 } from '../lib/submissions';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { isNetworkOnline } from '../lib/network';
 import { useCompatibility } from '../context/CompatibilityContext';
 import { useTheme } from '../context/ThemeContext';
 import { getSessionDisplayStatus } from '../utils/sessionStatus';
 import { groupSessionsForDashboard } from '../utils/dashboardSessions';
 import { useApprovalPushRefresh } from '../hooks/useApprovalPushRefresh';
+import { useOutboxSyncRefresh } from '../hooks/useOutboxSyncRefresh';
 import { IL_RULES } from '../config/states/IL';
 import { formatDate, formatDuration, addMonths } from '../utils/time';
 import { dayNightLabel } from '../utils/dayNight';
@@ -59,14 +62,38 @@ export function DashboardScreen({ navigation }) {
   const [statusBySessionId, setStatusBySessionId] = useState({});
   const [refreshing, setRefreshing] = useState(false);
 
-  const refresh = useCallback(async () => {
+  const loadLocalDashboard = useCallback(() => {
     if (!userId) return;
+    const rows = listSavedSessions(userId);
+    setSessions(rows);
+    setProgress(getProgress(userId));
+
+    const statuses = {};
+    for (const session of rows) {
+      const ctx = getSessionApprovalContext(session.id);
+      const snapshotName = ctx?.approval?.supervisorInVehicleName?.trim() || null;
+      statuses[session.id] = getSessionDisplayStatus(session, {
+        submission: ctx?.submission,
+        approval: ctx?.approval,
+        latestApproval: ctx?.latestApproval,
+        approverName: snapshotName,
+        pendingRemoteSync: hasUnsyncedSubmissionOutbox(session.id),
+        canRemoteWrite,
+      });
+    }
+    setStatusBySessionId(statuses);
+  }, [userId, canRemoteWrite]);
+
+  const enrichFromRemote = useCallback(async () => {
+    if (!userId || !isSupabaseConfigured()) return;
+    if (!(await isNetworkOnline())) return;
     try {
       await syncApprovalsForTeen(userId);
       await syncDeclinedSubmissionsForTeen(userId);
     } catch {
-      // Offline — show local approval state only
+      return;
     }
+
     const rows = listSavedSessions(userId);
     setSessions(rows);
     setProgress(getProgress(userId));
@@ -75,8 +102,8 @@ export function DashboardScreen({ navigation }) {
     await Promise.all(
       rows.map(async (session) => {
         const ctx = getSessionApprovalContext(session.id);
-        let approverName;
-        if (ctx?.approval) {
+        let approverName = ctx?.approval?.supervisorInVehicleName?.trim() || null;
+        if (ctx?.approval && !approverName) {
           approverName = await resolveApproverName(ctx.approval);
         }
         statuses[session.id] = getSessionDisplayStatus(session, {
@@ -92,13 +119,19 @@ export function DashboardScreen({ navigation }) {
     setStatusBySessionId(statuses);
   }, [userId, canRemoteWrite]);
 
+  const refresh = useCallback(async () => {
+    loadLocalDashboard();
+    await enrichFromRemote();
+  }, [loadLocalDashboard, enrichFromRemote]);
+
   useFocusEffect(
     useCallback(() => {
       if (!userId) return undefined;
       let cancelled = false;
 
       (async () => {
-        await refresh();
+        loadLocalDashboard();
+        enrichFromRemote().catch(() => {});
         if (cancelled) return;
 
         const expired = expireStaleActiveSession(userId);
@@ -125,7 +158,7 @@ export function DashboardScreen({ navigation }) {
       return () => {
         cancelled = true;
       };
-    }, [userId, navigation, refresh]),
+    }, [userId, navigation, loadLocalDashboard, enrichFromRemote]),
   );
 
   const sessionSections = useMemo(
@@ -196,6 +229,7 @@ export function DashboardScreen({ navigation }) {
   }
 
   useApprovalPushRefresh(['session_approved', 'session_declined'], refresh);
+  useOutboxSyncRefresh(refresh);
 
   async function handlePullRefresh() {
     setRefreshing(true);
