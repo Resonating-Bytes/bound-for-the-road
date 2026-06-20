@@ -16,6 +16,22 @@ App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 - `send-approval-push` edge function entrypoint renamed to `index.ts` so Supabase CLI 2.x deploy finds the default entrypoint
 - Edge deploy workflow pins Supabase CLI `2.107.0` instead of `latest` to avoid GitHub API gateway timeouts during setup
 
+## [1.5.1] - 2026-06-20
+
+### Added
+
+- Explicit compatibility states (`compatible`, `update_required`, `capability_missing`, etc.)
+- Central RPC contract doc (`docs/RPC_CONTRACT.md`) and operator release checklist
+- `requiredBackendCapabilities.json` as single source for capability strings; CI validates JSON vs SQL
+- Compatibility contract CI job; stricter changelog heading/date/bullet validation
+- Fail-closed compatibility policy for production builds when RPC check errors (dev remains fail-open)
+
+### Changed
+
+- `get_app_compatibility` migration expands capability list (push token, account deletion, nicknames)
+- `MIN_BACKEND_REVISION` → `20260624120000`
+- Removed dead `AGENT_VERSIONING.md` links from docs index
+
 ## [1.5.0] - 2026-06-17
 
 ### Added

@@ -4,14 +4,16 @@ import {
   REQUIRED_BACKEND_CAPABILITIES,
   SUPPORTED_PAYLOAD_SCHEMA_VERSION,
   FORCE_COMPATIBILITY_PREVIEW,
+  isCompatibilityFailOpen,
 } from '../config/compatibility';
+import { COMPATIBILITY_STATE, WRITE_BLOCKED_STATES } from '../config/compatibilityStates';
 import { getSupabase, isSupabaseConfigured } from './supabase';
 
 /** Cached result from the latest startup compatibility check. */
-let cachedCompatibility = { ok: true, skipped: true };
+let cachedCompatibility = { ok: true, skipped: true, state: COMPATIBILITY_STATE.CHECK_SKIPPED };
 
 export function setCachedCompatibility(result) {
-  cachedCompatibility = result ?? { ok: true, skipped: true };
+  cachedCompatibility = result ?? { ok: true, skipped: true, state: COMPATIBILITY_STATE.CHECK_SKIPPED };
 }
 
 export function getCachedCompatibility() {
@@ -62,6 +64,7 @@ export function missingCapabilities(remoteCapabilities = []) {
 export function getPreviewCompatibilityResult() {
   return {
     ok: false,
+    state: COMPATIBILITY_STATE.PREVIEW,
     preview: true,
     backendStale: true,
     message:
@@ -89,46 +92,67 @@ export function getAppUpdateStatus(remote) {
 }
 
 export function getCompatibilityStatusLabel(compatibility) {
-  if (compatibility?.preview) return 'Preview (forced banner)';
-  if (compatibility?.skipped) {
-    return compatibility.warning ? 'Check skipped (server)' : 'Check skipped';
+  switch (compatibility?.state) {
+    case COMPATIBILITY_STATE.PREVIEW:
+      return 'Preview (forced banner)';
+    case COMPATIBILITY_STATE.CHECK_SKIPPED:
+      return compatibility.warning ? 'Check skipped (server)' : 'Check skipped';
+    case COMPATIBILITY_STATE.CHECK_ERROR:
+      return 'Check failed (server)';
+    case COMPATIBILITY_STATE.UPDATE_REQUIRED:
+      return 'App update required';
+    case COMPATIBILITY_STATE.BACKEND_STALE:
+      return 'Server update required';
+    case COMPATIBILITY_STATE.CAPABILITY_MISSING:
+      return 'Server missing features';
+    case COMPATIBILITY_STATE.PAYLOAD_SCHEMA_UNSUPPORTED:
+      return 'Session format unsupported';
+    case COMPATIBILITY_STATE.UPDATE_AVAILABLE:
+      return 'App update available';
+    case COMPATIBILITY_STATE.COMPATIBLE:
+      return 'Compatible';
+    default:
+      return 'Unknown';
   }
-  if (compatibility?.appOutdated) return 'App update required';
-  if (compatibility?.backendStale) return 'Server update required';
-  if (compatibility?.updateOptional) return 'App update available';
-  if (compatibility?.ok) return 'Compatible';
-  return 'Unknown';
 }
 
 /** Plain-language status for Settings (user-actionable only). */
 export function getSettingsCompatibilityLabel(compatibility) {
-  if (compatibility?.preview) return 'Preview mode';
-  if (compatibility?.skipped) {
-    return compatibility.warning ? 'Could not check for updates' : 'Update check skipped';
+  switch (compatibility?.state) {
+    case COMPATIBILITY_STATE.PREVIEW:
+      return 'Preview mode';
+    case COMPATIBILITY_STATE.CHECK_SKIPPED:
+      return compatibility.warning ? 'Could not check for updates' : 'Update check skipped';
+    case COMPATIBILITY_STATE.CHECK_ERROR:
+      return 'Could not verify server — sync disabled';
+    case COMPATIBILITY_STATE.UPDATE_REQUIRED:
+      return 'Update required';
+    case COMPATIBILITY_STATE.BACKEND_STALE:
+      return 'Submit and approval sync temporarily unavailable';
+    case COMPATIBILITY_STATE.CAPABILITY_MISSING:
+      return 'Server setup incomplete — sync disabled';
+    case COMPATIBILITY_STATE.PAYLOAD_SCHEMA_UNSUPPORTED:
+      return 'Update app to sync sessions';
+    case COMPATIBILITY_STATE.UPDATE_AVAILABLE:
+      return 'Update available';
+    case COMPATIBILITY_STATE.COMPATIBLE:
+      return 'Up to date';
+    default:
+      return 'Unknown';
   }
-  if (compatibility?.appOutdated) return 'Update required';
-  if (compatibility?.backendStale) {
-    return 'Submit and approval sync temporarily unavailable';
-  }
-  if (compatibility?.updateOptional) return 'Update available';
-  if (compatibility?.ok) return 'Up to date';
-  return 'Unknown';
 }
 
 /**
- * @returns {{
- *   ok: boolean;
- *   skipped?: boolean;
- *   appOutdated?: boolean;
- *   backendStale?: boolean;
- *   missingCapabilities?: string[];
- *   message?: string;
- *   remote?: Record<string, unknown>;
- * }}
+ * Evaluate get_app_compatibility() payload against this app build.
+ * Returns a result with explicit `state` (see compatibilityStates.js).
  */
 export function evaluateBackendCompatibility(remote) {
   if (!remote) {
-    return { ok: false, message: 'Compatibility check returned no data.' };
+    return {
+      ok: false,
+      state: COMPATIBILITY_STATE.CHECK_ERROR,
+      message: 'Compatibility check returned no data.',
+    };
   }
 
   const appOutdated = compareAppVersions(APP_VERSION, remote.min_app_version) < 0;
@@ -138,6 +162,7 @@ export function evaluateBackendCompatibility(remote) {
   if (appOutdated) {
     return {
       ok: false,
+      state: COMPATIBILITY_STATE.UPDATE_REQUIRED,
       appOutdated: true,
       message: `This app (${APP_VERSION}) is older than required (${remote.min_app_version}). Please update.`,
       remote,
@@ -147,6 +172,7 @@ export function evaluateBackendCompatibility(remote) {
   if (backendStale) {
     return {
       ok: false,
+      state: COMPATIBILITY_STATE.BACKEND_STALE,
       backendStale: true,
       message:
         'Server setup is behind this app version. Submit and approval sync are disabled until migrations are applied.',
@@ -157,6 +183,7 @@ export function evaluateBackendCompatibility(remote) {
   if (caps.length) {
     return {
       ok: false,
+      state: COMPATIBILITY_STATE.CAPABILITY_MISSING,
       backendStale: true,
       missingCapabilities: caps,
       message: `Server is missing required features: ${caps.join(', ')}.`,
@@ -170,6 +197,7 @@ export function evaluateBackendCompatibility(remote) {
   ) {
     return {
       ok: false,
+      state: COMPATIBILITY_STATE.PAYLOAD_SCHEMA_UNSUPPORTED,
       backendStale: true,
       message: 'Server expects a newer session format than this app supports. Please update the app.',
       remote,
@@ -178,26 +206,51 @@ export function evaluateBackendCompatibility(remote) {
 
   const updateStatus = getAppUpdateStatus(remote);
 
+  if (updateStatus.optional) {
+    return {
+      ok: true,
+      state: COMPATIBILITY_STATE.UPDATE_AVAILABLE,
+      remote,
+      updateOptional: true,
+      latestAppVersion: updateStatus.latestVersion,
+    };
+  }
+
   return {
     ok: true,
+    state: COMPATIBILITY_STATE.COMPATIBLE,
     remote,
-    updateOptional: updateStatus.optional,
-    latestAppVersion: updateStatus.latestVersion,
+  };
+}
+
+function buildSkippedCompatibilityResult({ warning } = {}) {
+  if (isCompatibilityFailOpen()) {
+    return {
+      ok: true,
+      skipped: true,
+      state: COMPATIBILITY_STATE.CHECK_SKIPPED,
+      warning,
+    };
+  }
+
+  return {
+    ok: false,
+    skipped: true,
+    state: COMPATIBILITY_STATE.CHECK_ERROR,
+    warning,
+    message:
+      'Could not verify server compatibility. Submit and approval sync are disabled until the check succeeds.',
   };
 }
 
 export async function fetchBackendCompatibility() {
   if (!isSupabaseConfigured()) {
-    return { ok: true, skipped: true };
+    return { ok: true, skipped: true, state: COMPATIBILITY_STATE.CHECK_SKIPPED };
   }
 
   const { data, error } = await getSupabase().rpc('get_app_compatibility');
   if (error) {
-    return {
-      ok: true,
-      skipped: true,
-      warning: error.message,
-    };
+    return buildSkippedCompatibilityResult({ warning: error.message });
   }
 
   return evaluateBackendCompatibility(data);
@@ -212,15 +265,16 @@ export function assertPayloadSchemaSupported(schemaVersion) {
   }
 }
 
-export function canUseRemoteSync(compatibility) {
-  if (!compatibility || compatibility.skipped) return true;
-  return compatibility.ok !== false || (!compatibility.backendStale && !compatibility.missingCapabilities?.length);
-}
-
 /** Remote write paths (submit, approve, decline, discard) need a compatible backend. */
 export function canUseRemoteWrite(compatibility) {
   if (FORCE_COMPATIBILITY_PREVIEW) return false;
-  if (!compatibility || compatibility.skipped) return true;
+  if (!compatibility) return isCompatibilityFailOpen();
+  if (compatibility.skipped) {
+    return compatibility.ok !== false;
+  }
+  if (compatibility.state && WRITE_BLOCKED_STATES.has(compatibility.state)) {
+    return false;
+  }
   return Boolean(compatibility.ok);
 }
 
@@ -244,7 +298,7 @@ export function getHeaderBanners(compatibility, { loading, canRemoteWrite, onRet
 
   const active = getActiveCompatibilityDisplay(compatibility);
 
-  if (active.preview) {
+  if (active.preview || active.state === COMPATIBILITY_STATE.PREVIEW) {
     return [
       {
         id: 'compat-preview',
@@ -254,7 +308,11 @@ export function getHeaderBanners(compatibility, { loading, canRemoteWrite, onRet
     ];
   }
 
-  if (active.skipped || canRemoteWrite || !active.message) {
+  if (canRemoteWrite || !active.message) {
+    return [];
+  }
+
+  if (active.skipped && active.state === COMPATIBILITY_STATE.CHECK_SKIPPED) {
     return [];
   }
 
@@ -268,3 +326,5 @@ export function getHeaderBanners(compatibility, { loading, canRemoteWrite, onRet
     },
   ];
 }
+
+export { COMPATIBILITY_STATE };

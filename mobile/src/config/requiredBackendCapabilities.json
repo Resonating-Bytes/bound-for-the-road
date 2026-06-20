@@ -1,0 +1,15 @@
+{
+  "contractVersion": 1,
+  "capabilities": {
+    "DECLINE_SUBMISSION": "decline_submission",
+    "SEND_APPROVAL_PUSH_SESSION_SUBMITTED": "send_approval_push_session_submitted",
+    "SEND_APPROVAL_PUSH_SESSION_APPROVED": "send_approval_push_session_approved",
+    "SEND_APPROVAL_PUSH_SESSION_DECLINED": "send_approval_push_session_declined",
+    "SEND_APPROVAL_PUSH_SESSION_WITHDRAWN": "send_approval_push_session_withdrawn",
+    "ACCEPT_LINK_INVITE": "accept_link_invite",
+    "REGISTER_PUSH_TOKEN": "register_push_token",
+    "DELETE_MY_ACCOUNT": "delete_my_account",
+    "UPSERT_USER_ALIAS": "upsert_user_alias",
+    "DELETE_USER_ALIAS": "delete_user_alias"
+  }
+}

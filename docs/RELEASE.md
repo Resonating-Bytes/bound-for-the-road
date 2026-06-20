@@ -2,7 +2,7 @@
 
 How we version releases and what GitHub enforces on pull requests.
 
-Related: [COMPATIBILITY.md](./COMPATIBILITY.md) · [AGENT_VERSIONING.md](./AGENT_VERSIONING.md) (agent PR checklist)
+Related: [COMPATIBILITY.md](./COMPATIBILITY.md)
 
 ---
 
@@ -53,24 +53,25 @@ If you raise `MIN_BACKEND_REVISION` in the same PR, a matching `supabase/migrati
 
 Workflow: `.github/workflows/version-checks.yml`
 
-GitHub shows **two status checks** on each PR (one workflow, two jobs):
+GitHub shows **three status checks** on each PR (one workflow, three jobs):
 
 | Check name | Script | When it matters |
 |------------|--------|-----------------|
 | **App version** | `scripts/check-app-version.js` | `mobile/src/**` or `mobile/app.json` changed |
 | **Backend revision** | `scripts/check-backend-revision.js` | `supabase/migrations/**` or `supabase/functions/**` changed |
+| **Compatibility contract** | `scripts/check-backend-capabilities.js` | Always (JSON vs SQL capabilities) |
 
-Each job **passes immediately** if its side did not change. A mobile-only PR only enforces the app check; a Supabase-only PR only enforces the backend check.
+Each job **passes immediately** if its side did not change (compatibility contract always runs).
 
 **App version** enforces:
 
 1. `mobile/app.json` `expo.version` semver **greater than** base branch
 2. Same version in `mobile/package.json` (mirrors `app.json`; not used by Expo builds)
-3. `CHANGELOG.md` updated with `## [x.y.z]`
+3. `CHANGELOG.md` updated with `## [x.y.z] - YYYY-MM-DD` and at least one bullet
 
 **Backend revision** enforces:
 
-1. `CHANGELOG.md` and/or `docs/COMPATIBILITY.md` updated
+1. `CHANGELOG.md`, `docs/COMPATIBILITY.md`, and/or `docs/RPC_CONTRACT.md` updated
 2. If `MIN_BACKEND_REVISION` is raised, a migration file with that id exists
 3. If a new migration is added and `compatibility.js` changes, `MIN_BACKEND_REVISION` must be at least the new migration id
 
@@ -85,6 +86,7 @@ Or individually:
 ```bash
 node scripts/check-app-version.js --base origin/main --head HEAD
 node scripts/check-backend-revision.js --base origin/main --head HEAD
+node scripts/check-backend-capabilities.js
 ```
 
 ---
@@ -95,7 +97,7 @@ Branch protection cannot compare file versions by itself — it **requires the C
 
 1. GitHub → **Settings** → **Branches** → **Add branch ruleset** (or edit rule for `main`)
 2. Enable **Require status checks to pass**
-3. Search for and select **`App version`** and **`Backend revision`**
+3. Search for and select **`App version`**, **`Backend revision`**, and **`Compatibility contract`**
 4. Also keep **`Mobile tests`** required if already configured
 5. Save
 
@@ -105,6 +107,9 @@ After this, PRs that change app/backend code cannot merge until the version and 
 
 ## After merging a release PR
 
+See [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md) for the full operator checklist. Summary:
+
 1. Apply any new Supabase migrations; update `app_config.backend_revision` if needed
-2. Build with EAS when ready for TestFlight / Play internal testing
-3. Optionally bump `latest_app_version` in `app_config` for soft update nudges
+2. Confirm edge function deploy succeeded (Actions)
+3. Build with EAS when ready for TestFlight / Play internal testing
+4. Optionally bump `latest_app_version` in `app_config` for soft update nudges

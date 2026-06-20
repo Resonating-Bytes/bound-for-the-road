@@ -35,8 +35,9 @@ New to the project? Read in this order:
 | [SESSION_LIFECYCLE.md](./SESSION_LIFECYCLE.md) | Session states, flows, who can do what |
 | [APPROVAL_AND_HASH.md](./APPROVAL_AND_HASH.md) | Hash integrity, approval binding, attestation model, payload `schemaVersion` |
 | [COMPATIBILITY.md](./COMPATIBILITY.md) | App ↔ backend versioning, local DB migrations, mismatch policy |
+| [RPC_CONTRACT.md](./RPC_CONTRACT.md) | **Compatibility RPC shape**, capability strings, edge event mapping |
 | [RELEASE.md](./RELEASE.md) | Semver bumps, CHANGELOG, CI version check, GitHub branch protection |
-| [AGENT_VERSIONING.md](./AGENT_VERSIONING.md) | **Agent checklist** — version layers, CI gates, PR decision tree |
+| [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md) | Post-merge operator checklist (migrations, deploy, EAS) |
 | [DATA_MODEL.md](./DATA_MODEL.md) | All entities, local/sync fields, ORM approach |
 | [NOTIFICATIONS.md](./NOTIFICATIONS.md) | Push events, recipients, Android channels, build-phase reliability |
 | [OFFLINE_SYNC.md](./OFFLINE_SYNC.md) | Local-first storage, outbox queue, backend requirements |

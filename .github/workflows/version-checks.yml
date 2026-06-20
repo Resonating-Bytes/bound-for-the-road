@@ -27,3 +27,12 @@ jobs:
 
       - name: Verify backend revision docs when Supabase changes
         run: node scripts/check-backend-revision.js --base "origin/${{ github.base_ref }}" --head HEAD
+
+  compatibility-contract:
+    name: Compatibility contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify backend capability contract parity
+        run: node scripts/check-backend-capabilities.js

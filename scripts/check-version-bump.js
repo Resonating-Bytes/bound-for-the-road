@@ -22,4 +22,5 @@ function run(script) {
 
 run('check-app-version.js');
 run('check-backend-revision.js');
+run('check-backend-capabilities.js');
 console.log('All version checks passed.');
