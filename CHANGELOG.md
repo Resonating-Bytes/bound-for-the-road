@@ -5,6 +5,17 @@ All notable changes to the mobile app and its Supabase backend are documented he
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 
+## [1.5.4] - 2026-06-21
+
+### Added
+
+- Custom header and accent colors on Appearance — hex inputs, swatch preview, values persist per user when switching presets
+
+### Changed
+
+- Appearance custom color editor uses compact side-by-side layout aligned with preset groups
+- Keyboard-aware scroll on Appearance centers hex fields while typing; bottom padding animates on dismiss
+
 ## [1.5.3] - 2026-06-21
 
 ### Added

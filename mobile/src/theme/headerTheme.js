@@ -2,15 +2,27 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '../db/client';
 import { settings } from '../db/schema';
 import { getSettingValue, setSettingValue } from '../db/queries';
+import {
+  CUSTOM_PRESET_ID,
+  DEFAULT_CUSTOM_THEME_COLORS,
+  isCustomPresetId,
+  parseCustomThemeColors,
+  serializeCustomThemeColors,
+} from './customTheme';
 import { DEFAULT_PRESET_ID, getPresetById } from './presets';
 
 /** Base name; persisted keys are per-user: `header_theme_id_<userId>`. */
 export const HEADER_THEME_SETTING_NAME = 'header_theme_id';
+export const HEADER_THEME_CUSTOM_SETTING_NAME = 'header_theme_custom';
 
 const LEGACY_GLOBAL_THEME_KEY = HEADER_THEME_SETTING_NAME;
 
 export function headerThemeSettingKey(userId) {
   return `${HEADER_THEME_SETTING_NAME}_${userId}`;
+}
+
+export function headerThemeCustomSettingKey(userId) {
+  return `${HEADER_THEME_CUSTOM_SETTING_NAME}_${userId}`;
 }
 
 let resetListener = null;
@@ -20,6 +32,10 @@ export function registerHeaderThemeResetListener(listener) {
   return () => {
     resetListener = null;
   };
+}
+
+function isPersistablePresetId(presetId) {
+  return isCustomPresetId(presetId) || Boolean(getPresetById(presetId));
 }
 
 export function readHeaderThemePresetId(userId) {
@@ -37,12 +53,23 @@ export function readHeaderThemePresetId(userId) {
     }
   }
 
+  if (isCustomPresetId(saved)) return CUSTOM_PRESET_ID;
   return getPresetById(saved) ? saved : DEFAULT_PRESET_ID;
 }
 
+export function readCustomThemeColors(userId) {
+  if (!userId) return { ...DEFAULT_CUSTOM_THEME_COLORS };
+  return parseCustomThemeColors(getSettingValue(headerThemeCustomSettingKey(userId)));
+}
+
 export function writeHeaderThemePresetId(userId, presetId) {
-  if (!userId || !getPresetById(presetId)) return;
+  if (!userId || !isPersistablePresetId(presetId)) return;
   setSettingValue(headerThemeSettingKey(userId), presetId);
+}
+
+export function writeCustomThemeColors(userId, colors) {
+  if (!userId) return;
+  setSettingValue(headerThemeCustomSettingKey(userId), serializeCustomThemeColors(colors));
 }
 
 /** Remove saved header theme for one user and reset in-memory UI if listening. */
@@ -51,6 +78,10 @@ export function clearHeaderThemePreference(userId) {
   getDb()
     .delete(settings)
     .where(eq(settings.key, headerThemeSettingKey(userId)))
+    .run();
+  getDb()
+    .delete(settings)
+    .where(eq(settings.key, headerThemeCustomSettingKey(userId)))
     .run();
   resetListener?.(DEFAULT_PRESET_ID);
 }

@@ -94,3 +94,9 @@ export function deriveAccentFromHeader(headerBackground) {
     l > 72 ? 44 : l > 55 ? 42 : l < 28 ? 48 : Math.min(52, Math.max(40, l + 10));
   return hslToHex((h + 360) % 360, accentS, accentL);
 }
+
+/** Slightly darken header color for border (custom theme). */
+export function deriveHeaderBorderFromBackground(headerBackground) {
+  const { h, s, l } = hexToHsl(headerBackground);
+  return hslToHex(h, Math.min(100, s + 4), Math.max(0, l - 12));
+}

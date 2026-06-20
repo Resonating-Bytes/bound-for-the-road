@@ -6,9 +6,13 @@ import { initTestDb, resetTestDb } from '../helpers/testDb';
 import { getSettingValue, setSettingValue, deleteAllUserData, upsertUser } from '../../src/db/queries';
 import {
   headerThemeSettingKey,
+  headerThemeCustomSettingKey,
+  readCustomThemeColors,
   readHeaderThemePresetId,
+  writeCustomThemeColors,
   writeHeaderThemePresetId,
 } from '../../src/theme/headerTheme';
+import { CUSTOM_PRESET_ID } from '../../src/theme/customTheme';
 import { resolveTheme } from '../../src/theme/resolveTheme';
 import { DEFAULT_PRESET_ID, getPresetById, getPresetsByCategory } from '../../src/theme/presets';
 import {
@@ -126,5 +130,21 @@ describe('theme', () => {
     deleteAllUserData('user-a');
     expect(getSettingValue(headerThemeSettingKey('user-a'))).toBeNull();
     expect(getSettingValue(headerThemeSettingKey('user-b'))).toBe('ocean');
+  });
+
+  test('custom theme preset and colors persist per user', () => {
+    writeCustomThemeColors('user-a', { primary: 'FFEDD5', accent: 'EA580C' });
+    writeHeaderThemePresetId('user-a', CUSTOM_PRESET_ID);
+    expect(readHeaderThemePresetId('user-a')).toBe(CUSTOM_PRESET_ID);
+    expect(readCustomThemeColors('user-a')).toEqual({
+      primary: 'FFEDD5',
+      accent: 'EA580C',
+    });
+    expect(getSettingValue(headerThemeCustomSettingKey('user-a'))).toContain('FFEDD5');
+    writeHeaderThemePresetId('user-a', 'ocean');
+    expect(readCustomThemeColors('user-a')).toEqual({
+      primary: 'FFEDD5',
+      accent: 'EA580C',
+    });
   });
 });
