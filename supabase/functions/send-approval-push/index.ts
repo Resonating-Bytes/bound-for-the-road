@@ -1,5 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { casualLabelForLinkedUser } from '../_shared/displayName.js';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
+import { casualLabelForLinkedUser } from '../_shared/displayName.ts';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -8,7 +8,37 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-async function teenShortNameForAdult(supabaseAdmin, adultUserId, teenUserId) {
+type PushEvent =
+  | 'session_submitted'
+  | 'session_approved'
+  | 'session_declined'
+  | 'session_withdrawn';
+
+type PushRequestBody = {
+  event?: PushEvent | string;
+  sessionId?: string;
+  requestHash?: string;
+};
+
+type ExpoPushMessage = {
+  to: string;
+  title: string;
+  body: string;
+  sound: string;
+  channelId: string;
+  data: {
+    type: string;
+    sessionId: string;
+    requestHash: string;
+    deepLink: string;
+  };
+};
+
+async function teenShortNameForAdult(
+  supabaseAdmin: SupabaseClient,
+  adultUserId: string,
+  teenUserId: string,
+): Promise<string> {
   const { data: links, error: linksError } = await supabaseAdmin
     .from('links')
     .select('teen_user_id')
@@ -22,7 +52,11 @@ async function teenShortNameForAdult(supabaseAdmin, adultUserId, teenUserId) {
   return casualLabelForLinkedUser(supabaseAdmin, adultUserId, teenUserId, 'Your teen');
 }
 
-async function adultShortNameForTeen(supabaseAdmin, teenUserId, adultUserId) {
+async function adultShortNameForTeen(
+  supabaseAdmin: SupabaseClient,
+  teenUserId: string,
+  adultUserId: string,
+): Promise<string> {
   const { data: links, error: linksError } = await supabaseAdmin
     .from('links')
     .select('adult_user_id')
@@ -36,7 +70,7 @@ async function adultShortNameForTeen(supabaseAdmin, teenUserId, adultUserId) {
   return casualLabelForLinkedUser(supabaseAdmin, teenUserId, adultUserId, 'Supervisor');
 }
 
-async function sendExpoPush(messages) {
+async function sendExpoPush(messages: ExpoPushMessage[]) {
   if (!messages.length) return { ok: true, sent: 0 };
 
   const res = await fetch(EXPO_PUSH_URL, {
@@ -70,7 +104,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = await req.json();
+    const body = (await req.json()) as PushRequestBody;
     const { event, sessionId, requestHash } = body;
     if (!event || !sessionId || !requestHash) {
       return new Response(JSON.stringify({ error: 'invalid_body' }), {
@@ -114,10 +148,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    let recipientIds = [];
+    let recipientIds: string[] = [];
     let title = '';
     let dataType = '';
-    let bodyForRecipient;
+    let bodyForRecipient: (recipientUserId: string) => Promise<string>;
 
     if (event === 'session_submitted') {
       const { data: submission, error: submissionError } = await supabaseAdmin
@@ -290,12 +324,12 @@ Deno.serve(async (req) => {
 
     if (tokenError) throw tokenError;
 
-    const bodyByRecipient = new Map();
+    const bodyByRecipient = new Map<string, string>();
     for (const recipientId of recipientIds) {
       bodyByRecipient.set(recipientId, await bodyForRecipient(recipientId));
     }
 
-    const messages = (tokenRows ?? []).map((row) => ({
+    const messages: ExpoPushMessage[] = (tokenRows ?? []).map((row) => ({
       to: row.token,
       title,
       body: bodyByRecipient.get(row.user_id) ?? title,
