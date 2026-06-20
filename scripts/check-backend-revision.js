@@ -77,11 +77,13 @@ function main() {
   }
 
   const docsUpdated =
-    changed.includes('CHANGELOG.md') || changed.includes('docs/COMPATIBILITY.md');
+    changed.includes('CHANGELOG.md') ||
+    changed.includes('docs/COMPATIBILITY.md') ||
+    changed.includes('docs/RPC_CONTRACT.md');
 
   if (!docsUpdated) {
     fail(
-      'Supabase backend changed — update CHANGELOG.md and/or docs/COMPATIBILITY.md to document the change.',
+      'Supabase backend changed — update CHANGELOG.md, docs/COMPATIBILITY.md, and/or docs/RPC_CONTRACT.md to document the change.',
     );
   }
 

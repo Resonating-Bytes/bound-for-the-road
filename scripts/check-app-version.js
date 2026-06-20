@@ -98,8 +98,28 @@ function main() {
   }
 
   const changelog = fs.readFileSync(CHANGELOG, 'utf8');
-  if (!changelog.includes(`## [${headVersion}]`)) {
-    fail(`CHANGELOG.md must include "## [${headVersion}]" for this release.`);
+  const escapedVersion = headVersion.replace(/\./g, '\\.');
+  const releaseHeading = new RegExp(`^## \\[${escapedVersion}\\] - \\d{4}-\\d{2}-\\d{2}`, 'm');
+
+  if (!releaseHeading.test(changelog)) {
+    fail(
+      `CHANGELOG.md must include "## [${headVersion}] - YYYY-MM-DD" with a valid ISO date for this release.`,
+    );
+  }
+
+  const duplicateHeadings = changelog.match(new RegExp(`^## \\[${escapedVersion}\\]`, 'gm')) ?? [];
+  if (duplicateHeadings.length > 1) {
+    fail(`CHANGELOG.md has duplicate "## [${headVersion}]" sections.`);
+  }
+
+  const sectionStart = changelog.search(releaseHeading);
+  const nextSection = changelog.indexOf('\n## ', sectionStart + 1);
+  const sectionBody = changelog.slice(
+    sectionStart,
+    nextSection === -1 ? changelog.length : nextSection,
+  );
+  if (!/^- /m.test(sectionBody)) {
+    fail(`CHANGELOG section ## [${headVersion}] must include at least one bullet entry.`);
   }
 
   if (!changed.includes('CHANGELOG.md')) {

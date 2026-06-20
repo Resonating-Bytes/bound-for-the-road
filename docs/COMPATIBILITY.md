@@ -10,10 +10,10 @@ Related: [APPROVAL_AND_HASH.md](./APPROVAL_AND_HASH.md) · [OFFLINE_SYNC.md](./O
 
 | Layer | Where | Current | Who bumps |
 |-------|--------|---------|-----------|
-| **App** | `mobile/app.json` `expo.version` | `1.5.0` | Release / EAS build; bump with [CHANGELOG.md](../CHANGELOG.md). Runtime reads via `APP_VERSION`; `mobile/package.json` `version` mirrors it for npm. |
+| **App** | `mobile/app.json` `expo.version` | `1.5.1` | Release / EAS build; bump with [CHANGELOG.md](../CHANGELOG.md). Runtime reads via `APP_VERSION`; `mobile/package.json` `version` mirrors it for npm. |
 | **Local DB** | `schema_meta.local_db_version` | `3` | Mobile dev when SQLite shape changes |
 | **Payload hash** | `schemaVersion` in canonical JSON | `1` | Mobile dev when hash-relevant fields change |
-| **Backend** | `app_config.backend_revision` | migration id | Apply new Supabase migration + update seed row |
+| **Backend** | `app_config.backend_revision` | `20260624120000` | Apply new Supabase migration + update seed row |
 
 Lexicographic compare works for `backend_revision` (timestamp migration filenames).
 
@@ -40,20 +40,43 @@ Lexicographic compare works for `backend_revision` (timestamp migration filename
 
 ## Backend compatibility RPC
 
+Canonical contract: [RPC_CONTRACT.md](./RPC_CONTRACT.md).
+
 `get_app_compatibility()` returns:
 
 ```json
 {
-  "backend_revision": "20260623120000",
+  "backend_revision": "20260624120000",
   "min_app_version": "1.0.0",
+  "latest_app_version": "1.5.0",
   "payload_schema_version": "1",
-  "capabilities": ["decline_submission", "send_approval_push", "..."]
+  "capabilities": ["decline_submission", "send_approval_push_session_submitted", "..."]
 }
 ```
 
+Required capability strings are defined in `mobile/src/config/requiredBackendCapabilities.json`. CI validates that file against the latest migration SQL.
+
 Callable by `anon` and `authenticated` (read-only, no secrets).
 
-After applying `20260620120000_app_compatibility.sql`, update `backend_revision` in `app_config` whenever a later migration requires a newer app build. `20260621120000_register_push_token_rpc.sql` adds the `register_push_token` RPC. `20260622120000_delete_my_account_rpc.sql` adds hard account deletion. `20260623120000_user_display_name_and_aliases.sql` adds `display_name`, `user_aliases`, and nickname RPCs.
+After applying `20260620120000_app_compatibility.sql`, update `backend_revision` in `app_config` whenever a later migration requires a newer app build. Migration `20260624120000_app_compatibility_capabilities.sql` expands the capability list to include push token, account deletion, and nickname RPCs.
+
+---
+
+## Compatibility states
+
+Each startup check resolves to one explicit state (see `mobile/src/config/compatibilityStates.js`):
+
+| State | Remote writes |
+|-------|---------------|
+| `compatible` | Allowed |
+| `update_available` | Allowed (Settings nudge only) |
+| `update_required` | Blocked |
+| `backend_stale` | Blocked |
+| `capability_missing` | Blocked |
+| `payload_schema_unsupported` | Blocked |
+| `check_skipped` | Allowed when fail-open |
+| `check_error` | Blocked when fail-closed |
+| `preview` | Blocked (dev banner preview) |
 
 ---
 
@@ -66,16 +89,19 @@ When Supabase is configured and online:
 3. Compare required `MIN_BACKEND_REVISION` vs `backend_revision`.
 4. Verify required capabilities are listed.
 
-**Default policy (dev-friendly):**
+**Policy:**
 
-| Situation | UX |
-|-----------|-----|
-| Offline / not configured | Skip check |
-| RPC error (migration not applied) | Soft warning in Settings; **allow** use |
-| App below `min_app_version` | Banner; **block remote approval sync**; local save + progress still work |
-| Backend below `MIN_BACKEND_REVISION` | Banner; **block remote approval sync**; local save still works |
-| App below `latest_app_version` only | Settings nudge + update button; **allow** writes |
-| Payload newer than supported | Block submit for that session |
+| Situation | Fail-open (dev default) | Fail-closed (production default) |
+|-----------|-------------------------|----------------------------------|
+| Offline / not configured | Skip check; allow writes | Skip check; allow writes |
+| RPC error (migration not applied) | Settings warning; **allow** writes | Header banner; **block** writes |
+| App below `min_app_version` | Banner; **block** remote sync | Same |
+| Backend below `MIN_BACKEND_REVISION` | Banner; **block** remote sync | Same |
+| Missing required capability | Banner; **block** remote sync | Same |
+| App below `latest_app_version` only | Settings nudge; **allow** writes | Same |
+| Payload newer than supported | Block submit for that session | Same |
+
+Override: `EXPO_PUBLIC_COMPATIBILITY_RPC_FAIL_POLICY=open|closed` in `mobile/.env`.
 
 ### Preview the banner (dev)
 
@@ -161,5 +187,7 @@ Compatibility warnings render below `ScreenHeader` via `HeaderBannerStack`. Mult
 2. Bump `schemaVersion` if hash payload changes (+ migration plan for in-flight rows).
 3. Add Supabase migration; update `app_config.backend_revision`.
 4. Bump `min_app_version` in `app_config` if old apps must not sync.
-5. Update `mobile/src/config/compatibility.js` constants.
+5. Update `mobile/src/config/compatibility.js` and `requiredBackendCapabilities.json` if constants change.
 6. Redeploy edge functions if event surface changes.
+
+Post-merge operator steps: [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md).
