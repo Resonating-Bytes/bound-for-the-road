@@ -151,7 +151,7 @@ Compatibility warnings render below `ScreenHeader` via `HeaderBannerStack`. Mult
 
 ## Edge functions
 
-`send-approval-push` (JavaScript) rejects unknown `event` values with `unknown_event`. Client sends `clientVersion` in the body for logging; server does not enforce yet.
+`send-approval-push` (TypeScript) rejects unknown `event` values with `unknown_event`. Client sends `clientVersion` in the body for logging; server does not enforce yet.
 
 ---
 
