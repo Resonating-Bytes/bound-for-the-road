@@ -23,6 +23,7 @@ import {
   discardDraft,
   reopenSavedSession,
   restoreSavedSession,
+  updateDraftSessionFields,
   softDeleteSession,
   getProgress,
   listSavedSessions,
@@ -137,6 +138,10 @@ describe('queries', () => {
       requestHash: saved.requestHash,
       payloadJson: saved.payloadJson,
       notes: saved.notes,
+      startedAt: saved.startedAt,
+      endedAt: saved.endedAt,
+      durationMinutes: saved.durationMinutes,
+      dayNight: saved.dayNight,
     };
 
     const draft = reopenSavedSession(active.id);
@@ -148,6 +153,33 @@ describe('queries', () => {
     expect(restored.status).toBe('saved');
     expect(restored.requestHash).toBe(backup.requestHash);
     expect(restored.notes).toBe('Original');
+    expect(restored.startedAt).toBe(backup.startedAt);
+    expect(restored.endedAt).toBe(backup.endedAt);
+  });
+
+  test('updateDraftSessionFields recomputes duration and day/night', () => {
+    const active = createActiveSession(TEEN_ID, 'IL');
+    stopSession(active.id, '2026-06-01T15:00:00.000Z');
+
+    const updated = updateDraftSessionFields(active.id, {
+      startedAt: '2026-06-01T03:00:00.000Z',
+      endedAt: '2026-06-01T04:30:00.000Z',
+    });
+
+    expect(updated.durationMinutes).toBe(90);
+    expect(updated.dayNight).toBe('night');
+    expect(updated.startedAt).toBe('2026-06-01T03:00:00.000Z');
+  });
+
+  test('updateDraftSessionFields rejects end before start', () => {
+    const active = createActiveSession(TEEN_ID, 'IL');
+    stopSession(active.id, '2026-06-01T15:00:00.000Z');
+    expect(() =>
+      updateDraftSessionFields(active.id, {
+        startedAt: '2026-06-01T16:00:00.000Z',
+        endedAt: '2026-06-01T15:00:00.000Z',
+      }),
+    ).toThrow(/after start/i);
   });
 
   test('expireStaleActiveSession stops session older than 24 hours', () => {

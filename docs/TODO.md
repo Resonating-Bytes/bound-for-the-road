@@ -25,10 +25,10 @@
 
 **Offline mode scope:** Local start → stop → review → save works without network. Outbox sync completes the **remote half** — queued submits replay when connectivity and compatibility allow.
 
-### 2. Editable session times and fields
+### 2. Editable session times and fields `[~]`
 
-- [ ] Edit `startedAt` / `endedAt` on Review (forgot to tap Start/Stop)
-- [ ] Recompute duration, day/night, curfew, and hash on save; handle re-submit / re-approval when already submitted
+- [x] Edit `startedAt` / `endedAt` on Review and Edit session (duration computed; day/night from start)
+- [~] Recompute hash and re-submit / re-approval when already submitted (edit flow reopens as draft → submit)
 - [ ] Audit other read-only review fields ([SCREENS.md](./SCREENS.md))
 
 Promoted from [WISHLIST.md](./WISHLIST.md).

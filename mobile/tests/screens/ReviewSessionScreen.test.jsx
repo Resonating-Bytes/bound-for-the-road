@@ -14,6 +14,7 @@ jest.mock('../../src/db/queries', () => ({
   softDeleteSession: jest.fn(),
   restoreSavedSession: jest.fn(),
   reopenSavedSession: jest.fn(),
+  updateDraftSessionFields: jest.fn(),
   getSessionApprovalContext: jest.fn(() => ({
     submission: { requestHash: 'hash-new', superseded: false },
     approval: null,
@@ -30,6 +31,16 @@ jest.mock('../../src/lib/submissions', () => ({
   fetchRemoteUserName: jest.fn(() => Promise.resolve('Supervisor')),
   syncSessionReopenedForEdit: jest.fn(() => Promise.resolve()),
 }));
+
+jest.mock('../../src/components/DateTimePickerField', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return {
+    DateTimePickerField: ({ value, accessibilityLabel }) => (
+      <Text accessibilityLabel={accessibilityLabel}>{value ?? 'unset'}</Text>
+    ),
+  };
+});
 
 jest.mock('../../src/components/ScreenHeader', () => {
   const React = require('react');
@@ -127,7 +138,15 @@ describe('ReviewSessionScreen', () => {
     const { getByPlaceholderText, getByText } = await renderReview({
       sessionId: 'sess-001',
       editing: true,
-      editBackup: { notes: 'Original', requestHash: 'hash-new', payloadJson: '{}' },
+      editBackup: {
+        notes: 'Original',
+        requestHash: 'hash-new',
+        payloadJson: '{}',
+        startedAt: '2026-06-01T14:00:00.000Z',
+        endedAt: '2026-06-01T15:00:00.000Z',
+        durationMinutes: 60,
+        dayNight: 'day',
+      },
     });
     expect(getByPlaceholderText('Route, weather, supervisor name…')).toBeTruthy();
     expect(getByText('Submit for approval')).toBeTruthy();
@@ -138,7 +157,15 @@ describe('ReviewSessionScreen', () => {
     const { getByLabelText } = await renderReview({
       sessionId: 'sess-001',
       editing: true,
-      editBackup: { notes: 'Original', requestHash: 'hash-new', payloadJson: '{}' },
+      editBackup: {
+        notes: 'Original',
+        requestHash: 'hash-new',
+        payloadJson: '{}',
+        startedAt: '2026-06-01T14:00:00.000Z',
+        endedAt: '2026-06-01T15:00:00.000Z',
+        durationMinutes: 60,
+        dayNight: 'day',
+      },
     });
     fireEvent.press(getByLabelText('Go back'));
     expect(navigation.goBack).toHaveBeenCalled();

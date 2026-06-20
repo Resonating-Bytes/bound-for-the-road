@@ -5,6 +5,20 @@ All notable changes to the mobile app and its Supabase backend are documented he
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 
+## [1.5.5] - 2026-06-21
+
+### Added
+
+- Editable start/end times and notes on draft review and Edit session; duration and day/night recomputed from times
+- `DateTimePickerField` — full-row tap target, iOS popover anchored to the field, tap-outside to dismiss
+- Shared `useKeyboardScrollAlign` hook for Review notes and Appearance custom color fields
+
+### Changed
+
+- Header theme presets refreshed with curated accent colors; Espresso, Royal Plum, Cyber Lime, and Ultraviolet replace prior neutrals/vibrant entries
+- Night practice progress bar uses theme accent (same as total practice)
+- Neutrals theme picker order: Slate before Charcoal
+
 ## [1.5.4] - 2026-06-21
 
 ### Added

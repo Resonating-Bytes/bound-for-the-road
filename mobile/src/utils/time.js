@@ -77,6 +77,16 @@ export function parseISODate(iso, fallback = new Date()) {
   return new Date(y, m - 1, d, 12, 0, 0);
 }
 
+export function parseISODateTime(iso, fallback = new Date()) {
+  if (!iso) return fallback;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? fallback : d;
+}
+
+export function toISOStringFromDate(date) {
+  return date.toISOString();
+}
+
 export function yearsAgo(years) {
   const d = new Date();
   d.setFullYear(d.getFullYear() - years);
