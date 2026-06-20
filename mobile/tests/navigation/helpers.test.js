@@ -26,8 +26,15 @@ describe('navigation helpers', () => {
     expect(getMainNavigatorKey({ role: 'teen', requiresLink: true, linked: false })).toBe('linking');
   });
 
-  test('navigateBackOrHome resets to home when linked', () => {
-    const navigation = { reset: jest.fn(), canGoBack: jest.fn(), goBack: jest.fn() };
+  test('navigateBackOrHome pops when stack history exists', () => {
+    const navigation = { reset: jest.fn(), canGoBack: jest.fn(() => true), goBack: jest.fn() };
+    navigateBackOrHome(navigation, { linked: true, role: 'teen' });
+    expect(navigation.goBack).toHaveBeenCalled();
+    expect(navigation.reset).not.toHaveBeenCalled();
+  });
+
+  test('navigateBackOrHome resets to home when linked without stack history', () => {
+    const navigation = { reset: jest.fn(), canGoBack: jest.fn(() => false), goBack: jest.fn() };
     navigateBackOrHome(navigation, { linked: true, role: 'teen' });
     expect(navigation.reset).toHaveBeenCalledWith({
       index: 0,

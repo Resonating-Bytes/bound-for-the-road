@@ -83,6 +83,15 @@ export function ReviewSessionScreen({ route, navigation }) {
     };
   }, [sessionId, canRemoteWrite]);
 
+  useEffect(() => {
+    if (!editing || !sessionId) return;
+    const row = getSessionById(sessionId);
+    if (row?.status === 'saved') {
+      reopenSavedSession(sessionId);
+    }
+    setNotes(getSessionById(sessionId)?.notes ?? '');
+  }, [sessionId, editing]);
+
   if (!session) {
     return (
       <Screen>
@@ -96,6 +105,8 @@ export function ReviewSessionScreen({ route, navigation }) {
   const curfewWarning = getCurfewWarning(session.startedAt, session.endedAt);
   const isDraft = session.status === 'draft';
   const submitBlocked = isSupabaseConfigured() && !canRemoteWrite;
+  const showNotesEditor = isDraft || editing;
+  const showDraftActions = isDraft || editing;
 
   const originalNotes = editing ? (editBackup?.notes ?? '') : (session.notes ?? '');
   const notesChanged = notes !== originalNotes;
@@ -140,11 +151,11 @@ export function ReviewSessionScreen({ route, navigation }) {
       const result = await submitSessionForApproval(sessionId, { notes, submittedByUserId: userId });
       await cancelSessionNotifications(sessionId);
       if (result.pendingRemote) {
-        Alert.alert(
-          'Saved on this device',
-          'Your practice time is recorded. Update the app to send this session to your supervisor for approval.',
-          [{ text: 'OK', onPress: goDashboard }],
-        );
+        const body =
+          result.pendingReason === 'blocked'
+            ? 'Your practice time is recorded. Update the app to send this session to your supervisor for approval.'
+            : 'Your practice time is recorded on this device. It will sync for supervisor approval when you are back online.';
+        Alert.alert('Saved on this device', body, [{ text: 'OK', onPress: goDashboard }]);
         return;
       }
       goDashboard();
@@ -158,6 +169,10 @@ export function ReviewSessionScreen({ route, navigation }) {
   function revertEdit() {
     if (editBackup) {
       restoreSavedSession(sessionId, editBackup);
+    }
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
     }
     goDashboard();
   }
@@ -266,7 +281,7 @@ export function ReviewSessionScreen({ route, navigation }) {
     syncSessionReopenedForEdit(sessionId).catch((e) => {
       console.warn('Remote edit sync failed:', e.message);
     });
-    navigation.replace('ReviewSession', {
+    navigation.navigate('ReviewSession', {
       sessionId,
       editing: true,
       editBackup: {
@@ -352,14 +367,14 @@ export function ReviewSessionScreen({ route, navigation }) {
           </>
         ) : null}
 
-        {isDraft && submitBlocked && (
+        {showNotesEditor && submitBlocked && (
           <Text style={styles.warning}>
             Submit for approval is unavailable until you update the app (see the banner above). You can
             still save this session to your log on this device.
           </Text>
         )}
 
-        {isDraft && (
+        {showNotesEditor && (
           <>
             <Text style={styles.label}>Notes (optional)</Text>
             <TextInput
@@ -372,7 +387,7 @@ export function ReviewSessionScreen({ route, navigation }) {
           </>
         )}
 
-        {isDraft && (
+        {showDraftActions && (
           <View style={styles.actions}>
             <Pressable
               style={[
@@ -440,14 +455,14 @@ export function ReviewSessionScreen({ route, navigation }) {
           </View>
         )}
 
-        {editing && (
+        {editing && !showDraftActions ? (
           <Pressable
             style={[styles.discardBtn, styles.discardBtnSpaced]}
             onPress={handleDiscardSessionWhileEditing}
           >
             <Text style={styles.discardBtnText}>Discard session</Text>
           </Pressable>
-        )}
+        ) : null}
       </ScrollView>
     </Screen>
   );

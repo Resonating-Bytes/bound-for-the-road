@@ -5,6 +5,25 @@ All notable changes to the mobile app and its Supabase backend are documented he
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 
+## [1.5.3] - 2026-06-21
+
+### Added
+
+- Offline outbox sync: queued session submits replay when online; About shows pending count and sync status
+- Dashboard refreshes session tile labels when background sync completes
+
+### Changed
+
+- Teen dashboard loads saved sessions from local SQLite first, then enriches from remote
+- Pending offline submit label reads "Saved on device — pending sync"
+
+### Fixed
+
+- Offline submit no longer throws on network failure; notes stick when editing a saved session offline
+- Outbox sync uses auth user id for remote upsert (RLS); sync spinner clears when flush finishes
+- Settings and Edit session back use stack pop instead of dashboard reset (correct slide animation)
+- Linked account nickname field preserves spaces while typing (length cap only)
+
 ## [1.5.2] - 2026-06-21
 
 ### Changed

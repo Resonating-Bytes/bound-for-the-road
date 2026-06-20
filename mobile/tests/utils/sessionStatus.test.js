@@ -41,7 +41,7 @@ describe('sessionStatus', () => {
       canRemoteWrite: true,
     });
     expect(status.key).toBe('saved_local');
-    expect(status.label).toBe('Saved on device — ready to send for approval');
+    expect(status.label).toBe('Saved on device — pending sync');
   });
 
   test('approved when hash matches approval', () => {

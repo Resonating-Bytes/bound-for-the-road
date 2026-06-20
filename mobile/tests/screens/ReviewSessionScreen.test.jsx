@@ -59,7 +59,7 @@ jest.mock('../../src/config/timezoneCentroids', () => ({
 }));
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ReviewSessionScreen } from '../../src/screens/ReviewSessionScreen';
 import { getSessionById } from '../../src/db/queries';
@@ -122,16 +122,26 @@ describe('ReviewSessionScreen', () => {
     expect(await findByText('Pending approval')).toBeTruthy();
   });
 
-  test('hides Resume and shows Back when editing saved entry', async () => {
-    const { getByText, queryByText, getByLabelText } = await renderReview({
+  test('shows notes editor and save when editing a saved entry', async () => {
+    getSessionById.mockReturnValue({ ...draftSession, status: 'saved', requestHash: 'hash-new', notes: 'Original' });
+    const { getByPlaceholderText, getByText } = await renderReview({
       sessionId: 'sess-001',
       editing: true,
-      editBackup: { notes: '', requestHash: 'abc', payloadJson: '{}' },
+      editBackup: { notes: 'Original', requestHash: 'hash-new', payloadJson: '{}' },
     });
-    expect(getByText('Edit session')).toBeTruthy();
-    expect(queryByText('Resume')).toBeNull();
-    expect(getByLabelText('Go back')).toBeTruthy();
-    expect(getByText('Discard edits')).toBeTruthy();
-    expect(getByText('Discard session')).toBeTruthy();
+    expect(getByPlaceholderText('Route, weather, supervisor name…')).toBeTruthy();
+    expect(getByText('Submit for approval')).toBeTruthy();
+  });
+
+  test('back from edit pops stack instead of resetting dashboard', async () => {
+    getSessionById.mockReturnValue({ ...draftSession, status: 'saved', requestHash: 'hash-new', notes: 'Original' });
+    const { getByLabelText } = await renderReview({
+      sessionId: 'sess-001',
+      editing: true,
+      editBackup: { notes: 'Original', requestHash: 'hash-new', payloadJson: '{}' },
+    });
+    fireEvent.press(getByLabelText('Go back'));
+    expect(navigation.goBack).toHaveBeenCalled();
+    expect(navigation.reset).not.toHaveBeenCalled();
   });
 });

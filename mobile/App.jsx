@@ -5,6 +5,7 @@ import * as Linking from 'expo-linking';
 import { initDb } from './src/db/client';
 import { AuthProvider } from './src/context/AuthContext';
 import { CompatibilityProvider } from './src/context/CompatibilityContext';
+import { SyncProvider } from './src/context/SyncContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { Screen } from './src/components/Screen';
@@ -71,10 +72,12 @@ export default function App() {
       <SafeAreaProvider>
         <CompatibilityProvider>
           <AuthProvider>
-            <ThemeProvider>
-              <RootNavigator />
-              <ThemeStatusBar />
-            </ThemeProvider>
+            <SyncProvider>
+              <ThemeProvider>
+                <RootNavigator />
+                <ThemeStatusBar />
+              </ThemeProvider>
+            </SyncProvider>
           </AuthProvider>
         </CompatibilityProvider>
       </SafeAreaProvider>

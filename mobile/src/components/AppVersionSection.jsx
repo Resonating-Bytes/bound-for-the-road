@@ -1,10 +1,14 @@
+import { useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   getActiveCompatibilityDisplay,
   getAppUpdateStatus,
   getSettingsCompatibilityLabel,
 } from '../lib/compatibility';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { useCompatibility } from '../context/CompatibilityContext';
+import { useSync } from '../context/SyncContext';
 import { APP_VERSION } from '../config/compatibility';
 import { openAppUpdateUrl } from './ScreenHeaderBanners';
 import { useTheme } from '../context/ThemeContext';
@@ -12,11 +16,18 @@ import { useTheme } from '../context/ThemeContext';
 export function AppVersionSection({ hideSectionTitle = false }) {
   const { theme } = useTheme();
   const { compatibility, loading, refresh } = useCompatibility();
+  const { pendingCount, isSyncing, lastError, syncNow, refreshSyncStatus } = useSync();
   const active = getActiveCompatibilityDisplay(compatibility);
   const remote = compatibility.remote ?? active.remote;
   const statusSource = active.preview ? active : compatibility;
   const updateStatus = getAppUpdateStatus(remote);
   const showUpdateButton = updateStatus.required || updateStatus.optional;
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshSyncStatus();
+    }, [refreshSyncStatus]),
+  );
 
   return (
     <View style={styles.section}>
@@ -44,6 +55,27 @@ export function AppVersionSection({ hideSectionTitle = false }) {
       <Pressable onPress={refresh} accessibilityRole="button">
         <Text style={[styles.refreshLink, { color: theme.accent }]}>Check for updates</Text>
       </Pressable>
+      {isSupabaseConfigured() ? (
+        <>
+          <Text style={styles.syncLine}>
+            {isSyncing
+              ? 'Syncing…'
+              : pendingCount > 0
+                ? `Pending sync: ${pendingCount} item${pendingCount === 1 ? '' : 's'}`
+                : 'Sync: up to date'}
+          </Text>
+          {lastError ? (
+            <Text style={styles.warningLine}>
+              {pendingCount > 0 ? `Last sync failed: ${lastError}` : lastError}
+            </Text>
+          ) : null}
+          {pendingCount > 0 ? (
+            <Pressable onPress={syncNow} accessibilityRole="button">
+              <Text style={[styles.refreshLink, { color: theme.accent }]}>Sync now</Text>
+            </Pressable>
+          ) : null}
+        </>
+      ) : null}
     </View>
   );
 }
@@ -76,4 +108,5 @@ const styles = StyleSheet.create({
   },
   updateBtnText: { fontWeight: '600', fontSize: 15 },
   refreshLink: { fontWeight: '600', fontSize: 14 },
+  syncLine: { fontSize: 14, color: '#1a2b3c', marginTop: 12 },
 });
