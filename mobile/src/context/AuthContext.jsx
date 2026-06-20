@@ -19,6 +19,7 @@ import { signInWithGoogleOAuth } from '../lib/googleAuth';
 import { fetchRemoteLinks } from '../lib/links';
 import { syncProfileToSupabase } from '../lib/profileSync';
 import { unregisterCurrentDevicePushToken } from '../lib/pushTokens';
+import { deleteRemoteAccount } from '../lib/deleteAccount';
 import { cancelSessionNotificationsForIds } from '../utils/notifications';
 
 const MOCK_USER_KEY = '@boundfortheroad/mockUserId';
@@ -356,6 +357,48 @@ export function AuthProvider({ children }) {
     }
   }, [userId]);
 
+  const deleteMyAccount = useCallback(async () => {
+    isSigningOutRef.current = true;
+    const deletingUserId = userId;
+    setUserId(null);
+    setUser(null);
+    setLinked(false);
+    setRoleChosenFlag(false);
+    try {
+      if (deletingUserId) {
+        await unregisterCurrentDevicePushToken(deletingUserId);
+      }
+      if (isSupabaseConfigured()) {
+        await deleteRemoteAccount();
+      }
+      if (deletingUserId) {
+        const sessionIds = listSessionIdsForTeen(deletingUserId);
+        await cancelSessionNotificationsForIds(sessionIds);
+        deleteAllUserData(deletingUserId);
+      }
+      if (isSupabaseConfigured()) {
+        const { error } = await getSupabase().auth.signOut({ scope: 'local' });
+        if (error) console.warn('Sign out after account delete failed:', error.message);
+      } else {
+        await AsyncStorage.removeItem(MOCK_USER_KEY);
+      }
+    } catch (e) {
+      console.warn('Delete account failed:', e.message);
+      throw e;
+    } finally {
+      const { data } = isSupabaseConfigured()
+        ? await getSupabase().auth.getSession()
+        : { data: { session: null } };
+      if (!data.session) {
+        isSigningOutRef.current = false;
+      } else {
+        setTimeout(() => {
+          isSigningOutRef.current = false;
+        }, 500);
+      }
+    }
+  }, [userId]);
+
   const profileComplete = isProfileCompleteForRole(user);
   const requiresLink = isSupabaseConfigured();
   const onboardingComplete = profileComplete && (!requiresLink || linked);
@@ -377,6 +420,7 @@ export function AuthProvider({ children }) {
       saveRole,
       saveProfile,
       deleteAllData,
+      deleteMyAccount,
       refreshUser: () => refreshUser(userId),
       refreshLinks: () => refreshLinks(userId),
     }),
@@ -395,6 +439,7 @@ export function AuthProvider({ children }) {
       saveRole,
       saveProfile,
       deleteAllData,
+      deleteMyAccount,
       refreshUser,
       refreshLinks,
     ],

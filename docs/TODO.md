@@ -1,7 +1,7 @@
 # Bound for the Road — Project TODO
 
 **Last updated:** 2026-06-20  
-**Current phase:** Phase 2 — versioning complete; **next:** theme & color system (after merge verified)
+**Current phase:** Phase 2 — **next:** outbox sync (after settings sub-pages)
 
 **Decisions:** [DECISIONS.md](./DECISIONS.md) — do not duplicate here.  
 **Screens:** [SCREENS.md](./SCREENS.md)  
@@ -181,7 +181,7 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 - [x] Tests: `resolveTheme` accent + halo assertions
 - [x] Removed theme spike screen, SVG outline exploration, and `react-native-svg` dependency
 
-### Future milestone — customization & expansion
+### Future milestone — customization & expansion (deferred)
 - [ ] **Custom accent hex** — Settings UI, per-user persistence (`accent_hex_<userId>` or similar), wire into `resolveAccentForPreset()` override hook in `accent.js`
 - [ ] **Custom header hex** — native color wheel / hex field (same Settings milestone or sub-page)
 - [x] Per-preset accent tuning after dogfooding (adjust `presets.js` values only — no new UI)
@@ -199,13 +199,13 @@ See [TESTING.md](./TESTING.md). Maestro E2E deferred to Phase 2 (dev/production 
 **What exists today:** Single long `SettingsScreen` scroll — theme picker, app version, profile fields, linked accounts, sign out, delete data.
 
 ### Proposed structure (spike)
-- [ ] **Profile** — legal name, permit date (teen), save
-- [ ] **Appearance** — header theme picker (and accent picker once theming lands)
-- [ ] **App & updates** — installed version, compatibility status, update link
-- [ ] **Account & data** — linked accounts, sign out, delete all local data
-- [ ] Main Settings becomes a short list of rows (title + chevron) that navigate into each sub-screen
-- [ ] Keep destructive actions (delete data) visually separated on the Account sub-screen
-- [ ] Reuse existing section components (`ThemePickerSection`, `AppVersionSection`, `LinkedAccountsSection`) inside sub-screens where possible
+- [x] **Profile** — legal name, permit date (teen), save; delete all local data at bottom
+- [x] **Appearance** — header theme picker
+- [x] **About** — installed version, compatibility status, update link
+- [x] **Linked accounts** — invite, list, remove (top-level hub row when Supabase configured)
+- [x] Main Settings — short list of rows (title + chevron); sign out on hub
+- [x] Destructive delete buried on Profile sub-screen
+- [x] Reuse existing section components inside sub-screens
 
 **Reading order:** `SettingsScreen.jsx`, stack navigators in `RootNavigator.jsx`
 

@@ -13,6 +13,23 @@ App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 
 ### Fixed
 
+## [1.4.0] - 2026-06-22
+
+### Added
+
+- Settings sub-pages (Profile, Appearance, About, Linked accounts)
+- `delete_my_account` RPC for permanent account deletion with double confirmation
+
+### Changed
+
+- Settings hub with chevron rows; sign out on hub; role on Profile
+- About screen (formerly App & updates); accent preview on Appearance
+- Onboarding role buttons spaced and narrowed
+
+### Fixed
+
+- Adult link screen requires full 6-digit invite code before submit
+
 ## [1.3.0] - 2026-06-19
 
 ### Added

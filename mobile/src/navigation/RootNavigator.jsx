@@ -161,6 +161,26 @@ function TeenNavigator({ navigatorKey, initialRouteName }) {
 
       />
 
+      <TeenStack.Screen
+        name="SettingsProfile"
+        getComponent={() => require('../screens/settings/SettingsProfileScreen').SettingsProfileScreen}
+      />
+
+      <TeenStack.Screen
+        name="SettingsAppearance"
+        getComponent={() => require('../screens/settings/SettingsAppearanceScreen').SettingsAppearanceScreen}
+      />
+
+      <TeenStack.Screen
+        name="SettingsAppUpdates"
+        getComponent={() => require('../screens/settings/SettingsAppUpdatesScreen').SettingsAppUpdatesScreen}
+      />
+
+      <TeenStack.Screen
+        name="SettingsLinkedAccounts"
+        getComponent={() => require('../screens/settings/SettingsLinkedAccountsScreen').SettingsLinkedAccountsScreen}
+      />
+
     </TeenStack.Navigator>
 
   );
@@ -213,6 +233,26 @@ function AdultNavigator({ navigatorKey, initialRouteName }) {
 
         getComponent={() => require('../screens/SettingsScreen').SettingsScreen}
 
+      />
+
+      <AdultStack.Screen
+        name="SettingsProfile"
+        getComponent={() => require('../screens/settings/SettingsProfileScreen').SettingsProfileScreen}
+      />
+
+      <AdultStack.Screen
+        name="SettingsAppearance"
+        getComponent={() => require('../screens/settings/SettingsAppearanceScreen').SettingsAppearanceScreen}
+      />
+
+      <AdultStack.Screen
+        name="SettingsAppUpdates"
+        getComponent={() => require('../screens/settings/SettingsAppUpdatesScreen').SettingsAppUpdatesScreen}
+      />
+
+      <AdultStack.Screen
+        name="SettingsLinkedAccounts"
+        getComponent={() => require('../screens/settings/SettingsLinkedAccountsScreen').SettingsLinkedAccountsScreen}
       />
 
     </AdultStack.Navigator>
