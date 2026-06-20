@@ -16,18 +16,13 @@ Decisions: [BACKEND.md](./BACKEND.md) · [DATA_MODEL.md](./DATA_MODEL.md) · [AU
 
 ## 2. Run migrations
 
-**Option A — SQL Editor (simplest, no CLI)**
+Apply **every** file in `supabase/migrations/` **in filename order** (timestamp prefix). Each file is idempotent where noted in SQL comments; never skip or reorder.
+
+**Option A — SQL Editor (no CLI)**
 
 1. Dashboard → **SQL Editor** → **New query**
-2. Paste contents of `supabase/migrations/20260618120000_initial_schema.sql` → **Run**
-3. Paste contents of `supabase/migrations/20260618120001_rls_policies.sql` → **Run**
-4. Paste contents of `supabase/migrations/20260619120000_link_invite_rpc.sql` → **Run** (required for teen/adult linking)
-5. Paste contents of `supabase/migrations/20260619130000_users_insert_own.sql` → **Run** (recreate profile row after dev DB reset)
-6. Paste contents of `supabase/migrations/20260619140000_submissions_teen_update.sql` → **Run** (teen withdraw before approval)
-7. Continue through `20260619170000_approvals_adult_linked_select.sql` (decline RPC, send-back, linked adult approvals)
-8. Paste `20260620120000_app_compatibility.sql` → **Run** (app ↔ backend version check RPC)
-
-See [COMPATIBILITY.md](./COMPATIBILITY.md) for version bump workflow.
+2. For each `supabase/migrations/*.sql` (sorted by name): paste contents → **Run**
+3. Confirm `app_config.backend_revision` matches the latest migration you applied (see [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md))
 
 **Option B — Supabase CLI**
 
@@ -37,6 +32,8 @@ supabase login
 supabase link --project-ref YOUR_PROJECT_REF
 supabase db push
 ```
+
+Versioning and `MIN_BACKEND_REVISION`: [COMPATIBILITY.md](./COMPATIBILITY.md). Release steps: [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md).
 
 ---
 
@@ -144,20 +141,18 @@ See [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md#development-build-bound-for-th
 After you enable Email or Google auth in Dashboard and create a test user:
 
 1. **Table Editor** → `users` — one row with `id` = auth user UUID
-2. Signed-in client can `select` own row only (policies in `20260618120001_rls_policies.sql`)
+2. Signed-in client can `select` own row only (RLS policies from the migrations under `supabase/migrations/`)
 
 Full auth + sync testing comes in the next Phase 2 slices.
 
 ---
 
-## What’s not in this slice
+## What’s not covered here
 
-- Sign in with Apple (needs dev build)
-- Outbox sync from local SQLite
-- Edge Functions for push relay
-- Invite accept RPC for adults
+- Outbox sync from local SQLite — see [TODO.md](./TODO.md)
+- Sign in with Apple (needs dev build) — [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md)
 
-See [TODO.md](./TODO.md) Phase 2 checklist.
+Edge functions deploy automatically on merge to `main` when `supabase/functions/**` changes. See [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md).
 
 ---
 
@@ -165,14 +160,10 @@ See [TODO.md](./TODO.md) Phase 2 checklist.
 
 ```
 supabase/
-  config.toml
-    migrations/
-    20260618120000_initial_schema.sql
-    20260618120001_rls_policies.sql
-    20260619120000_link_invite_rpc.sql
+  migrations/          # *.sql — apply in filename order
+  functions/           # edge functions (e.g. send-approval-push)
 mobile/
-  src/lib/supabase.js      # client + health check
-  src/lib/googleAuth.js    # Google OAuth via Supabase
-  src/screens/SignInScreen.jsx
+  src/lib/supabase.js  # client + health check
+  src/lib/googleAuth.js
   .env.example
 ```

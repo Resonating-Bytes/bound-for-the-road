@@ -52,6 +52,14 @@ function readFileAtRef(ref, relativePath) {
   }
 }
 
+function diffForFile(base, head, relativePath) {
+  try {
+    return git(['diff', `${base}...${head}`, '--', relativePath.replace(/\\/g, '/')]);
+  } catch {
+    return '';
+  }
+}
+
 function compareLex(a, b) {
   return String(a).localeCompare(String(b));
 }
@@ -62,5 +70,6 @@ module.exports = {
   listChangedFiles,
   listAddedFiles,
   readFileAtRef,
+  diffForFile,
   compareLex,
 };

@@ -43,7 +43,7 @@ On each version bump:
 | `mobile/src/config/compatibility.js` | `MIN_BACKEND_REVISION` — bump when **this app build** requires a newer migration |
 | `app_config.backend_revision` | Set in SQL when applying migrations (see [COMPATIBILITY.md](./COMPATIBILITY.md)) |
 
-Backend-only PRs (new migration, edge function) do **not** require an app semver bump. Document the change in `CHANGELOG.md` and/or `docs/COMPATIBILITY.md`.
+Backend-only PRs (new migration, edge function) do **not** require an app semver bump. Document the change under `[Unreleased]` in `CHANGELOG.md` (CI enforced).
 
 If you raise `MIN_BACKEND_REVISION` in the same PR, a matching `supabase/migrations/<id>_*.sql` must exist.
 
@@ -71,7 +71,7 @@ Each job **passes immediately** if its side did not change (compatibility contra
 
 **Backend revision** enforces:
 
-1. `CHANGELOG.md`, `docs/COMPATIBILITY.md`, and/or `docs/RPC_CONTRACT.md` updated
+1. `CHANGELOG.md` updated with at least one new bullet or release section
 2. If `MIN_BACKEND_REVISION` is raised, a migration file with that id exists
 3. If a new migration is added and `compatibility.js` changes, `MIN_BACKEND_REVISION` must be at least the new migration id
 

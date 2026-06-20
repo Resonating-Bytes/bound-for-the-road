@@ -9,7 +9,7 @@ Technical details: [RELEASE.md](./RELEASE.md) · [COMPATIBILITY.md](./COMPATIBIL
 
 - [ ] App semver bumped in `mobile/app.json` and `mobile/package.json` (if mobile changed)
 - [ ] `CHANGELOG.md` has `## [x.y.z] - YYYY-MM-DD` with bullets (CI validates format)
-- [ ] Supabase changes documented in `CHANGELOG.md` and/or `COMPATIBILITY.md`
+- [ ] Supabase changes documented in `CHANGELOG.md` (`[Unreleased]` or release section)
 - [ ] New migration filename matches `YYYYMMDDHHMMSS_description.sql`
 - [ ] `MIN_BACKEND_REVISION` raised if this app build requires new migration
 - [ ] `requiredBackendCapabilities.json` updated if capabilities changed

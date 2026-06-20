@@ -34,6 +34,7 @@ import {
 import { formatDate, formatDuration } from '../utils/time';
 import { dayNightLabel } from '../utils/dayNight';
 import { shortDisplayNameForTeen } from '../utils/displayName';
+import { formatAdultApprovedLabel } from '../utils/approvalDisplay';
 import { useTheme } from '../context/ThemeContext';
 
 export function AdultHomeScreen({ navigation }) {
@@ -158,8 +159,7 @@ export function AdultHomeScreen({ navigation }) {
           </Text>
           {isApproved ? (
             <Text style={styles.approvedMeta}>
-              Approved by {item.approverName ?? 'Supervisor'},{' '}
-              {formatDate(item.approvedAt)}
+              {formatAdultApprovedLabel(item, userId)}
             </Text>
           ) : null}
         </View>

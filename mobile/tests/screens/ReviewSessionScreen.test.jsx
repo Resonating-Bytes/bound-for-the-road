@@ -67,6 +67,8 @@ import { getSessionById } from '../../src/db/queries';
 const navigation = {
   reset: jest.fn(),
   replace: jest.fn(),
+  goBack: jest.fn(),
+  canGoBack: jest.fn(() => true),
 };
 
 const safeAreaMetrics = {
@@ -109,12 +111,13 @@ describe('ReviewSessionScreen', () => {
 
   test('shows saved-session actions when session is no longer draft', async () => {
     getSessionById.mockReturnValue({ ...draftSession, status: 'saved', requestHash: 'hash-new' });
-    const { getByText, queryByText, findByText } = await renderReview({
+    const { getByText, queryByText, findByText, getByLabelText } = await renderReview({
       sessionId: 'sess-001',
       editing: false,
     });
-    expect(getByText('Back to dashboard')).toBeTruthy();
+    expect(getByLabelText('Go back')).toBeTruthy();
     expect(getByText('Edit session')).toBeTruthy();
+    expect(queryByText('Back to dashboard')).toBeNull();
     expect(queryByText('Submit for approval')).toBeNull();
     expect(await findByText('Pending approval')).toBeTruthy();
   });
