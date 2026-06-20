@@ -16,6 +16,7 @@ export function OnboardingStateScreen({ navigation }) {
   function next() {
     saveProfile({
       legalName: user.legalName,
+      displayName: user.displayName,
       role: 'teen',
       dateOfBirth: user.dateOfBirth,
       stateCode,

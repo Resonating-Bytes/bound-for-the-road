@@ -13,6 +13,23 @@ App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 
 ### Fixed
 
+## [1.5.0] - 2026-06-17
+
+### Added
+
+- `display_name` on user profiles; required alongside legal name in onboarding and Settings
+- Per-viewer nicknames for linked accounts (`user_aliases` table + detail screen)
+- Linked account list shows casual label plus legal name; chevron opens nickname editor
+- Supabase migration `20260623120000`: `display_name`, `user_aliases`, `upsert_user_alias`, `delete_user_alias`
+- Local SQLite v3: `display_name` column and `user_aliases` table for offline nickname sync
+
+### Changed
+
+- Approve screen: two presence options — in-car approver or another supervising adult (legal name required)
+- Approved session labels use supervisor name snapshot from the approval record
+- Push notifications use nickname → display name for linked users (`send-approval-push`)
+- `MIN_BACKEND_REVISION` → `20260623120000`
+
 ## [1.4.0] - 2026-06-22
 
 ### Added

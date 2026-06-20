@@ -1,41 +1,61 @@
 /** First token of legal name (e.g. "Jane Doe" → "Jane"). */
-export function getFirstName(legalName) {
+export function firstTokenFromLegalName(legalName) {
   const trimmed = (legalName ?? '').trim();
-  if (!trimmed) return 'Driver';
+  if (!trimmed) return '';
   return trimmed.split(/\s+/)[0];
 }
 
-/** Last name initial for disambiguation (e.g. "Jane Doe" → "D"). */
-export function getLastInitial(legalName) {
-  const parts = (legalName ?? '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (parts.length < 2) return '';
-  const letter = parts[parts.length - 1][0];
-  return letter ? letter.toUpperCase() : '';
+/** Casual label: nickname override, else display name, else first token of legal name. */
+export function casualLabel({ nickname, displayName, legalName, fallback = 'Driver' }) {
+  const nick = (nickname ?? '').trim();
+  if (nick) return nick;
+  const display = (displayName ?? '').trim();
+  if (display) return display;
+  const first = firstTokenFromLegalName(legalName);
+  return first || fallback;
 }
 
-/** Short labels for a group of legal names. */
-export function shortDisplayNames(legalNames) {
-  const list = (legalNames ?? []).map((name) => String(name ?? ''));
-  const firstNames = list.map((name) => getFirstName(name));
-  const counts = {};
-  for (const first of firstNames) {
-    counts[first] = (counts[first] ?? 0) + 1;
+export async function fetchUserProfilesByIds(supabaseAdmin, userIds) {
+  if (!userIds.length) return new Map();
+  const { data, error } = await supabaseAdmin
+    .from('users')
+    .select('id, display_name, legal_name')
+    .in('id', userIds);
+  if (error) throw error;
+  const map = new Map();
+  for (const row of data ?? []) {
+    map.set(row.id, {
+      displayName: row.display_name?.trim() ?? '',
+      legalName: row.legal_name?.trim() ?? '',
+    });
   }
-
-  return list.map((name, index) => {
-    const first = firstNames[index];
-    if (counts[first] <= 1) {
-      return first;
-    }
-    const initial = getLastInitial(name);
-    return initial ? `${first} ${initial}.` : first;
-  });
+  return map;
 }
 
-export function shortDisplayNameAtIndex(legalNames, index, fallback = 'Driver') {
-  if (index < 0) return fallback;
-  return shortDisplayNames(legalNames)[index] ?? fallback;
+export async function fetchNicknameForTarget(supabaseAdmin, ownerUserId, targetUserId) {
+  const { data, error } = await supabaseAdmin
+    .from('user_aliases')
+    .select('nickname')
+    .eq('owner_user_id', ownerUserId)
+    .eq('target_user_id', targetUserId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.nickname?.trim() ?? '';
+}
+
+export async function casualLabelForLinkedUser(
+  supabaseAdmin,
+  viewerUserId,
+  targetUserId,
+  fallback,
+) {
+  const profiles = await fetchUserProfilesByIds(supabaseAdmin, [targetUserId]);
+  const profile = profiles.get(targetUserId) ?? { displayName: '', legalName: '' };
+  const nickname = await fetchNicknameForTarget(supabaseAdmin, viewerUserId, targetUserId);
+  return casualLabel({
+    nickname,
+    displayName: profile.displayName,
+    legalName: profile.legalName,
+    fallback,
+  });
 }

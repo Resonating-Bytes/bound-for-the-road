@@ -14,7 +14,7 @@ import {
 
 describe('compatibility', () => {
   const compatibleRemote = {
-    backend_revision: '20260622120000',
+    backend_revision: '20260623120000',
     min_app_version: '1.0.0',
     payload_schema_version: '1',
     capabilities: [

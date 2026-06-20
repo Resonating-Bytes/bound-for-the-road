@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
-import { fetchLinkedPartners, removeLink } from '../lib/links';
+import { fetchLinkedPartners } from '../lib/links';
+import { ListRowChevron } from './ListRowChevron';
 import { useTheme } from '../context/ThemeContext';
 
 export function LinkedAccountsSection({
@@ -10,11 +10,11 @@ export function LinkedAccountsSection({
   role,
   refreshLinks,
   onInvite,
+  onPartnerPress,
   hideSectionTitle = false,
 }) {
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [removingId, setRemovingId] = useState(null);
   const { theme } = useTheme();
 
   const loadPartners = useCallback(async () => {
@@ -37,35 +37,6 @@ export function LinkedAccountsSection({
     }, [loadPartners]),
   );
 
-  function confirmRemove(partner) {
-    const isTeen = role === 'teen';
-    Alert.alert(
-      'Remove link?',
-      isTeen
-        ? `Stop sharing with ${partner.name}? They will no longer see your driving log.`
-        : `Stop supervising ${partner.name}? You will no longer see their driving log.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            setRemovingId(partner.linkId);
-            try {
-              await removeLink(partner.linkId);
-              await refreshLinks();
-              await loadPartners();
-            } catch (e) {
-              Alert.alert('Could not remove link', e.message ?? 'Try again.');
-            } finally {
-              setRemovingId(null);
-            }
-          },
-        },
-      ],
-    );
-  }
-
   const emptyLabel = role === 'teen' ? 'No linked adults yet.' : 'No linked teen drivers yet.';
 
   return (
@@ -77,27 +48,23 @@ export function LinkedAccountsSection({
       ) : partners.length ? (
         <View style={styles.list}>
           {partners.map((partner, index) => (
-            <View
+            <Pressable
               key={partner.linkId}
               style={[styles.row, index === partners.length - 1 && styles.rowLast]}
+              onPress={() => onPartnerPress?.(partner)}
+              accessibilityRole="button"
+              accessibilityLabel={`${partner.name}, ${partner.legalName}`}
             >
-              <Text style={styles.name} numberOfLines={1}>
-                {partner.name}
-              </Text>
-              <Pressable
-                onPress={() => confirmRemove(partner)}
-                disabled={removingId === partner.linkId}
-                style={styles.removeBtn}
-                accessibilityRole="button"
-                accessibilityLabel={`Remove ${partner.name}`}
-              >
-                {removingId === partner.linkId ? (
-                  <ActivityIndicator size="small" color="#dc2626" />
-                ) : (
-                  <Ionicons name="trash-outline" size={22} color="#dc2626" />
-                )}
-              </Pressable>
-            </View>
+              <View style={styles.rowText}>
+                <Text style={styles.name} numberOfLines={1}>
+                  {partner.name}
+                </Text>
+                <Text style={styles.legalName} numberOfLines={1}>
+                  {partner.legalName}
+                </Text>
+              </View>
+              <ListRowChevron />
+            </Pressable>
           ))}
         </View>
       ) : (
@@ -144,14 +111,19 @@ const styles = StyleSheet.create({
   rowLast: {
     borderBottomWidth: 0,
   },
-  name: {
+  rowText: {
     flex: 1,
-    fontSize: 16,
-    color: '#1a2b3c',
-    marginRight: 12,
+    marginRight: 8,
   },
-  removeBtn: {
-    padding: 4,
+  name: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a2b3c',
+  },
+  legalName: {
+    fontSize: 13,
+    color: '#6a7b8c',
+    marginTop: 2,
   },
   empty: {
     fontSize: 15,

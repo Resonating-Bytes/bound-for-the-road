@@ -1,21 +1,41 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { Screen } from '../../components/Screen';
+import { ProfileNameFields } from '../../components/ProfileNameFields';
 import { useTheme } from '../../context/ThemeContext';
+import { firstTokenFromLegalName } from '../../utils/names';
 import { shared, themeAccentStyles } from './sharedStyles';
 
 export function OnboardingAdultNameScreen() {
   const { user, saveProfile } = useAuth();
   const { theme } = useTheme();
   const accent = themeAccentStyles(theme);
-  const [name, setName] = useState(user?.legalName ?? '');
+  const [legalName, setLegalName] = useState(user?.legalName ?? '');
+  const [displayName, setDisplayName] = useState(
+    user?.displayName || firstTokenFromLegalName(user?.legalName ?? ''),
+  );
+  const [displayTouched, setDisplayTouched] = useState(Boolean(user?.displayName?.trim()));
+
+  function handleLegalChange(text) {
+    setLegalName(text);
+    if (!displayTouched) {
+      setDisplayName(firstTokenFromLegalName(text));
+    }
+  }
+
+  function handleDisplayChange(text) {
+    setDisplayTouched(true);
+    setDisplayName(text);
+  }
 
   function finish() {
-    const trimmed = name.trim();
-    if (!trimmed) return;
+    const trimmedLegal = legalName.trim();
+    const trimmedDisplay = displayName.trim();
+    if (!trimmedLegal || !trimmedDisplay) return;
     saveProfile({
-      legalName: trimmed,
+      legalName: trimmedLegal,
+      displayName: trimmedDisplay,
       role: 'adult',
       email: user?.email,
       dateOfBirth: null,
@@ -24,20 +44,23 @@ export function OnboardingAdultNameScreen() {
     });
   }
 
+  const canContinue = legalName.trim() && displayName.trim();
+
   return (
     <Screen>
       <View style={shared.content}>
-        <Text style={shared.title}>Your legal name</Text>
-        <Text style={shared.hint}>Used on driving log approvals.</Text>
-        <TextInput
-          style={shared.input}
-          value={name}
-          onChangeText={setName}
-          placeholder="First and last name"
-          autoCapitalize="words"
+        <Text style={shared.title}>Your name</Text>
+        <ProfileNameFields
+          legalName={legalName}
+          displayName={displayName}
+          onLegalNameChange={handleLegalChange}
+          onDisplayNameChange={handleDisplayChange}
+          inputStyle={shared.input}
+          labelStyle={shared.fieldLabel}
+          hintStyle={shared.hint}
         />
         <Pressable
-          style={[shared.button, accent.button, !name.trim() && shared.buttonDisabled]}
+          style={[shared.button, accent.button, !canContinue && shared.buttonDisabled]}
           onPress={finish}
         >
           <Text style={[shared.buttonText, accent.buttonText]}>Continue</Text>

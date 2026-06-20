@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { shortDisplayNameAtIndex } from '../_shared/displayName.js';
+import { casualLabelForLinkedUser } from '../_shared/displayName.js';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -7,20 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-async function fetchLegalNamesByUserIds(supabaseAdmin, userIds) {
-  if (!userIds.length) return new Map();
-  const { data, error } = await supabaseAdmin
-    .from('users')
-    .select('id, legal_name')
-    .in('id', userIds);
-  if (error) throw error;
-  const map = new Map();
-  for (const row of data ?? []) {
-    map.set(row.id, row.legal_name?.trim() ?? '');
-  }
-  return map;
-}
 
 async function teenShortNameForAdult(supabaseAdmin, adultUserId, teenUserId) {
   const { data: links, error: linksError } = await supabaseAdmin
@@ -31,12 +17,9 @@ async function teenShortNameForAdult(supabaseAdmin, adultUserId, teenUserId) {
   if (linksError) throw linksError;
 
   const teenIds = (links ?? []).map((row) => row.teen_user_id);
-  const index = teenIds.indexOf(teenUserId);
-  if (index < 0) return 'Your teen';
+  if (!teenIds.includes(teenUserId)) return 'Your teen';
 
-  const names = await fetchLegalNamesByUserIds(supabaseAdmin, teenIds);
-  const legalNames = teenIds.map((id) => names.get(id) ?? '');
-  return shortDisplayNameAtIndex(legalNames, index, 'Your teen');
+  return casualLabelForLinkedUser(supabaseAdmin, adultUserId, teenUserId, 'Your teen');
 }
 
 async function adultShortNameForTeen(supabaseAdmin, teenUserId, adultUserId) {
@@ -48,12 +31,9 @@ async function adultShortNameForTeen(supabaseAdmin, teenUserId, adultUserId) {
   if (linksError) throw linksError;
 
   const adultIds = (links ?? []).map((row) => row.adult_user_id);
-  const index = adultIds.indexOf(adultUserId);
-  if (index < 0) return 'Supervisor';
+  if (!adultIds.includes(adultUserId)) return 'Supervisor';
 
-  const names = await fetchLegalNamesByUserIds(supabaseAdmin, adultIds);
-  const legalNames = adultIds.map((id) => names.get(id) ?? '');
-  return shortDisplayNameAtIndex(legalNames, index, 'Supervisor');
+  return casualLabelForLinkedUser(supabaseAdmin, teenUserId, adultUserId, 'Supervisor');
 }
 
 async function sendExpoPush(messages) {

@@ -33,7 +33,7 @@ import {
 } from '../utils/dashboardSessions';
 import { formatDate, formatDuration } from '../utils/time';
 import { dayNightLabel } from '../utils/dayNight';
-import { getFirstName, shortDisplayNameForTeen } from '../utils/displayName';
+import { shortDisplayNameForTeen } from '../utils/displayName';
 import { useTheme } from '../context/ThemeContext';
 
 export function AdultHomeScreen({ navigation }) {
@@ -158,7 +158,7 @@ export function AdultHomeScreen({ navigation }) {
           </Text>
           {isApproved ? (
             <Text style={styles.approvedMeta}>
-              Approved by {getFirstName(item.approverName ?? 'Supervisor')},{' '}
+              Approved by {item.approverName ?? 'Supervisor'},{' '}
               {formatDate(item.approvedAt)}
             </Text>
           ) : null}

@@ -181,6 +181,13 @@ function TeenNavigator({ navigatorKey, initialRouteName }) {
         getComponent={() => require('../screens/settings/SettingsLinkedAccountsScreen').SettingsLinkedAccountsScreen}
       />
 
+      <TeenStack.Screen
+        name="SettingsLinkedAccountDetail"
+        getComponent={() =>
+          require('../screens/settings/SettingsLinkedAccountDetailScreen').SettingsLinkedAccountDetailScreen
+        }
+      />
+
     </TeenStack.Navigator>
 
   );
@@ -253,6 +260,13 @@ function AdultNavigator({ navigatorKey, initialRouteName }) {
       <AdultStack.Screen
         name="SettingsLinkedAccounts"
         getComponent={() => require('../screens/settings/SettingsLinkedAccountsScreen').SettingsLinkedAccountsScreen}
+      />
+
+      <AdultStack.Screen
+        name="SettingsLinkedAccountDetail"
+        getComponent={() =>
+          require('../screens/settings/SettingsLinkedAccountDetailScreen').SettingsLinkedAccountDetailScreen
+        }
       />
 
     </AdultStack.Navigator>

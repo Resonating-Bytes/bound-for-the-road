@@ -1,12 +1,13 @@
 import { eq, and, or, isNull, desc, sql, inArray } from 'drizzle-orm';
 import { getDb } from './client';
-import { users, sessions, outbox, links, settings, submissions, approvals } from './schema';
+import { users, sessions, outbox, links, settings, submissions, approvals, userAliases } from './schema';
 import { generateId, nowISO, durationMinutes } from '../utils/time';
 import { classifyDayNight } from '../utils/dayNight';
 import { buildSubmitPayload, computeRequestHash, stableSubmitStringify } from '../utils/hash';
 import { IL_RULES } from '../config/states/IL';
 import { clearHeaderThemePreference } from '../theme/headerTheme';
 import { clearAdultSelectedTeen } from '../lib/adultSelectedTeen';
+import { hasLegalName, hasDisplayName, clampName, MAX_NICKNAME_LENGTH } from '../utils/names';
 
 export function getUserById(userId) {
   const db = getDb();
@@ -21,6 +22,7 @@ export function upsertUser(profile) {
     id: profile.id,
     role: profile.role ?? 'teen',
     legalName: profile.legalName,
+    displayName: profile.displayName ?? '',
     email: profile.email ?? null,
     dateOfBirth: profile.dateOfBirth ?? null,
     stateCode: profile.stateCode ?? 'IL',
@@ -79,6 +81,7 @@ export function deleteAllUserData(userId) {
   db.delete(submissions).where(eq(submissions.submittedByUserId, userId)).run();
   db.delete(sessions).where(eq(sessions.teenUserId, userId)).run();
   db.delete(links).where(or(eq(links.teenUserId, userId), eq(links.adultUserId, userId))).run();
+  db.delete(userAliases).where(or(eq(userAliases.ownerUserId, userId), eq(userAliases.targetUserId, userId))).run();
   db.delete(settings).where(eq(settings.key, roleChosenKey(userId))).run();
   db.delete(settings).where(eq(settings.key, linkInviteDeferredKey(userId))).run();
   db.delete(users).where(eq(users.id, userId)).run();
@@ -520,7 +523,8 @@ export function clearOutboxForSession(sessionId) {
 
 export function isProfileComplete(user) {
   return Boolean(
-    user?.legalName &&
+    hasLegalName(user) &&
+      hasDisplayName(user) &&
       user?.dateOfBirth &&
       user?.stateCode &&
       user?.permitIssueDate,
@@ -528,7 +532,9 @@ export function isProfileComplete(user) {
 }
 
 export function isAdultProfileComplete(user) {
-  return Boolean(user?.role === 'adult' && user?.legalName?.trim());
+  return Boolean(
+    user?.role === 'adult' && hasLegalName(user) && hasDisplayName(user),
+  );
 }
 
 export function isProfileCompleteForRole(user) {
@@ -612,7 +618,9 @@ export function ensureRoleChosenForLegacyProfile(user) {
 export function maybeMarkRoleChosenFromRemote(userId, remoteProfile) {
   if (!remoteProfile || isRoleChosen(userId)) return;
   const role = remoteProfile.role ?? 'teen';
-  const hasName = Boolean(remoteProfile.legal_name?.trim());
+  const hasName = Boolean(
+    remoteProfile.display_name?.trim() || remoteProfile.legal_name?.trim(),
+  );
   if (role === 'adult' && hasName) {
     setRoleChosen(userId);
     return;
@@ -661,4 +669,73 @@ export function hasActiveLink(userId) {
 export function deleteLink(linkId) {
   const db = getDb();
   db.delete(links).where(eq(links.id, linkId)).run();
+}
+
+export function getUserAlias(ownerUserId, targetUserId) {
+  const db = getDb();
+  return (
+    db
+      .select()
+      .from(userAliases)
+      .where(
+        and(eq(userAliases.ownerUserId, ownerUserId), eq(userAliases.targetUserId, targetUserId)),
+      )
+      .get() ?? null
+  );
+}
+
+export function listUserAliasesForOwner(ownerUserId) {
+  const db = getDb();
+  return db.select().from(userAliases).where(eq(userAliases.ownerUserId, ownerUserId)).all();
+}
+
+export function upsertUserAliasLocal(ownerUserId, targetUserId, nickname, syncStatus = 'synced') {
+  const db = getDb();
+  const row = {
+    ownerUserId,
+    targetUserId,
+    nickname: clampName(nickname, MAX_NICKNAME_LENGTH),
+    syncStatus,
+  };
+  const existing = getUserAlias(ownerUserId, targetUserId);
+  if (existing) {
+    db.update(userAliases)
+      .set(row)
+      .where(
+        and(eq(userAliases.ownerUserId, ownerUserId), eq(userAliases.targetUserId, targetUserId)),
+      )
+      .run();
+  } else {
+    db.insert(userAliases).values(row).run();
+  }
+  return row;
+}
+
+export function deleteUserAliasLocal(ownerUserId, targetUserId) {
+  const db = getDb();
+  db.delete(userAliases)
+    .where(
+      and(eq(userAliases.ownerUserId, ownerUserId), eq(userAliases.targetUserId, targetUserId)),
+    )
+    .run();
+}
+
+export function listPendingUserAliasSync(ownerUserId) {
+  const db = getDb();
+  return db
+    .select()
+    .from(userAliases)
+    .where(eq(userAliases.ownerUserId, ownerUserId))
+    .all()
+    .filter((row) => row.syncStatus !== 'synced');
+}
+
+export function markUserAliasSynced(ownerUserId, targetUserId) {
+  const db = getDb();
+  db.update(userAliases)
+    .set({ syncStatus: 'synced' })
+    .where(
+      and(eq(userAliases.ownerUserId, ownerUserId), eq(userAliases.targetUserId, targetUserId)),
+    )
+    .run();
 }

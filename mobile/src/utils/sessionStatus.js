@@ -1,5 +1,4 @@
 import { formatDate } from './time';
-import { getFirstName } from './displayName';
 
 /**
  * Derive Phase 2 display status for a saved session row.
@@ -11,7 +10,6 @@ export function getSessionDisplayStatus(
     approval,
     latestApproval,
     approverName,
-    approverNameFirstOnly = true,
     pendingRemoteSync = false,
     canRemoteWrite = true,
   },
@@ -21,8 +19,7 @@ export function getSessionDisplayStatus(
   }
 
   if (approval && approval.requestHash === session.requestHash) {
-    const fallback = approverName ?? 'Supervisor';
-    const name = approverNameFirstOnly ? getFirstName(fallback) : fallback;
+    const name = approverName ?? 'Supervisor';
     return {
       key: 'approved',
       label: `Approved by ${name}, ${formatDate(approval.approvedAt)}`,

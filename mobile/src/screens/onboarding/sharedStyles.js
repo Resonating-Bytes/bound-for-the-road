@@ -7,7 +7,8 @@ export const shared = StyleSheet.create({
     paddingTop: 16,
   },
   title: { fontSize: 24, fontWeight: '700', color: '#1a2b3c', marginBottom: 8 },
-  hint: { fontSize: 15, lineHeight: 22, color: '#5a6b7c', marginBottom: 20 },
+  fieldLabel: { fontSize: 15, fontWeight: '600', color: '#1a2b3c', marginBottom: 4 },
+  hint: { fontSize: 15, lineHeight: 22, color: '#5a6b7c', marginBottom: 8 },
   input: {
     backgroundColor: '#fff',
     borderWidth: 1,

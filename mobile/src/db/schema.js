@@ -4,6 +4,7 @@ export const users = sqliteTable('users', {
   id: text('id').primaryKey(),
   role: text('role').notNull().default('teen'),
   legalName: text('legal_name').notNull(),
+  displayName: text('display_name').notNull().default(''),
   email: text('email'),
   dateOfBirth: text('date_of_birth'),
   stateCode: text('state_code').notNull().default('IL'),
@@ -70,4 +71,11 @@ export const outbox = sqliteTable('outbox', {
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
+});
+
+export const userAliases = sqliteTable('user_aliases', {
+  ownerUserId: text('owner_user_id').notNull(),
+  targetUserId: text('target_user_id').notNull(),
+  nickname: text('nickname').notNull(),
+  syncStatus: text('sync_status').notNull().default('synced'),
 });
