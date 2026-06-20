@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * CI: when Supabase backend changes, require docs and validate MIN_BACKEND_REVISION.
+ * CI: when Supabase backend changes, require CHANGELOG entry and validate MIN_BACKEND_REVISION.
  * Usage: node scripts/check-backend-revision.js [--base origin/main] [--head HEAD]
  */
 
@@ -12,12 +12,12 @@ const {
   listChangedFiles,
   listAddedFiles,
   readFileAtRef,
+  diffForFile,
   compareLex,
 } = require('./lib/ci-git');
 
 const COMPAT_JS = path.join(ROOT, 'mobile', 'src', 'config', 'compatibility.js');
 const CHANGELOG = path.join(ROOT, 'CHANGELOG.md');
-const COMPATIBILITY_DOC = path.join(ROOT, 'docs', 'COMPATIBILITY.md');
 const MIGRATIONS_DIR = path.join(ROOT, 'supabase', 'migrations');
 
 const BACKEND_PATHS = [/^supabase\/migrations\//, /^supabase\/functions\//];
@@ -57,6 +57,12 @@ function migrationExistsForId(id) {
   return fs.readdirSync(MIGRATIONS_DIR).some((name) => name.startsWith(`${id}_`));
 }
 
+function changelogDocumentsChange(base, head) {
+  const diff = diffForFile(base, head, 'CHANGELOG.md');
+  if (!diff) return false;
+  return /^\+- /m.test(diff) || /^\+## \[/m.test(diff);
+}
+
 function fail(message) {
   console.error(`\nbackend-revision check failed:\n${message}\n`);
   process.exit(1);
@@ -76,14 +82,15 @@ function main() {
     pass('no supabase paths changed — backend revision check not required');
   }
 
-  const docsUpdated =
-    changed.includes('CHANGELOG.md') ||
-    changed.includes('docs/COMPATIBILITY.md') ||
-    changed.includes('docs/RPC_CONTRACT.md');
-
-  if (!docsUpdated) {
+  if (!changed.includes('CHANGELOG.md')) {
     fail(
-      'Supabase backend changed — update CHANGELOG.md, docs/COMPATIBILITY.md, and/or docs/RPC_CONTRACT.md to document the change.',
+      'Supabase backend changed — update CHANGELOG.md ([Unreleased] or the release section if also shipping an app version).',
+    );
+  }
+
+  if (!changelogDocumentsChange(base, head)) {
+    fail(
+      'CHANGELOG.md must add at least one bullet (- ...) or a new ## [x.y.z] section describing this backend change.',
     );
   }
 
@@ -99,9 +106,6 @@ function main() {
           'Add the migration in this PR (or an earlier merged PR) before bumping MIN_BACKEND_REVISION.',
       );
     }
-    if (!docsUpdated) {
-      fail('Raising MIN_BACKEND_REVISION requires a CHANGELOG or COMPATIBILITY.md update.');
-    }
   }
 
   if (newMigrationIds.length) {
@@ -113,12 +117,12 @@ function main() {
       );
     }
     pass(
-      `supabase changes documented; new migration(s): ${newMigrationIds.join(', ')}` +
+      `backend change documented in CHANGELOG; new migration(s): ${newMigrationIds.join(', ')}` +
         (headMin ? `; MIN_BACKEND_REVISION=${headMin}` : ''),
     );
   }
 
-  pass('supabase changes documented');
+  pass('backend change documented in CHANGELOG');
 }
 
 main();

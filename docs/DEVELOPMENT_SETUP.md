@@ -291,7 +291,7 @@ Shortcut: `npm run kill:metro`, then `npm start` again.
 
 ### "Requires a newer version of Expo Go"
 
-SDK version must match Expo Go. This repo uses **SDK 54** (App Store Expo Go 54.x). After changing SDK: stop Metro, then `npx expo start -c`.
+SDK version must match Expo Go — see `expo` in `mobile/package.json`. After changing SDK: stop Metro, then `npx expo start -c`.
 
 ### Node version error
 

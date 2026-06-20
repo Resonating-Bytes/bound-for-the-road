@@ -1,7 +1,7 @@
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { LEGAL_NAME_HINT, DISPLAY_NAME_HINT } from '../config/profileCopy';
 import {
-  clampName,
+  limitNameLength,
   MAX_DISPLAY_NAME_LENGTH,
   MAX_LEGAL_NAME_LENGTH,
 } from '../utils/names';
@@ -24,7 +24,7 @@ export function ProfileNameFields({
       <TextInput
         style={[styles.input, inputStyle]}
         value={legalName}
-        onChangeText={(text) => onLegalNameChange(clampName(text, MAX_LEGAL_NAME_LENGTH))}
+        onChangeText={(text) => onLegalNameChange(limitNameLength(text, MAX_LEGAL_NAME_LENGTH))}
         placeholder="First and last name"
         autoCapitalize="words"
       />
@@ -34,7 +34,7 @@ export function ProfileNameFields({
       <TextInput
         style={[styles.input, inputStyle]}
         value={displayName}
-        onChangeText={(text) => onDisplayNameChange(clampName(text, MAX_DISPLAY_NAME_LENGTH))}
+        onChangeText={(text) => onDisplayNameChange(limitNameLength(text, MAX_DISPLAY_NAME_LENGTH))}
         placeholder="How linked users see you"
         autoCapitalize="words"
       />

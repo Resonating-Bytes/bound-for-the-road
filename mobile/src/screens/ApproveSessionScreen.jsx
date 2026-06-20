@@ -16,7 +16,7 @@ import { fetchSubmissionDetail, approveSubmissionRemote, declineSubmissionRemote
 import { formatDate, formatDateTime, formatDuration } from '../utils/time';
 import { dayNightLabel } from '../utils/dayNight';
 import { SUPERVISOR_NAME_HINT } from '../config/profileCopy';
-import { clampName, MAX_LEGAL_NAME_LENGTH } from '../utils/names';
+import { limitNameLength, clampName, MAX_LEGAL_NAME_LENGTH } from '../utils/names';
 import { useTheme } from '../context/ThemeContext';
 import { rgbaFromHex } from '../theme/colorMath';
 
@@ -120,7 +120,7 @@ export function ApproveSessionScreen({ route, navigation }) {
       const joinedSession = approverPresent === 'co_present';
       const supervisorInVehicleName = joinedSession
         ? user?.legalName?.trim() ?? null
-        : supervisorName.trim();
+        : clampName(supervisorName, MAX_LEGAL_NAME_LENGTH);
       await approveSubmissionRemote({
         sessionId: detail.session.id,
         requestHash,
@@ -212,7 +212,7 @@ export function ApproveSessionScreen({ route, navigation }) {
                       style={styles.supervisorInput}
                       value={supervisorName}
                       onChangeText={(text) =>
-                        setSupervisorName(clampName(text, MAX_LEGAL_NAME_LENGTH))
+                        setSupervisorName(limitNameLength(text, MAX_LEGAL_NAME_LENGTH))
                       }
                       placeholder="Full legal name"
                       autoCapitalize="words"

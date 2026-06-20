@@ -104,6 +104,14 @@ export function ReviewSessionScreen({ route, navigation }) {
     navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
   }
 
+  function handleBackFromSavedReview() {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      goDashboard();
+    }
+  }
+
   async function handleSave() {
     if (!submitBlocked && !hasActiveLink(userId)) {
       Alert.alert(
@@ -301,7 +309,9 @@ export function ReviewSessionScreen({ route, navigation }) {
     <Screen withHeader>
       <ScreenHeader
         title={editing ? 'Edit session' : 'Review session'}
-        onBack={editing ? handleBackFromEdit : undefined}
+        onBack={
+          editing ? handleBackFromEdit : !isDraft ? handleBackFromSavedReview : undefined
+        }
       />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <View style={styles.card}>
@@ -417,9 +427,6 @@ export function ReviewSessionScreen({ route, navigation }) {
             ) : null}
             <Pressable style={styles.secondaryBtn} onPress={handleEditSaved}>
               <Text style={styles.secondaryBtnText}>Edit session</Text>
-            </Pressable>
-            <Pressable style={styles.secondaryBtn} onPress={goDashboard}>
-              <Text style={styles.secondaryBtnText}>Back to dashboard</Text>
             </Pressable>
             {showDiscardSubmitted ? (
               <Pressable

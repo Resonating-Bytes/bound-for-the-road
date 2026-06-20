@@ -5,16 +5,18 @@ All notable changes to the mobile app and its Supabase backend are documented he
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 
-## [Unreleased]
-
-### Added
+## [1.5.2] - 2026-06-21
 
 ### Changed
 
+- Adult dashboard shows "You approved" when the viewer approved from the car; other-adult sessions still name the supervisor
+- Review session uses standard header back navigation for saved sessions
+- Linked account details: "Account details" title, nickname hint copy, simpler save/remove spacing
+- Docs describe versioning structure without snapshot values; CI requires CHANGELOG only for backend PRs
+
 ### Fixed
 
-- `send-approval-push` edge function entrypoint renamed to `index.ts` so Supabase CLI 2.x deploy finds the default entrypoint
-- Edge deploy workflow pins Supabase CLI `2.107.0` instead of `latest` to avoid GitHub API gateway timeouts during setup
+- Legal and supervisor name fields trim whitespace on submit only (spaces while typing preserved)
 
 ## [1.5.1] - 2026-06-20
 
@@ -31,6 +33,11 @@ App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 - `get_app_compatibility` migration expands capability list (push token, account deletion, nicknames)
 - `MIN_BACKEND_REVISION` → `20260624120000`
 - Removed dead `AGENT_VERSIONING.md` links from docs index
+
+### Fixed
+
+- `send-approval-push` edge function entrypoint renamed to `index.ts` so Supabase CLI 2.x deploy finds the default entrypoint
+- Edge deploy workflow pins Supabase CLI `2.107.0` instead of `latest` to avoid GitHub API gateway timeouts during setup
 
 ## [1.5.0] - 2026-06-17
 

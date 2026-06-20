@@ -8,14 +8,14 @@ Related: [APPROVAL_AND_HASH.md](./APPROVAL_AND_HASH.md) · [OFFLINE_SYNC.md](./O
 
 ## Version numbers (what bumps when)
 
-| Layer | Where | Current | Who bumps |
-|-------|--------|---------|-----------|
-| **App** | `mobile/app.json` `expo.version` | `1.5.1` | Release / EAS build; bump with [CHANGELOG.md](../CHANGELOG.md). Runtime reads via `APP_VERSION`; `mobile/package.json` `version` mirrors it for npm. |
-| **Local DB** | `schema_meta.local_db_version` | `3` | Mobile dev when SQLite shape changes |
-| **Payload hash** | `schemaVersion` in canonical JSON | `1` | Mobile dev when hash-relevant fields change |
-| **Backend** | `app_config.backend_revision` | `20260624120000` | Apply new Supabase migration + update seed row |
+| Layer | Source of truth | Who bumps |
+|-------|-----------------|-----------|
+| **App** | `mobile/app.json` → `expo.version` (mirrored in `mobile/package.json`; runtime via `APP_VERSION` in `compatibility.js`) | Release / EAS build; document in [CHANGELOG.md](../CHANGELOG.md) |
+| **Local DB** | `schemaMigrations.js` → `LOCAL_DB_VERSION`; stored in `schema_meta.local_db_version` on device | Mobile dev when SQLite shape changes |
+| **Payload hash** | `schemaVersion` in canonical JSON; constants in `compatibility.js` | Mobile dev when hash-relevant fields change |
+| **Backend** | `app_config.backend_revision`; client floor in `MIN_BACKEND_REVISION` (`compatibility.js`) | New Supabase migration + SQL seed row when schema/RPC changes |
 
-Lexicographic compare works for `backend_revision` (timestamp migration filenames).
+Lexicographic compare works for `backend_revision` (14-digit migration filename prefixes).
 
 ---
 
@@ -40,25 +40,15 @@ Lexicographic compare works for `backend_revision` (timestamp migration filename
 
 ## Backend compatibility RPC
 
-Canonical contract: [RPC_CONTRACT.md](./RPC_CONTRACT.md).
+Canonical shape and capability strings: [RPC_CONTRACT.md](./RPC_CONTRACT.md).
 
-`get_app_compatibility()` returns:
+`get_app_compatibility()` returns server-side version gates and a capability list. The client compares that payload against `APP_VERSION`, `MIN_BACKEND_REVISION`, and `requiredBackendCapabilities.json`.
 
-```json
-{
-  "backend_revision": "20260624120000",
-  "min_app_version": "1.0.0",
-  "latest_app_version": "1.5.0",
-  "payload_schema_version": "1",
-  "capabilities": ["decline_submission", "send_approval_push_session_submitted", "..."]
-}
-```
-
-Required capability strings are defined in `mobile/src/config/requiredBackendCapabilities.json`. CI validates that file against the latest migration SQL.
+Required capability strings live in `mobile/src/config/requiredBackendCapabilities.json`. CI validates that file against the latest `get_app_compatibility` migration SQL.
 
 Callable by `anon` and `authenticated` (read-only, no secrets).
 
-After applying `20260620120000_app_compatibility.sql`, update `backend_revision` in `app_config` whenever a later migration requires a newer app build. Migration `20260624120000_app_compatibility_capabilities.sql` expands the capability list to include push token, account deletion, and nickname RPCs.
+When you add backend features, update `get_app_compatibility()` (new migration if needed), `requiredBackendCapabilities.json`, and `app_config.backend_revision` together. See [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md).
 
 ---
 
@@ -138,32 +128,21 @@ Bump `latest_app_version` in `app_config` for soft patch/minor nudges; bump `min
 
 Optional nudges are **soft** — no header banner, writes still work. They appear in **Settings → App version** only.
 
-**Prerequisites**
+**Setup**
 
-1. Migration `20260620130000_app_compatibility_latest_version.sql` applied (adds `latest_app_version` to the RPC).
-2. App still reports `1.0.0` (`mobile/src/config/compatibility.js` / `app.json`).
-3. Server has `min_app_version = 1.0.0` (you stay “allowed”) but `latest_app_version` **higher** than installed.
+1. `get_app_compatibility()` includes `latest_app_version` (see migrations under `supabase/migrations/`).
+2. In Supabase, set `min_app_version` at or below your installed app version (`mobile/app.json` → `expo.version`).
+3. Set `latest_app_version` **higher** than the installed app version.
 
 **Steps**
 
-1. In Supabase SQL editor:
-   ```sql
-   UPDATE app_config SET value = '1.0.1' WHERE key = 'latest_app_version';
-   ```
-2. Open the app (online), go to **Settings**.
-3. Tap **Re-check compatibility** in the App version section.
-4. Expect:
-   - **No** yellow/purple header banner (you’re still compatible).
-   - Status: **App update available**
-   - Server latest: **1.0.1**
-   - Blue button: **Update available — get latest app**
-5. Submit/approve should still work (only `min_app_version` blocks writes).
-6. Reset when done:
-   ```sql
-   UPDATE app_config SET value = '1.0.0' WHERE key = 'latest_app_version';
-   ```
+1. In Supabase SQL editor, raise `latest_app_version` above your installed build.
+2. Open the app (online) → **Settings** → **Re-check compatibility**.
+3. Expect: no header banner; Settings shows **App update available** and the raised latest version.
+4. Submit/approve should still work (`min_app_version` is what blocks writes).
+5. Reset `latest_app_version` when done.
 
-**Contrast with required update:** set `min_app_version = 1.0.1` instead — header banner appears, remote submit blocked, but **Save to log** still works on the review screen. Dashboard shows **Saved on device — update app to send for approval** until you update and tap **Send for approval**.
+**Contrast with required update:** raise `min_app_version` above the installed app instead — header banner appears, remote submit blocked, but **Save to log** still works on the review screen. Dashboard shows **Saved on device — update app to send for approval** until you update and tap **Send for approval**.
 
 ### Local save vs remote approval
 

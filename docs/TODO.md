@@ -1,13 +1,8 @@
 # Bound for the Road — Project TODO
 
-**Last updated:** 2026-06-20  
-**Current phase:** Phase 2 — **next:** outbox sync (after settings sub-pages)
-
 **Decisions:** [DECISIONS.md](./DECISIONS.md) — do not duplicate here.  
-**Screens:** [SCREENS.md](./SCREENS.md)  
-**Testing:** [TESTING.md](./TESTING.md) — planned harness; implement after Phase 1 feature sign-off
-
-**Supabase migrations to apply (in order):** `20260618120000_initial_schema.sql` through `20260619170000_approvals_adult_linked_select.sql` — see [SUPABASE_SETUP.md](./SUPABASE_SETUP.md).
+**Screens:** [SCREENS.md](./SCREENS.md) · **Testing:** [TESTING.md](./TESTING.md)  
+**Supabase:** apply migrations per [SUPABASE_SETUP.md](./SUPABASE_SETUP.md)
 
 ---
 

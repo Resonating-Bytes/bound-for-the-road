@@ -31,3 +31,8 @@ export function casualLabel({ nickname, displayName, fallback = 'Linked account'
 export function clampName(value, maxLength) {
   return trimName(value).slice(0, maxLength);
 }
+
+/** Cap length while typing; preserves spaces (trim on submit with clampName). */
+export function limitNameLength(value, maxLength) {
+  return String(value ?? '').slice(0, maxLength);
+}

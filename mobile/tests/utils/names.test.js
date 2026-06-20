@@ -2,6 +2,7 @@ import {
   firstTokenFromLegalName,
   casualLabel,
   clampName,
+  limitNameLength,
   MAX_DISPLAY_NAME_LENGTH,
 } from '../../src/utils/names';
 
@@ -10,6 +11,11 @@ describe('names', () => {
     expect(firstTokenFromLegalName('Jane Marie Doe')).toBe('Jane');
     expect(firstTokenFromLegalName('  Alex  ')).toBe('Alex');
     expect(firstTokenFromLegalName('')).toBe('');
+  });
+
+  test('limitNameLength preserves internal spaces while typing', () => {
+    expect(limitNameLength('Jane ', MAX_DISPLAY_NAME_LENGTH)).toBe('Jane ');
+    expect(limitNameLength('Jane Doe', MAX_DISPLAY_NAME_LENGTH)).toBe('Jane Doe');
   });
 
   test('clampName trims and caps length silently', () => {

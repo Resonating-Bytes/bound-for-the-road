@@ -374,6 +374,8 @@ export async function fetchApprovedSubmissionsForAdult() {
       session_id,
       approved_by_user_id,
       approved_at,
+      joined_session,
+      approver_present,
       supervisor_in_vehicle_name,
       sessions!inner (
         id,
@@ -428,6 +430,9 @@ export async function fetchApprovedSubmissionsForAdult() {
     sessionId: row.session_id,
     approvedAt: row.approved_at,
     approvedByUserId: row.approved_by_user_id,
+    joinedSession: row.joined_session,
+    approverPresent: row.approver_present,
+    supervisorInVehicleName: row.supervisor_in_vehicle_name?.trim() || null,
     approverName:
       row.supervisor_in_vehicle_name?.trim() ||
       approverNames[row.approved_by_user_id] ||

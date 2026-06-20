@@ -109,14 +109,14 @@ export function SettingsLinkedAccountDetailScreen({ route, navigation }) {
 
   return (
     <Screen withHeader>
-      <ScreenHeader title={partner.name} onBack={() => navigation.goBack()} />
+      <ScreenHeader title="Account details" onBack={() => navigation.goBack()} />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <Text style={styles.label}>Legal name</Text>
         <Text style={styles.legalName}>{partner.legalName}</Text>
 
         <Text style={styles.label}>Nickname</Text>
         <Text style={styles.hint}>
-          Only you see this. Leave as their display name to use the default label.
+          The name you’ll see for them in the app{'\n'}(Only visible to you)
         </Text>
         <TextInput
           style={styles.input}
@@ -142,19 +142,17 @@ export function SettingsLinkedAccountDetailScreen({ route, navigation }) {
           )}
         </Pressable>
 
-        <View style={styles.dangerSection}>
-          <Pressable
-            style={[styles.dangerBtn, removingLink && styles.disabled]}
-            onPress={confirmRemoveLink}
-            disabled={removingLink}
-          >
-            {removingLink ? (
-              <ActivityIndicator color="#dc2626" />
-            ) : (
-              <Text style={styles.dangerBtnText}>Remove link</Text>
-            )}
-          </Pressable>
-        </View>
+        <Pressable
+          style={[styles.dangerBtn, removingLink && styles.disabled]}
+          onPress={confirmRemoveLink}
+          disabled={removingLink}
+        >
+          {removingLink ? (
+            <ActivityIndicator color="#dc2626" />
+          ) : (
+            <Text style={styles.dangerBtnText}>Remove link</Text>
+          )}
+        </Pressable>
       </ScrollView>
     </Screen>
   );
@@ -181,14 +179,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 8,
+    marginBottom: 20,
   },
   primaryBtnText: { fontWeight: '600', fontSize: 16 },
-  dangerSection: {
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    marginTop: 32,
-    paddingTop: 24,
-  },
   dangerBtn: { paddingVertical: 14, alignItems: 'center' },
   dangerBtnText: { color: '#dc2626', fontWeight: '600', fontSize: 16 },
   disabled: { opacity: 0.6 },
