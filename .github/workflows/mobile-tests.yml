@@ -2,9 +2,8 @@ name: Mobile tests
 
 on:
   pull_request:
-    paths:
-      - 'mobile/**'
-      - '.github/workflows/mobile-tests.yml'
+    branches:
+      - main
   push:
     branches:
       - main
@@ -20,10 +19,23 @@ jobs:
         working-directory: mobile
     steps:
       - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            mobile:
+              - 'mobile/**'
+              - '.github/workflows/mobile-tests.yml'
       - uses: actions/setup-node@v4
+        if: steps.changes.outputs.mobile == 'true'
         with:
           node-version: '20'
           cache: npm
           cache-dependency-path: mobile/package-lock.json
-      - run: npm ci
-      - run: npm test
+      - if: steps.changes.outputs.mobile == 'true'
+        run: npm ci
+      - if: steps.changes.outputs.mobile == 'true'
+        run: npm test
+      - if: steps.changes.outputs.mobile != 'true'
+        run: echo "No mobile changes detected; skipping mobile tests."
+        working-directory: .

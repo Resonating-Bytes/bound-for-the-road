@@ -105,9 +105,9 @@ Workflow files live under `.github/workflows/`.
 |-------------------|----------|-----------|------------------|
 | **App version** | `version-checks.yml` | PR touches `mobile/src/**`, `mobile/app.json`, or `mobile/package.json` | `scripts/check-app-version.js` |
 | **Backend revision** | `version-checks.yml` | PR touches `supabase/migrations/**` or `supabase/functions/**` | `scripts/check-backend-revision.js` |
-| **Mobile tests** | `mobile-tests.yml` | PR touches `mobile/**` | `cd mobile && npm ci && npm test` |
+| **Mobile tests** | `mobile-tests.yml` | Every PR to `main`; skips quickly when no `mobile/**` changes | `cd mobile && npm ci && npm test` |
 
-Each version job **passes immediately** if its paths did not change. A mobile-only PR only enforces app version + tests; a Supabase-only PR only enforces backend docs.
+Each version job **passes immediately** if its paths did not change. `Mobile tests` always reports a status on PRs to `main`, but short-circuits with a skip message when no mobile files changed. A mobile-only PR enforces app version + tests; a Supabase-only PR enforces backend docs.
 
 ### Not a PR gate (runs after merge to `main`)
 
@@ -656,7 +656,7 @@ File: `.github/workflows/version-checks.yml`
 
 **Triggers:** all pull requests targeting `main` (both jobs always run; each script no-ops if its paths did not change).
 
-**Note:** `mobile-tests.yml` is separate — runs on PRs touching `mobile/**` with `npm test`; not part of this workflow.
+**Note:** `mobile-tests.yml` is separate — it now runs on every PR to `main`, but uses a changed-files filter to skip quickly when no mobile files changed. It is not part of this workflow.
 
 ```yaml
 name: Version checks
