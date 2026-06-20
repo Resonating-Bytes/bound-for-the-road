@@ -21,6 +21,7 @@ export function OnboardingDOBScreen({ navigation }) {
     }
     saveProfile({
       legalName: user.legalName,
+      displayName: user.displayName,
       role: 'teen',
       dateOfBirth: dob,
       stateCode: user?.stateCode ?? DEFAULT_STATE_CODE,

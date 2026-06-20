@@ -1,10 +1,9 @@
 import {
   getFirstName,
-  getLastInitial,
-  shortDisplayNames,
   shortDisplayNamesForTeens,
   shortDisplayNameForTeen,
 } from '../../src/utils/displayName';
+import { casualLabel } from '../../src/utils/names';
 
 describe('displayName', () => {
   test('getFirstName uses first token', () => {
@@ -13,46 +12,28 @@ describe('displayName', () => {
     expect(getFirstName('')).toBe('Driver');
   });
 
-  test('getLastInitial uses last token', () => {
-    expect(getLastInitial('Jane Doe')).toBe('D');
-    expect(getLastInitial('Alex')).toBe('');
-  });
-
-  test('shortDisplayNames uses first name when unique', () => {
-    expect(shortDisplayNames(['Jane Doe', 'Alex Smith'])).toEqual(['Jane', 'Alex']);
-  });
-
-  test('shortDisplayNames disambiguates duplicate first names', () => {
-    expect(shortDisplayNames(['Eric Miller', 'Eric Smith', 'Sam Jones'])).toEqual([
-      'Eric M.',
-      'Eric S.',
-      'Sam',
-    ]);
-  });
-
-  test('shortDisplayNamesForTeens uses first name when unique', () => {
+  test('shortDisplayNamesForTeens prefers nickname then display name', () => {
     const teens = [
-      { teenUserId: 'a', name: 'Jane Doe' },
-      { teenUserId: 'b', name: 'Alex Smith' },
+      { teenUserId: 'a', name: 'Jane', displayName: 'Jane', nickname: 'J' },
+      { teenUserId: 'b', name: 'Alex', displayName: 'Alex' },
     ];
-    expect(shortDisplayNamesForTeens(teens)).toEqual(['Jane', 'Alex']);
-  });
-
-  test('shortDisplayNamesForTeens disambiguates duplicate first names', () => {
-    const teens = [
-      { teenUserId: 'a', name: 'Eric Miller' },
-      { teenUserId: 'b', name: 'Eric Smith' },
-      { teenUserId: 'c', name: 'Sam Jones' },
-    ];
-    expect(shortDisplayNamesForTeens(teens)).toEqual(['Eric M.', 'Eric S.', 'Sam']);
+    expect(shortDisplayNamesForTeens(teens)).toEqual(['J', 'Alex']);
   });
 
   test('shortDisplayNameForTeen matches switcher label', () => {
     const teens = [
-      { teenUserId: 'a', name: 'Eric Miller' },
-      { teenUserId: 'b', name: 'Eric Smith' },
+      { teenUserId: 'a', name: 'Eric', displayName: 'Eric' },
+      { teenUserId: 'b', name: 'Sam', displayName: 'Sam', nickname: 'Samantha' },
     ];
-    expect(shortDisplayNameForTeen(teens, 'b')).toBe('Eric S.');
+    expect(shortDisplayNameForTeen(teens, 'b')).toBe('Samantha');
     expect(shortDisplayNameForTeen(teens, 'missing')).toBe('Driver');
+  });
+});
+
+describe('names casualLabel', () => {
+  test('uses nickname, then display name, then fallback', () => {
+    expect(casualLabel({ nickname: 'Mom', displayName: 'Jane', fallback: 'X' })).toBe('Mom');
+    expect(casualLabel({ displayName: 'Jane', fallback: 'X' })).toBe('Jane');
+    expect(casualLabel({ fallback: 'X' })).toBe('X');
   });
 });

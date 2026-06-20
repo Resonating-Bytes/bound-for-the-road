@@ -17,14 +17,6 @@ Items here are **not** committed for first release. Promote to [MVP.md](./MVP.md
 - Store only **`supervisorVerified: boolean`** (default `false`).
 - **Do not** persist license number or verification PII on device or server.
 
-## Linked-account nicknames
-
-- Teen assigns **per-link display nicknames** for linked adults (e.g. "Mom", "Dad") — stored on the link or teen-side preference, not replacing the adult’s profile name.
-- **Use nickname** anywhere we currently show **first name**: push notifications, list tiles, teen switcher chips, in-app labels.
-- **Do not use nickname** in formal/export contexts: text export header, approval attestation, supervisor name on official-facing records — those keep **full name** from profile (or first + last once split).
-- Fallback: if no nickname set, keep today’s first-name / disambiguation logic.
-- UI: likely under **Settings → Linked accounts** (edit nickname per linked adult).
-
 ## Export and forms
 
 - **State-aware text export:** header, totals, and field labels should follow the user's selected `stateCode` (MVP export still says "Illinois" / IL 50–10 everywhere).

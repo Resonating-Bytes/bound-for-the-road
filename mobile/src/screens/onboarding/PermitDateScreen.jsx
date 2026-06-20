@@ -18,6 +18,7 @@ export function OnboardingPermitScreen() {
   function finish() {
     saveProfile({
       legalName: user.legalName,
+      displayName: user.displayName,
       role: 'teen',
       dateOfBirth: user.dateOfBirth,
       stateCode: user.stateCode,

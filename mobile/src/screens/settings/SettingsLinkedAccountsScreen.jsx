@@ -21,6 +21,9 @@ export function SettingsLinkedAccountsScreen({ navigation }) {
           role={user?.role}
           refreshLinks={refreshLinks}
           onInvite={handleInvite}
+          onPartnerPress={(partner) =>
+            navigation.navigate('SettingsLinkedAccountDetail', { partner })
+          }
           hideSectionTitle
         />
       </ScrollView>

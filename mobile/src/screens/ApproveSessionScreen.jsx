@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   Pressable,
   StyleSheet,
   ScrollView,
@@ -14,13 +15,14 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { fetchSubmissionDetail, approveSubmissionRemote, declineSubmissionRemote } from '../lib/submissions';
 import { formatDate, formatDateTime, formatDuration } from '../utils/time';
 import { dayNightLabel } from '../utils/dayNight';
+import { SUPERVISOR_NAME_HINT } from '../config/profileCopy';
+import { clampName, MAX_LEGAL_NAME_LENGTH } from '../utils/names';
 import { useTheme } from '../context/ThemeContext';
 import { rgbaFromHex } from '../theme/colorMath';
 
 const PRESENCE_OPTIONS = [
   { value: 'co_present', label: 'I was in the car' },
-  { value: 'remote', label: 'Not in the vehicle (reviewing later)' },
-  { value: 'unknown', label: 'Not sure / prefer not to say' },
+  { value: 'other_adult', label: 'Another adult was in the car' },
 ];
 
 export function ApproveSessionScreen({ route, navigation }) {
@@ -31,6 +33,7 @@ export function ApproveSessionScreen({ route, navigation }) {
   const [detail, setDetail] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
   const [approverPresent, setApproverPresent] = useState('co_present');
+  const [supervisorName, setSupervisorName] = useState('');
   const [busyAction, setBusyAction] = useState(null);
 
   useEffect(() => {
@@ -99,9 +102,15 @@ export function ApproveSessionScreen({ route, navigation }) {
     );
   }
 
+  const needsSupervisorName = approverPresent === 'other_adult';
+  const supervisorNameReady = !needsSupervisorName || Boolean(supervisorName.trim());
+  const canApprove = confirmed && supervisorNameReady;
+
   async function handleApprove() {
-    if (!confirmed) {
-      Alert.alert('Attestation required', 'Confirm the session record is accurate before approving.');
+    if (!canApprove) {
+      if (!confirmed) {
+        Alert.alert('Attestation required', 'Confirm the session record is accurate before approving.');
+      }
       return;
     }
     if (!detail?.session) return;
@@ -109,12 +118,15 @@ export function ApproveSessionScreen({ route, navigation }) {
     setBusyAction('approve');
     try {
       const joinedSession = approverPresent === 'co_present';
+      const supervisorInVehicleName = joinedSession
+        ? user?.legalName?.trim() ?? null
+        : supervisorName.trim();
       await approveSubmissionRemote({
         sessionId: detail.session.id,
         requestHash,
         approvedByUserId: userId,
         joinedSession,
-        supervisorInVehicleName: joinedSession ? user?.legalName ?? null : null,
+        supervisorInVehicleName,
         approverPresent,
       });
       navigation.goBack();
@@ -169,30 +181,45 @@ export function ApproveSessionScreen({ route, navigation }) {
           </View>
         ) : (
           <>
-            <Text style={styles.sectionTitle}>How were you present?</Text>
+            <Text style={styles.sectionTitle}>Who supervised this session?</Text>
             {PRESENCE_OPTIONS.map((option) => (
-              <Pressable
-                key={option.value}
-                style={[
-                  styles.radioRow,
-                  approverPresent === option.value && {
-                    borderColor: theme.accent,
-                    backgroundColor: rgbaFromHex(theme.accent, 0.08),
-                  },
-                ]}
-                onPress={() => setApproverPresent(option.value)}
-              >
-                <View
+              <View key={option.value}>
+                <Pressable
                   style={[
-                    styles.radio,
+                    styles.radioRow,
                     approverPresent === option.value && {
                       borderColor: theme.accent,
-                      backgroundColor: theme.accent,
+                      backgroundColor: rgbaFromHex(theme.accent, 0.08),
                     },
                   ]}
-                />
-                <Text style={styles.radioLabel}>{option.label}</Text>
-              </Pressable>
+                  onPress={() => setApproverPresent(option.value)}
+                >
+                  <View
+                    style={[
+                      styles.radio,
+                      approverPresent === option.value && {
+                        borderColor: theme.accent,
+                        backgroundColor: theme.accent,
+                      },
+                    ]}
+                  />
+                  <Text style={styles.radioLabel}>{option.label}</Text>
+                </Pressable>
+                {option.value === 'other_adult' && approverPresent === 'other_adult' ? (
+                  <View style={styles.supervisorField}>
+                    <Text style={styles.supervisorHint}>{SUPERVISOR_NAME_HINT}</Text>
+                    <TextInput
+                      style={styles.supervisorInput}
+                      value={supervisorName}
+                      onChangeText={(text) =>
+                        setSupervisorName(clampName(text, MAX_LEGAL_NAME_LENGTH))
+                      }
+                      placeholder="Full legal name"
+                      autoCapitalize="words"
+                    />
+                  </View>
+                ) : null}
+              </View>
             ))}
 
             <Text style={styles.sectionTitle}>Your attestation</Text>
@@ -214,10 +241,10 @@ export function ApproveSessionScreen({ route, navigation }) {
               style={[
                 styles.approveBtn,
                 { backgroundColor: theme.accent },
-                (busy || !confirmed) && styles.disabled,
+                (busy || !canApprove) && styles.disabled,
               ]}
               onPress={handleApprove}
-              disabled={busy || !confirmed}
+              disabled={busy || !canApprove}
             >
               <Text style={[styles.approveBtnText, { color: theme.accentText }]}>
                 {busyAction === 'approve' ? 'Approving…' : 'Approve'}
@@ -272,7 +299,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginLeft: 12,
   },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#1a2b3c', marginBottom: 10 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#1a2b3c', marginBottom: 10, marginTop: 4 },
   approvedBanner: {
     backgroundColor: '#f0fdf4',
     borderWidth: 1,
@@ -312,6 +339,16 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   radioLabel: { flex: 1, fontSize: 15, color: '#1a2b3c' },
+  supervisorField: { marginBottom: 12, paddingHorizontal: 4 },
+  supervisorHint: { fontSize: 14, color: '#6a7b8c', marginBottom: 8, lineHeight: 20 },
+  supervisorInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+  },
   approveBtn: {
     paddingVertical: 14,
     borderRadius: 10,

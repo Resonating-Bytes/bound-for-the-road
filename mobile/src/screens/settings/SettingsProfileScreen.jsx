@@ -1,29 +1,50 @@
 import { useState } from 'react';
-import { Text, TextInput, Pressable, StyleSheet, Alert, ScrollView, View } from 'react-native';
+import { Text, Pressable, StyleSheet, Alert, ScrollView, View } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { Screen } from '../../components/Screen';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { DatePickerField } from '../../components/DatePickerField';
 import { DeleteAccountButton } from '../../components/DeleteAccountButton';
+import { ProfileNameFields } from '../../components/ProfileNameFields';
 import { toISODateOnly } from '../../utils/time';
+import { firstTokenFromLegalName } from '../../utils/names';
 import { useTheme } from '../../context/ThemeContext';
 
 export function SettingsProfileScreen({ navigation }) {
   const { user, saveProfile, deleteAllData } = useAuth();
   const { theme } = useTheme();
-  const [name, setName] = useState(user?.legalName ?? '');
+  const [legalName, setLegalName] = useState(user?.legalName ?? '');
+  const [displayName, setDisplayName] = useState(
+    user?.displayName || firstTokenFromLegalName(user?.legalName ?? ''),
+  );
+  const [displayTouched, setDisplayTouched] = useState(true);
   const [permitDate, setPermitDate] = useState(
     user?.permitIssueDate ?? toISODateOnly(new Date()),
   );
   const isTeen = user?.role === 'teen';
 
+  function handleLegalChange(text) {
+    setLegalName(text);
+    if (!displayTouched) {
+      setDisplayName(firstTokenFromLegalName(text));
+    }
+  }
+
+  function handleDisplayChange(text) {
+    setDisplayTouched(true);
+    setDisplayName(text);
+  }
+
   function handleSaveProfile() {
-    if (!name.trim()) {
-      Alert.alert('Name required');
+    const trimmedLegal = legalName.trim();
+    const trimmedDisplay = displayName.trim();
+    if (!trimmedLegal || !trimmedDisplay) {
+      Alert.alert('Name required', 'Legal name and display name are both required.');
       return;
     }
     saveProfile({
-      legalName: name.trim(),
+      legalName: trimmedLegal,
+      displayName: trimmedDisplay,
       role: user.role,
       dateOfBirth: user.dateOfBirth,
       stateCode: user.stateCode,
@@ -56,8 +77,12 @@ export function SettingsProfileScreen({ navigation }) {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <Text style={styles.meta}>Role: {isTeen ? 'Teen driver' : 'Supervising adult'}</Text>
 
-        <Text style={styles.label}>Legal name</Text>
-        <TextInput style={styles.input} value={name} onChangeText={setName} />
+        <ProfileNameFields
+          legalName={legalName}
+          displayName={displayName}
+          onLegalNameChange={handleLegalChange}
+          onDisplayNameChange={handleDisplayChange}
+        />
 
         {isTeen ? (
           <>
@@ -105,15 +130,6 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 },
   meta: { fontSize: 14, color: '#6a7b8c', marginBottom: 20 },
   label: { fontSize: 15, fontWeight: '600', color: '#1a2b3c', marginBottom: 6 },
-  input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 16,
-  },
   primaryBtn: {
     paddingVertical: 14,
     borderRadius: 10,

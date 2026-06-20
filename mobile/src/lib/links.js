@@ -2,6 +2,8 @@ import * as ExpoCrypto from 'expo-crypto';
 import { getSupabase, isSupabaseConfigured } from './supabase';
 import { upsertLink, getActiveLinksForUser, deleteLink } from '../db/queries';
 import { ensureRemoteUserProfile } from './profileSync';
+import { getLocalNickname, pullUserAliasesFromRemote, syncPendingUserAliases } from './userAliases';
+import { casualLabel, firstTokenFromLegalName } from '../utils/names';
 
 function randomSixDigitCode() {
   const bytes = ExpoCrypto.getRandomBytes(4);
@@ -35,6 +37,8 @@ export function syncLinksToLocal(remoteLinks) {
 
 export async function fetchRemoteLinks(userId) {
   if (!isSupabaseConfigured()) return getActiveLinksForUser(userId);
+
+  await syncPendingUserAliases(userId);
 
   const supabase = getSupabase();
   const { data, error } = await supabase
@@ -119,6 +123,15 @@ export async function acceptLinkInvite(code) {
 }
 
 export async function fetchLinkedPartners(userId) {
+  await syncPendingUserAliases(userId);
+  if (isSupabaseConfigured()) {
+    try {
+      await pullUserAliasesFromRemote(userId);
+    } catch {
+      // Use local alias cache when offline
+    }
+  }
+
   const activeLinks = getActiveLinksForUser(userId);
   if (!activeLinks.length) return [];
 
@@ -126,6 +139,9 @@ export async function fetchLinkedPartners(userId) {
     return activeLinks.map((link) => ({
       linkId: link.id,
       partnerId: link.teenUserId === userId ? link.adultUserId : link.teenUserId,
+      legalName: 'Linked account',
+      displayName: 'Linked account',
+      nickname: null,
       name: 'Linked account',
     }));
   }
@@ -136,13 +152,25 @@ export async function fetchLinkedPartners(userId) {
     const partnerId = link.teenUserId === userId ? link.adultUserId : link.teenUserId;
     const { data, error } = await supabase
       .from('users')
-      .select('legal_name')
+      .select('legal_name, display_name')
       .eq('id', partnerId)
       .maybeSingle();
+
+    const legalName = !error && data?.legal_name?.trim() ? data.legal_name.trim() : 'Linked account';
+    const displayName =
+      !error && data?.display_name?.trim()
+        ? data.display_name.trim()
+        : firstTokenFromLegalName(legalName);
+    const nickname = getLocalNickname(userId, partnerId);
+    const name = casualLabel({ nickname, displayName, fallback: 'Linked account' });
+
     partners.push({
       linkId: link.id,
       partnerId,
-      name: !error && data?.legal_name ? data.legal_name : 'Linked account',
+      legalName,
+      displayName,
+      nickname,
+      name,
     });
   }
   return partners;

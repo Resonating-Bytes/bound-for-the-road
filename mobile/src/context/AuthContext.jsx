@@ -21,22 +21,20 @@ import { syncProfileToSupabase } from '../lib/profileSync';
 import { unregisterCurrentDevicePushToken } from '../lib/pushTokens';
 import { deleteRemoteAccount } from '../lib/deleteAccount';
 import { cancelSessionNotificationsForIds } from '../utils/notifications';
+import { firstTokenFromLegalName } from '../utils/names';
 
 const MOCK_USER_KEY = '@boundfortheroad/mockUserId';
 
 const AuthContext = createContext(null);
 
-function displayNameFromAuthUser(authUser) {
-  const meta = authUser.user_metadata ?? {};
-  return meta.full_name ?? meta.name ?? meta.legal_name ?? '';
-}
-
 function mapRemoteUser(row) {
   if (!row) return null;
+  const legalName = row.legal_name ?? '';
   return {
     id: row.id,
     role: row.role ?? 'teen',
-    legalName: row.legal_name ?? '',
+    legalName,
+    displayName: row.display_name?.trim() || firstTokenFromLegalName(legalName),
     email: row.email ?? null,
     dateOfBirth: row.date_of_birth ?? null,
     stateCode: row.state_code ?? 'IL',
@@ -44,15 +42,23 @@ function mapRemoteUser(row) {
   };
 }
 
+function oauthLegalName(authUser) {
+  const meta = authUser.user_metadata ?? {};
+  return meta.full_name ?? meta.name ?? meta.legal_name ?? '';
+}
+
 function ensureLocalUserFromAuth(authUser, remoteProfile) {
   const existing = getUserById(authUser.id);
   const remote = mapRemoteUser(remoteProfile);
   const roleLockedLocally = existing?.id && isRoleChosen(existing.id);
+  const oauthLegal = oauthLegalName(authUser);
+  const oauthDisplay = firstTokenFromLegalName(oauthLegal);
   if (existing) {
     const merged = {
       ...existing,
       role: roleLockedLocally ? existing.role : (remote?.role ?? existing.role),
-      legalName: existing.legalName || remote?.legalName || displayNameFromAuthUser(authUser),
+      legalName: existing.legalName || remote?.legalName || oauthLegal,
+      displayName: existing.displayName || remote?.displayName || oauthDisplay,
       email: existing.email || authUser.email || remote?.email || null,
       dateOfBirth: existing.dateOfBirth ?? remote?.dateOfBirth ?? null,
       stateCode: existing.stateCode ?? remote?.stateCode ?? 'IL',
@@ -64,7 +70,8 @@ function ensureLocalUserFromAuth(authUser, remoteProfile) {
   return upsertUser({
     id: authUser.id,
     role: remote?.role ?? 'teen',
-    legalName: remote?.legalName || displayNameFromAuthUser(authUser),
+    legalName: remote?.legalName || oauthLegal,
+    displayName: remote?.displayName || oauthDisplay,
     email: authUser.email ?? remote?.email ?? null,
     dateOfBirth: remote?.dateOfBirth ?? null,
     stateCode: remote?.stateCode ?? 'IL',
@@ -76,7 +83,7 @@ async function fetchRemoteProfile(userId) {
   if (!isSupabaseConfigured()) return null;
   const { data, error } = await getSupabase()
     .from('users')
-    .select('id, role, legal_name, email, date_of_birth, state_code, permit_issue_date')
+    .select('id, role, legal_name, display_name, email, date_of_birth, state_code, permit_issue_date')
     .eq('id', userId)
     .maybeSingle();
   if (error) throw error;
@@ -283,6 +290,7 @@ export function AuthProvider({ children }) {
         id: userId,
         role,
         legalName: getUserById(userId)?.legalName ?? '',
+        displayName: getUserById(userId)?.displayName ?? '',
         email: getUserById(userId)?.email ?? null,
         dateOfBirth: getUserById(userId)?.dateOfBirth ?? null,
         stateCode: getUserById(userId)?.stateCode ?? 'IL',

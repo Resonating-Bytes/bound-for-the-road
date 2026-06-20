@@ -30,7 +30,8 @@ import {
 import {
   syncApprovalsForTeen,
   syncDeclinedSubmissionsForTeen,
-  fetchRemoteUserName,
+  fetchRemoteUserLabel,
+  resolveApproverName,
   syncSessionReopenedForEdit,
 } from '../lib/submissions';
 import { useCompatibility } from '../context/CompatibilityContext';
@@ -75,8 +76,8 @@ export function DashboardScreen({ navigation }) {
       rows.map(async (session) => {
         const ctx = getSessionApprovalContext(session.id);
         let approverName;
-        if (ctx?.approval?.approvedByUserId) {
-          approverName = await fetchRemoteUserName(ctx.approval.approvedByUserId);
+        if (ctx?.approval) {
+          approverName = await resolveApproverName(ctx.approval);
         }
         statuses[session.id] = getSessionDisplayStatus(session, {
           submission: ctx?.submission,

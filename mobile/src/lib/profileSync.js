@@ -1,11 +1,13 @@
 import { getUserById } from '../db/queries';
 import { getSupabase, isSupabaseConfigured } from './supabase';
+import { clampName, hasDisplayName, hasLegalName, MAX_DISPLAY_NAME_LENGTH, MAX_LEGAL_NAME_LENGTH } from '../utils/names';
 
 export function mapProfileToRemote(profile) {
   return {
     id: profile.id,
     role: profile.role ?? 'teen',
-    legal_name: profile.legalName,
+    legal_name: clampName(profile.legalName, MAX_LEGAL_NAME_LENGTH),
+    display_name: clampName(profile.displayName, MAX_DISPLAY_NAME_LENGTH),
     email: profile.email ?? null,
     date_of_birth: profile.dateOfBirth ?? null,
     state_code: profile.stateCode ?? 'IL',
@@ -40,7 +42,7 @@ export async function ensureRemoteUserProfile(userId) {
   if (existing) return;
 
   const local = getUserById(userId);
-  if (!local?.legalName?.trim()) {
+  if (!hasLegalName(local) || !hasDisplayName(local)) {
     throw new Error('Complete your profile before creating an invite code.');
   }
 

@@ -1,4 +1,6 @@
 import { getSupabase, isSupabaseConfigured } from './supabase';
+import { getLocalNickname } from './userAliases';
+import { casualLabel, firstTokenFromLegalName } from '../utils/names';
 import {
   submitSession,
   getSubmissionForSession,
@@ -210,7 +212,17 @@ async function assertSubmissionStillPending(sessionId, requestHash) {
   }
 }
 
-export async function fetchRemoteUserName(userId) {
+/** Legal name shown on approved sessions (supervisor snapshot when stored). */
+export async function resolveApproverName(approval) {
+  const snapshot = approval?.supervisorInVehicleName?.trim();
+  if (snapshot) return snapshot;
+  if (approval?.approvedByUserId) {
+    return fetchRemoteUserLegalName(approval.approvedByUserId);
+  }
+  return 'Supervisor';
+}
+
+export async function fetchRemoteUserLegalName(userId) {
   if (!isSupabaseConfigured()) {
     return getUserById(userId)?.legalName ?? 'Supervisor';
   }
@@ -219,10 +231,59 @@ export async function fetchRemoteUserName(userId) {
     .select('legal_name')
     .eq('id', userId)
     .maybeSingle();
-  if (error || !data?.legal_name) {
+  if (error || !data?.legal_name?.trim()) {
     return getUserById(userId)?.legalName ?? 'Supervisor';
   }
-  return data.legal_name;
+  return data.legal_name.trim();
+}
+
+/** Casual label for a user as seen by viewerUserId (alias → display name). */
+export async function fetchRemoteUserLabel(viewerUserId, targetUserId, fallback = 'Supervisor') {
+  if (!targetUserId) return fallback;
+
+  const local = getUserById(targetUserId);
+  const localNickname = viewerUserId ? getLocalNickname(viewerUserId, targetUserId) : null;
+
+  if (!isSupabaseConfigured()) {
+    return casualLabel({
+      nickname: localNickname,
+      displayName: local?.displayName ?? firstTokenFromLegalName(local?.legalName),
+      fallback,
+    });
+  }
+
+  const { data, error } = await getSupabase()
+    .from('users')
+    .select('display_name, legal_name')
+    .eq('id', targetUserId)
+    .maybeSingle();
+
+  let displayName = local?.displayName ?? '';
+  let legalName = local?.legalName ?? '';
+  if (!error && data) {
+    legalName = data.legal_name?.trim() || legalName;
+    displayName = data.display_name?.trim() || firstTokenFromLegalName(legalName);
+  }
+
+  let nickname = localNickname;
+  if (viewerUserId && isSupabaseConfigured()) {
+    const { data: aliasRow } = await getSupabase()
+      .from('user_aliases')
+      .select('nickname')
+      .eq('owner_user_id', viewerUserId)
+      .eq('target_user_id', targetUserId)
+      .maybeSingle();
+    if (aliasRow?.nickname?.trim()) {
+      nickname = aliasRow.nickname.trim();
+    }
+  }
+
+  return casualLabel({ nickname, displayName, fallback });
+}
+
+/** @deprecated Use fetchRemoteUserLabel or fetchRemoteUserLegalName. */
+export async function fetchRemoteUserName(userId) {
+  return fetchRemoteUserLegalName(userId);
 }
 
 export async function fetchPendingSubmissionsForAdult() {
@@ -267,9 +328,13 @@ export async function fetchPendingSubmissionsForAdult() {
 
   const teenIds = [...new Set(pending.map((row) => row.sessions?.teen_user_id).filter(Boolean))];
   const teenNames = {};
+  const {
+    data: { user: authUser },
+  } = await getSupabase().auth.getUser();
+  const viewerId = authUser?.id;
   await Promise.all(
     teenIds.map(async (teenId) => {
-      teenNames[teenId] = await fetchRemoteUserName(teenId);
+      teenNames[teenId] = await fetchRemoteUserLabel(viewerId, teenId, 'Driver');
     }),
   );
 
@@ -309,6 +374,7 @@ export async function fetchApprovedSubmissionsForAdult() {
       session_id,
       approved_by_user_id,
       approved_at,
+      supervisor_in_vehicle_name,
       sessions!inner (
         id,
         teen_user_id,
@@ -332,16 +398,28 @@ export async function fetchApprovedSubmissionsForAdult() {
   );
 
   const teenIds = [...new Set(filtered.map((row) => row.sessions?.teen_user_id).filter(Boolean))];
-  const approverIds = [...new Set(filtered.map((row) => row.approved_by_user_id))];
+  const approverIdsNeedingFetch = [
+    ...new Set(
+      filtered
+        .filter((row) => !row.supervisor_in_vehicle_name?.trim())
+        .map((row) => row.approved_by_user_id)
+        .filter(Boolean),
+    ),
+  ];
   const teenNames = {};
   const approverNames = {};
 
+  const {
+    data: { user: authUser },
+  } = await getSupabase().auth.getUser();
+  const viewerId = authUser?.id;
+
   await Promise.all([
     ...teenIds.map(async (teenId) => {
-      teenNames[teenId] = await fetchRemoteUserName(teenId);
+      teenNames[teenId] = await fetchRemoteUserLabel(viewerId, teenId, 'Driver');
     }),
-    ...approverIds.map(async (approverId) => {
-      approverNames[approverId] = await fetchRemoteUserName(approverId);
+    ...approverIdsNeedingFetch.map(async (approverId) => {
+      approverNames[approverId] = await fetchRemoteUserLegalName(approverId);
     }),
   ]);
 
@@ -350,7 +428,10 @@ export async function fetchApprovedSubmissionsForAdult() {
     sessionId: row.session_id,
     approvedAt: row.approved_at,
     approvedByUserId: row.approved_by_user_id,
-    approverName: approverNames[row.approved_by_user_id] ?? 'Supervisor',
+    approverName:
+      row.supervisor_in_vehicle_name?.trim() ||
+      approverNames[row.approved_by_user_id] ||
+      'Supervisor',
     session: row.sessions
       ? {
           id: row.sessions.id,
@@ -494,7 +575,7 @@ export async function fetchSubmissionDetail(requestHash) {
     const approval = getApprovalForHash(requestHash);
     let approverName;
     if (approval?.approvedByUserId) {
-      approverName = await fetchRemoteUserName(approval.approvedByUserId);
+      approverName = await resolveApproverName(approval);
     }
     return {
       submission: local,
@@ -546,9 +627,7 @@ export async function fetchSubmissionDetail(requestHash) {
     .maybeSingle();
 
   const approval = approvalData ? mapRemoteApproval(approvalData) : null;
-  const approverName = approval
-    ? await fetchRemoteUserName(approval.approvedByUserId)
-    : null;
+  const approverName = approval ? await resolveApproverName(approval) : null;
 
   if (!data) {
     if (!approval) return null;

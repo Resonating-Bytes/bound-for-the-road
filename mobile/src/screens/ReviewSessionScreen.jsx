@@ -26,7 +26,7 @@ import {
   submitSessionForApproval,
   sendSavedSessionForApproval,
   discardSessionSubmission,
-  fetchRemoteUserName,
+  resolveApproverName,
   syncSessionReopenedForEdit,
 } from '../lib/submissions';
 import { formatDateTime, formatDuration, durationMinutes } from '../utils/time';
@@ -61,8 +61,8 @@ export function ReviewSessionScreen({ route, navigation }) {
     (async () => {
       const ctx = getSessionApprovalContext(sessionId);
       let approverName;
-      if (ctx?.approval?.approvedByUserId) {
-        approverName = await fetchRemoteUserName(ctx.approval.approvedByUserId);
+      if (ctx?.approval) {
+        approverName = await resolveApproverName(ctx.approval);
       }
       if (!cancelled) {
         setDisplayStatus(
@@ -71,7 +71,6 @@ export function ReviewSessionScreen({ route, navigation }) {
             approval: ctx?.approval,
             latestApproval: ctx?.latestApproval,
             approverName,
-            approverNameFirstOnly: false,
             pendingRemoteSync: hasUnsyncedSubmissionOutbox(sessionId),
             canRemoteWrite,
           }),

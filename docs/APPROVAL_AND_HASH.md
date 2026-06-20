@@ -75,7 +75,7 @@ Serialize with **stable key order** (see `stableStringify`). Exclude sync flags 
   "approvedAt": "ISO-8601",
   "joinedSession": true,
   "supervisorInVehicleName": "string",
-  "approverPresent": "co_present | remote | unknown"
+  "approverPresent": "co_present | other_adult"
 }
 ```
 

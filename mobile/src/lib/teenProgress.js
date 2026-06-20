@@ -69,6 +69,8 @@ export async function fetchLinkedTeenSummaries(adultUserId) {
     return {
       teenUserId: partner.partnerId,
       name: partner.name,
+      displayName: partner.displayName,
+      nickname: partner.nickname,
       progress: progressByTeen[partner.partnerId] ?? {
         totalMinutes: 0,
         nightMinutes: 0,

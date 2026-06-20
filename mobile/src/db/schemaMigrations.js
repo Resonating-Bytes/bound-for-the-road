@@ -1,6 +1,7 @@
 import { MIGRATION_STATEMENTS } from './migrations';
+import { firstTokenFromLegalName } from '../utils/names';
 
-export const LOCAL_DB_VERSION = 2;
+export const LOCAL_DB_VERSION = 3;
 
 function execSql(sqlite, sql) {
   if (typeof sqlite.execSync === 'function') {
@@ -58,6 +59,32 @@ const MIGRATIONS = [
     version: 2,
     up(sqlite) {
       ensureOutboxUserIdColumn(sqlite);
+    },
+  },
+  {
+    version: 3,
+    up(sqlite) {
+      const userColumns = queryAll(sqlite, 'PRAGMA table_info(users)');
+      if (!userColumns.some((col) => col.name === 'display_name')) {
+        execSql(sqlite, "ALTER TABLE users ADD COLUMN display_name TEXT NOT NULL DEFAULT ''");
+      }
+      execSql(
+        sqlite,
+        `CREATE TABLE IF NOT EXISTS user_aliases (
+          owner_user_id TEXT NOT NULL,
+          target_user_id TEXT NOT NULL,
+          nickname TEXT NOT NULL,
+          sync_status TEXT NOT NULL DEFAULT 'synced',
+          PRIMARY KEY (owner_user_id, target_user_id)
+        )`,
+      );
+      const rows = queryAll(sqlite, 'SELECT id, legal_name, display_name FROM users');
+      for (const row of rows) {
+        if (row.display_name?.trim()) continue;
+        const displayName = firstTokenFromLegalName(row.legal_name ?? '');
+        const escaped = displayName.replace(/'/g, "''");
+        execSql(sqlite, `UPDATE users SET display_name = '${escaped}' WHERE id = '${row.id}'`);
+      }
     },
   },
 ];

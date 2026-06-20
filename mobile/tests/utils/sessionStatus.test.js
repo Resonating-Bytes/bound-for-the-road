@@ -52,19 +52,17 @@ describe('sessionStatus', () => {
       approverName: 'Pat Parent',
     });
     expect(status.key).toBe('approved');
-    expect(status.label).toContain('Pat');
-    expect(status.label).not.toContain('Pat Parent');
+    expect(status.label).toContain('Pat Parent');
   });
 
-  test('approved detail label uses full approver name when requested', () => {
+  test('approved uses supervisor snapshot name', () => {
     const status = getSessionDisplayStatus(session, {
       submission: { requestHash: 'hash-new', superseded: false },
       approval: { requestHash: 'hash-new', approvedAt: '2026-06-02T10:00:00.000Z' },
       latestApproval: { requestHash: 'hash-new' },
-      approverName: 'Pat Parent',
-      approverNameFirstOnly: false,
+      approverName: 'Patricia Parent',
     });
-    expect(status.label).toContain('Pat Parent');
+    expect(status.label).toContain('Patricia Parent');
   });
 
   test('superseded when latest approval is for older hash', () => {
