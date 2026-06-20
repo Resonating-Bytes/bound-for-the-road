@@ -7,10 +7,11 @@ import { useTheme } from '../context/ThemeContext';
 import { resolveTheme } from '../theme/resolveTheme';
 
 import { getPresetsByCategory } from '../theme/presets';
+import { CustomThemeSection } from './CustomThemeSection';
 
 
 
-export function ThemePickerSection() {
+export function ThemePickerSection({ onCustomColorInputFocus }) {
 
   const { presetId, setPresetId, selectedPreset, theme } = useTheme();
 
@@ -122,6 +123,8 @@ export function ThemePickerSection() {
         </View>
 
       ))}
+
+      <CustomThemeSection onInputFocus={onCustomColorInputFocus} />
 
     </View>
 

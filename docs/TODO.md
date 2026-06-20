@@ -1,6 +1,6 @@
 # Bound for the Road — Project TODO
 
-**Last updated:** 2026-06-21 · **App:** 1.5.2 on `main` · **Phase:** 2
+**Last updated:** 2026-06-21 · **App:** 1.5.4 (pending merge) · **Phase:** 2
 
 **Decisions:** [DECISIONS.md](./DECISIONS.md) — do not duplicate here.  
 **Screens:** [SCREENS.md](./SCREENS.md) · **Testing:** [TESTING.md](./TESTING.md)  
@@ -16,11 +16,11 @@
 
 ## Next up (priority)
 
-### 1. Outbox sync (+ nickname trim fix) `[~]`
+### 1. Outbox sync (+ nickname trim fix) `[x]`
 
-- [~] Outbox replay worker — NetInfo listener, ordered replay, exponential backoff ([OFFLINE_SYNC.md](./OFFLINE_SYNC.md))
+- [x] Outbox replay worker — NetInfo listener, ordered replay, exponential backoff ([OFFLINE_SYNC.md](./OFFLINE_SYNC.md))
 - [ ] Route additional remote writes through outbox when offline (approve/decline/withdraw — later)
-- [~] Sync status UI — “Pending sync” / “Up to date” (Settings → About)
+- [x] Sync status UI — “Pending sync” / “Up to date” (Settings → About)
 - [x] **Nickname field:** `limitNameLength` on submit only in `SettingsLinkedAccountDetailScreen`
 
 **Offline mode scope:** Local start → stop → review → save works without network. Outbox sync completes the **remote half** — queued submits replay when connectivity and compatibility allow.
@@ -72,6 +72,7 @@ Foundation, auth, session flow, settings, and automated test harness are complet
 - [x] Submit / approve / decline / withdraw, push + edge function
 - [x] Compatibility & versioning (1.5.x)
 - [x] Settings sub-pages, theme presets, display names + nicknames (1.5.0–1.5.2)
+- [x] Custom header/accent hex on Appearance (persisted per user)
 - [x] 1.5.2 post-merge operator steps (no new migrations; local smoke test)
 
 ### Backlog (after next-up items)
