@@ -14,6 +14,7 @@ App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 ### Fixed
 
 - `send-approval-push` edge function entrypoint renamed to `index.ts` so Supabase CLI 2.x deploy finds the default entrypoint
+- Edge deploy workflow pins Supabase CLI `2.107.0` instead of `latest` to avoid GitHub API gateway timeouts during setup
 
 ## [1.5.0] - 2026-06-17
 
