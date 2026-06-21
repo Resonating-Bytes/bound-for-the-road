@@ -15,9 +15,15 @@ jest.mock('../../src/lib/network', () => ({
 }));
 
 const mockPushSubmitted = jest.fn(() => Promise.resolve());
+const mockPushApproval = jest.fn(() => Promise.resolve());
+const mockPushDecline = jest.fn(() => Promise.resolve());
+const mockPushWithdraw = jest.fn(() => Promise.resolve());
 
 jest.mock('../../src/lib/submissions', () => ({
   pushSubmittedSessionToRemote: (...args) => mockPushSubmitted(...args),
+  pushApprovalToRemote: (...args) => mockPushApproval(...args),
+  pushDeclineToRemote: (...args) => mockPushDecline(...args),
+  pushWithdrawToRemote: (...args) => mockPushWithdraw(...args),
 }));
 
 const mockListPending = jest.fn(() => []);
@@ -40,6 +46,21 @@ describe('flushOutbox', () => {
     jest.clearAllMocks();
     mockCanUseRemoteWrite.mockReturnValue(true);
     isNetworkOnline.mockResolvedValue(true);
+  });
+
+  test('replays session_approved rows', async () => {
+    mockListPending.mockReturnValue([
+      {
+        id: 'ob-2',
+        operation: 'session_approved',
+        payloadJson: JSON.stringify({ sessionId: 'sess-1', requestHash: 'hash-1' }),
+      },
+    ]);
+
+    await flushOutbox();
+
+    expect(mockPushApproval).toHaveBeenCalledWith({ sessionId: 'sess-1', requestHash: 'hash-1' });
+    expect(mockMarkSynced).toHaveBeenCalledWith('ob-2');
   });
 
   test('replays session_submitted rows in order', async () => {

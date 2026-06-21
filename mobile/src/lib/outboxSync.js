@@ -1,17 +1,25 @@
 import { AppState } from 'react-native';
 import {
+  pushApprovalToRemote,
+  pushDeclineToRemote,
+  pushSubmittedSessionToRemote,
+  pushWithdrawToRemote,
+} from './submissions';
+import { isNetworkOnline, subscribeNetwork } from './network';
+import { isSupabaseConfigured } from './supabase';
+import { canUseRemoteWrite, getCachedCompatibility } from './compatibility';
+import {
   getSessionById,
   getSubmissionForSession,
   listPendingOutboxRows,
   markOutboxRowSynced,
 } from '../db/queries';
-import { canUseRemoteWrite, getCachedCompatibility } from './compatibility';
-import { pushSubmittedSessionToRemote } from './submissions';
-import { isNetworkOnline, subscribeNetwork } from './network';
-import { isSupabaseConfigured } from './supabase';
 
 const OPERATIONS = {
   session_submitted: processSessionSubmitted,
+  session_approved: processSessionApproved,
+  session_declined: processSessionDeclined,
+  session_withdrawn: processSessionWithdrawn,
 };
 
 let flushInFlight = null;
@@ -43,6 +51,36 @@ async function processSessionSubmitted(row, payload) {
   }
 
   await pushSubmittedSessionToRemote(sessionId, session, submission);
+}
+
+async function processSessionApproved(row, payload) {
+  if (!payload?.sessionId || !payload?.requestHash) {
+    markOutboxRowSynced(row.id);
+    return;
+  }
+
+  await pushApprovalToRemote(payload);
+  markOutboxRowSynced(row.id);
+}
+
+async function processSessionDeclined(row, payload) {
+  if (!payload?.sessionId || !payload?.requestHash) {
+    markOutboxRowSynced(row.id);
+    return;
+  }
+
+  await pushDeclineToRemote(payload);
+  markOutboxRowSynced(row.id);
+}
+
+async function processSessionWithdrawn(row, payload) {
+  if (!payload?.sessionId || !payload?.requestHash) {
+    markOutboxRowSynced(row.id);
+    return;
+  }
+
+  await pushWithdrawToRemote(payload);
+  markOutboxRowSynced(row.id);
 }
 
 function scheduleRetry() {

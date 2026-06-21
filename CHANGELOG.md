@@ -5,6 +5,19 @@ All notable changes to the mobile app and its Supabase backend are documented he
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 
+## [1.5.7] - 2026-06-21
+
+### Added
+
+- Manual session entry from Dashboard — single Review screen with start/end, notes, save or discard (no GPS-derived fields)
+- Outbox replay for approve, decline, and withdraw when offline or on network failure
+
+### Changed
+
+- Active session stats stack vertically (day/night, then road category when tracking)
+- Manual entry hint above submit; location caveat only when foreground permission is granted; Resume hidden for manual drafts
+- TODO: overlapping session validation promoted to next up; sync local ↔ remote queued first in backlog
+
 ## [1.5.6] - 2026-06-21
 
 ### Added

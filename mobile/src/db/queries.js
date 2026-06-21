@@ -145,6 +145,59 @@ export function createActiveSession(teenUserId, stateCode = 'IL') {
   return row;
 }
 
+/** Create a draft session from manually entered times (no GPS / active session). */
+export function createManualDraftSession(
+  teenUserId,
+  { startedAt, endedAt, notes = null, stateCode = 'IL' },
+) {
+  if (!startedAt || !endedAt) {
+    throw new Error('Start and end times are required');
+  }
+  if (new Date(endedAt).getTime() <= new Date(startedAt).getTime()) {
+    throw new Error('End time must be after start time');
+  }
+  if (new Date(endedAt).getTime() > Date.now()) {
+    throw new Error('End time cannot be in the future');
+  }
+
+  const db = getDb();
+  const now = nowISO();
+  const id = generateId();
+  const timing = recomputeSessionFields(id, startedAt, endedAt);
+  const row = {
+    id,
+    teenUserId,
+    stateCode,
+    status: 'draft',
+    startedAt,
+    endedAt,
+    durationMinutes: timing.durationMinutes,
+    nightMinutes: timing.nightMinutes,
+    highwayRoadMinutes: timing.highwayRoadMinutes,
+    notes,
+    requestHash: null,
+    payloadJson: null,
+    activeSupervisorId: null,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  db.insert(sessions).values(row).run();
+  return row;
+}
+
+/** Default last-hour window for a new manual draft. */
+export function createDefaultManualDraftSession(teenUserId, stateCode = 'IL') {
+  const end = new Date();
+  end.setSeconds(0, 0);
+  const start = new Date(end.getTime() - 60 * 60 * 1000);
+  return createManualDraftSession(teenUserId, {
+    startedAt: start.toISOString(),
+    endedAt: end.toISOString(),
+    stateCode,
+  });
+}
+
 export function getActiveSession(teenUserId) {
   const db = getDb();
   return (

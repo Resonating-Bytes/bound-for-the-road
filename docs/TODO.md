@@ -1,6 +1,6 @@
 # Bound for the Road — Project TODO
 
-**Last updated:** 2026-06-21 · **App:** 1.5.6 · **Phase:** 2
+**Last updated:** 2026-06-21 · **App:** 1.5.7 · **Phase:** 2
 
 **Decisions:** [DECISIONS.md](./DECISIONS.md) — do not duplicate here.  
 **Screens:** [SCREENS.md](./SCREENS.md) · **Testing:** [TESTING.md](./TESTING.md)  
@@ -19,7 +19,7 @@
 ### 1. Outbox sync (+ nickname trim fix) `[x]`
 
 - [x] Outbox replay worker — NetInfo listener, ordered replay, exponential backoff ([OFFLINE_SYNC.md](./OFFLINE_SYNC.md))
-- [ ] Route additional remote writes through outbox when offline (approve/decline/withdraw — later)
+- [x] Route approve / decline / withdraw through outbox when offline
 - [x] Sync status UI — “Pending sync” / “Up to date” (Settings → About)
 - [x] **Nickname field:** `limitNameLength` on submit only in `SettingsLinkedAccountDetailScreen`
 
@@ -38,7 +38,15 @@ Promoted from [WISHLIST.md](./WISHLIST.md).
 - [x] Sample `expo-location` while session is **active and app foreground** — coords + speed
 - [x] On-device road-category heuristics (highway vs local from speed); no server upload ([CROSS_PLATFORM.md](./CROSS_PLATFORM.md))
 
-### 4. Location — background (after native dev build)
+### 4. Manual session entry `[x]`
+
+- [x] **Add manual entry** — Dashboard link; enter start/end + notes without Active session. No GPS samples or derived optional fields.
+
+### 5. Overlapping session validation
+
+- [ ] On save (initial Review save and save from edit), flag sessions whose time range overlaps another for the same teen. Validate locally (SQLite) and on the backend (Postgres) — offline may require both. When overlap is detected, mark all involved sessions **except the oldest** as invalid until times are corrected.
+
+### 6. Location — background (after native dev build)
 
 - [ ] Background track, stall detection, route heat map — dev client + Live Activity / Android foreground service
 
@@ -87,9 +95,7 @@ Foundation, auth, session flow, settings, and automated test harness are complet
 - [ ] Deep links wired to push routes
 - [x] **Copy from preset (custom theme)** — On Settings theme screen, add a "Copy from preset" button enabled only when a built-in preset is selected; copies that preset's header + accent hex into the custom fields and selects custom theme. Lets users start from a preset and tweak one color.
 - [ ] Custom accent / header hex pickers (deferred)
-- [ ] **Weather conditions during session** — When foreground GPS is on, sample weather alongside location (API TBD). Track at least: clear, rain, high winds, snow, fog; expand if data allows. Active session: weather icon on the right, day/night icon on the left, road category text centered (same row layout). Review + optional export line (like road category). Local samples only unless we decide to sync later.
-- [ ] **Manual session entry** — Add an “Add manual entry” flow somewhere sensible (e.g. teen dashboard). For forgotten phone or dead battery: user enters start/end (and notes) without going through Active session. Treated as a no-GPS session — no location samples, no road category, no weather or other GPS-derived optional fields; user cannot enter those manually.
-- [ ] **Overlapping session validation** — On save (initial Review save and save from edit), reject or flag sessions whose time range overlaps another session for the same teen. Validate locally (SQLite) and on the backend (Postgres) — offline mode may have sessions the other side hasn’t seen yet, so both layers needed. When overlap is detected, mark all involved sessions **except the oldest** as invalid until times are corrected; oldest stays valid by default.
+- [ ] **Weather conditions during session** — When foreground GPS is on, sample weather alongside location (API TBD). Track at least: clear, rain, high winds, snow, fog; expand if data allows. Active session: vertical stack — day/night icon, weather icon, road category label (heaviest, bottom). Review + optional export line (like road category). Local samples only unless we decide to sync later.
 
 ---
 
