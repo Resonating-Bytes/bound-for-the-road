@@ -29,7 +29,9 @@ export const sessions = sqliteTable('sessions', {
   startedAt: text('started_at').notNull(),
   endedAt: text('ended_at'),
   durationMinutes: integer('duration_minutes'),
-  dayNight: text('day_night'),
+  nightMinutes: integer('night_minutes'),
+  /** Highway minutes; local derived as durationMinutes − highwayRoadMinutes. */
+  highwayRoadMinutes: integer('highway_road_minutes'),
   notes: text('notes'),
   requestHash: text('request_hash'),
   payloadJson: text('payload_json'),
@@ -78,4 +80,16 @@ export const userAliases = sqliteTable('user_aliases', {
   targetUserId: text('target_user_id').notNull(),
   nickname: text('nickname').notNull(),
   syncStatus: text('sync_status').notNull().default('synced'),
+});
+
+/** Foreground GPS samples during active sessions — local only, not synced. */
+export const sessionLocationSamples = sqliteTable('session_location_samples', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').notNull(),
+  recordedAt: text('recorded_at').notNull(),
+  latitude: text('latitude').notNull(),
+  longitude: text('longitude').notNull(),
+  speedMps: text('speed_mps'),
+  accuracyM: text('accuracy_m'),
+  roadCategory: text('road_type'),
 });

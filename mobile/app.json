@@ -2,17 +2,21 @@
   "expo": {
     "name": "Bound for the Road",
     "slug": "bound-for-the-road",
-    "version": "1.5.5",
+    "version": "1.5.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "boundfortheroad",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.resonatingbytes.boundfortheroad"
+      "bundleIdentifier": "com.resonatingbytes.boundfortheroad",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Bound for the Road uses your location during an active practice session to classify road category. Location data stays on your device."
+      }
     },
     "android": {
       "package": "com.resonatingbytes.boundfortheroad",
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -30,7 +34,13 @@
       "@react-native-community/datetimepicker",
       "expo-asset",
       "expo-web-browser",
-      "expo-dev-client"
+      "expo-dev-client",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Bound for the Road uses your location during an active practice session to classify road category. Location data stays on your device."
+        }
+      ]
     ],
     "extra": {
       "eas": {

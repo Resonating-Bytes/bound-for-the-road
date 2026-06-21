@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from './AuthContext';
-import { CUSTOM_PRESET_ID, isValidCustomThemeColors, sanitizeHexInput } from '../theme/customTheme';
+import { CUSTOM_PRESET_ID, customColorsFromPreset, isValidCustomThemeColors, sanitizeHexInput } from '../theme/customTheme';
 import { DEFAULT_PRESET_ID, HEADER_THEME_PRESETS, getPresetById } from '../theme/presets';
 import {
   readCustomThemeColors,
@@ -75,6 +75,19 @@ export function ThemeProvider({ children }) {
     setPresetId(CUSTOM_PRESET_ID);
   }, [customColors, setPresetId, userId]);
 
+  const copyPresetToCustom = useCallback(() => {
+    if (!userId || presetId === CUSTOM_PRESET_ID) return;
+    const preset = getPresetById(presetId);
+    const colors = customColorsFromPreset(preset);
+    if (!colors || !isValidCustomThemeColors(colors)) return;
+    setCustomColorsState(colors);
+    writeCustomThemeColors(userId, colors);
+    setPresetIdState(CUSTOM_PRESET_ID);
+    writeHeaderThemePresetId(userId, CUSTOM_PRESET_ID);
+  }, [presetId, userId]);
+
+  const canCopyPresetToCustom = presetId !== CUSTOM_PRESET_ID && Boolean(getPresetById(presetId));
+
   const theme = useMemo(() => resolveTheme(presetId, customColors), [presetId, customColors]);
   const selectedPreset = useMemo(() => {
     if (presetId === CUSTOM_PRESET_ID) return null;
@@ -92,6 +105,8 @@ export function ThemeProvider({ children }) {
       setCustomPrimary,
       setCustomAccent,
       selectCustomTheme,
+      copyPresetToCustom,
+      canCopyPresetToCustom,
     }),
     [
       theme,
@@ -102,6 +117,8 @@ export function ThemeProvider({ children }) {
       setCustomPrimary,
       setCustomAccent,
       selectCustomTheme,
+      copyPresetToCustom,
+      canCopyPresetToCustom,
     ],
   );
 
@@ -121,6 +138,8 @@ export function useTheme() {
       setCustomPrimary: () => {},
       setCustomAccent: () => {},
       selectCustomTheme: () => {},
+      copyPresetToCustom: () => {},
+      canCopyPresetToCustom: false,
     };
   }
   return ctx;

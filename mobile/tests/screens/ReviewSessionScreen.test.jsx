@@ -22,6 +22,10 @@ jest.mock('../../src/db/queries', () => ({
   })),
   getApprovalForHash: jest.fn(() => null),
   hasUnsyncedSubmissionOutbox: jest.fn(() => false),
+  countLocationSamplesForSession: jest.fn(() => 0),
+  recomputeSessionRoadCategory: jest.fn(() => ({
+    highwayRoadMinutes: null,
+  })),
 }));
 
 jest.mock('../../src/lib/submissions', () => ({
@@ -100,7 +104,8 @@ const draftSession = {
   status: 'draft',
   startedAt: '2026-06-01T14:00:00.000Z',
   endedAt: '2026-06-01T15:00:00.000Z',
-  dayNight: 'day',
+  durationMinutes: 60,
+  nightMinutes: 0,
   notes: '',
   requestHash: null,
 };
@@ -145,7 +150,7 @@ describe('ReviewSessionScreen', () => {
         startedAt: '2026-06-01T14:00:00.000Z',
         endedAt: '2026-06-01T15:00:00.000Z',
         durationMinutes: 60,
-        dayNight: 'day',
+        nightMinutes: 0,
       },
     });
     expect(getByPlaceholderText('Route, weather, supervisor name…')).toBeTruthy();
@@ -164,7 +169,7 @@ describe('ReviewSessionScreen', () => {
         startedAt: '2026-06-01T14:00:00.000Z',
         endedAt: '2026-06-01T15:00:00.000Z',
         durationMinutes: 60,
-        dayNight: 'day',
+        nightMinutes: 0,
       },
     });
     fireEvent.press(getByLabelText('Go back'));

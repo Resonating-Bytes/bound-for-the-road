@@ -1,6 +1,6 @@
 # Screens and navigation
 
-**Last updated:** 2026-06-17  
+**Last updated:** 2026-06-21  
 Decisions: [DECISIONS.md](./DECISIONS.md)
 
 ---
@@ -46,8 +46,8 @@ flowchart TD
 | Onboarding — state | `Onboarding/State` | IL default |
 | Onboarding — permit date | `Onboarding/PermitDate` | **Required**; 9-month eligibility |
 | **Dashboard** | `Home/Dashboard` | Progress 50/10, session list, Start, Export all |
-| Active session | `Session/Active` | Elapsed timer, Stop |
-| Review session | `Session/Review` | Edit notes, day/night display, Save / Discard / Resume |
+| Active session | `Session/Active` | Elapsed timer, live road category + day/night (foreground GPS), Stop |
+| Review session | `Session/Review` | Edit start/end, notes; duration + day/night computed; Save / Discard / Resume |
 | Settings | `Settings/Main` | Name, permit date, sign out, delete all data |
 
 ### Dashboard actions
@@ -57,14 +57,28 @@ flowchart TD
 | **Start** | If no active session → create `active` session → Active screen |
 | **Edit** (row) | Open Review for saved session (reopen as draft) |
 | **Export all** | Text/HTML of all saved, non-deleted sessions → share sheet |
-| Progress bars | Total hours / 50; night hours / 10 |
+| Progress bars | Total hours / 50; night hours / 10 (both use theme accent) |
 
-### Review screen fields (editable)
+### Review screen fields (draft or edit)
 
-- Start / end time (read-only in MVP after stop; display only)
-- Duration (computed)
-- Day / night (auto-computed; display + allow override post-MVP if needed — MVP display only)
-- Notes (optional text)
+| Field | Editable | Notes |
+|-------|----------|-------|
+| Start / end time | Yes (draft review, Edit session) | `DateTimePickerField` |
+| Duration | No | Computed from start/end |
+| Day / night | No | Computed from start time |
+| Notes | Yes | Optional text |
+
+Re-submit after editing a saved session: reopen as draft → save → existing submit / re-approval flow.
+
+### Active session — foreground location (Expo Go)
+
+While the app is **foreground** and the session is active:
+
+- Request **when-in-use** location permission (first session only)
+- Sample coords + speed on an interval; store locally in `session_location_samples` (device-only, not synced)
+- Show live **road category** heuristic (local vs highway from speed) and day/night icon
+- Review shows local/highway/not-tracked breakdown when GPS samples exist; stored on session stop/save
+- No sampling when the app is backgrounded (background track requires dev build)
 
 ---
 

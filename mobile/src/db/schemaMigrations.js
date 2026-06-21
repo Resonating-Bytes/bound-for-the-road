@@ -1,7 +1,7 @@
 import { MIGRATION_STATEMENTS } from './migrations';
 import { firstTokenFromLegalName } from '../utils/names';
 
-export const LOCAL_DB_VERSION = 3;
+export const LOCAL_DB_VERSION = 7;
 
 function execSql(sqlite, sql) {
   if (typeof sqlite.execSync === 'function') {
@@ -84,6 +84,77 @@ const MIGRATIONS = [
         const displayName = firstTokenFromLegalName(row.legal_name ?? '');
         const escaped = displayName.replace(/'/g, "''");
         execSql(sqlite, `UPDATE users SET display_name = '${escaped}' WHERE id = '${row.id}'`);
+      }
+    },
+  },
+  {
+    version: 4,
+    up(sqlite) {
+      execSql(
+        sqlite,
+        `CREATE TABLE IF NOT EXISTS session_location_samples (
+          id TEXT PRIMARY KEY NOT NULL,
+          session_id TEXT NOT NULL,
+          recorded_at TEXT NOT NULL,
+          latitude TEXT NOT NULL,
+          longitude TEXT NOT NULL,
+          speed_mps TEXT,
+          accuracy_m TEXT,
+          road_type TEXT
+        )`,
+      );
+      execSql(
+        sqlite,
+        `CREATE INDEX IF NOT EXISTS idx_session_location_samples_session
+          ON session_location_samples (session_id, recorded_at)`,
+      );
+    },
+  },
+  {
+    version: 5,
+    up(sqlite) {
+      const sessionColumns = queryAll(sqlite, 'PRAGMA table_info(sessions)');
+      if (!sessionColumns.some((col) => col.name === 'night_minutes')) {
+        execSql(sqlite, 'ALTER TABLE sessions ADD COLUMN night_minutes INTEGER');
+      }
+      execSql(
+        sqlite,
+        `UPDATE sessions
+         SET night_minutes = duration_minutes
+         WHERE day_night = 'night' AND night_minutes IS NULL`,
+      );
+      execSql(
+        sqlite,
+        `UPDATE sessions
+         SET night_minutes = 0
+         WHERE (day_night = 'day' OR day_night IS NULL) AND night_minutes IS NULL`,
+      );
+      execSql(
+        sqlite,
+        `UPDATE sessions
+         SET night_minutes = 0
+         WHERE night_minutes IS NULL AND duration_minutes IS NOT NULL`,
+      );
+    },
+  },
+  {
+    version: 6,
+    up(sqlite) {
+      const sessionColumns = queryAll(sqlite, 'PRAGMA table_info(sessions)');
+      if (!sessionColumns.some((col) => col.name === 'local_road_minutes')) {
+        execSql(sqlite, 'ALTER TABLE sessions ADD COLUMN local_road_minutes INTEGER');
+      }
+      if (!sessionColumns.some((col) => col.name === 'highway_road_minutes')) {
+        execSql(sqlite, 'ALTER TABLE sessions ADD COLUMN highway_road_minutes INTEGER');
+      }
+    },
+  },
+  {
+    version: 7,
+    up(sqlite) {
+      const sessionColumns = queryAll(sqlite, 'PRAGMA table_info(sessions)');
+      if (sessionColumns.some((col) => col.name === 'local_road_minutes')) {
+        execSql(sqlite, 'ALTER TABLE sessions DROP COLUMN local_road_minutes');
       }
     },
   },

@@ -20,6 +20,8 @@ import {
   discardSubmittedSession,
   getSessionApprovalContext,
   resumeSession,
+  insertLocationSample,
+  countLocationSamplesForSession,
   discardDraft,
   reopenSavedSession,
   restoreSavedSession,
@@ -141,7 +143,7 @@ describe('queries', () => {
       startedAt: saved.startedAt,
       endedAt: saved.endedAt,
       durationMinutes: saved.durationMinutes,
-      dayNight: saved.dayNight,
+      nightMinutes: saved.nightMinutes,
     };
 
     const draft = reopenSavedSession(active.id);
@@ -157,7 +159,36 @@ describe('queries', () => {
     expect(restored.endedAt).toBe(backup.endedAt);
   });
 
-  test('updateDraftSessionFields recomputes duration and day/night', () => {
+  test('stopSession recomputes duration and day/night from start/end', () => {
+    const active = createActiveSession(TEEN_ID, 'IL');
+    const endedAt = new Date(new Date(active.startedAt).getTime() + 90 * 60 * 1000).toISOString();
+    const draft = stopSession(active.id, endedAt);
+    expect(draft.durationMinutes).toBe(90);
+    expect(draft.nightMinutes).toBeLessThanOrEqual(90);
+    expect(draft.durationMinutes - draft.nightMinutes + draft.nightMinutes).toBe(90);
+  });
+
+  test('updateDraftSessionFields recomputes duration and night when times edited', () => {
+    const active = createActiveSession(TEEN_ID, 'IL');
+    stopSession(active.id, '2026-06-21T23:00:00.000Z');
+
+    const allDay = updateDraftSessionFields(active.id, {
+      startedAt: '2026-06-21T19:00:00.000Z',
+      endedAt: '2026-06-21T20:30:00.000Z',
+    });
+    expect(allDay.durationMinutes).toBe(90);
+    expect(allDay.nightMinutes).toBe(0);
+
+    const mixed = updateDraftSessionFields(active.id, {
+      startedAt: '2026-06-21T23:00:00.000Z',
+      endedAt: '2026-06-22T02:00:00.000Z',
+    });
+    expect(mixed.nightMinutes).toBeGreaterThan(0);
+    expect(mixed.durationMinutes - mixed.nightMinutes).toBeGreaterThan(0);
+    expect(mixed.durationMinutes).toBe(mixed.nightMinutes + (mixed.durationMinutes - mixed.nightMinutes));
+  });
+
+  test('updateDraftSessionFields recomputes all-night session', () => {
     const active = createActiveSession(TEEN_ID, 'IL');
     stopSession(active.id, '2026-06-01T15:00:00.000Z');
 
@@ -167,7 +198,8 @@ describe('queries', () => {
     });
 
     expect(updated.durationMinutes).toBe(90);
-    expect(updated.dayNight).toBe('night');
+    expect(updated.nightMinutes).toBe(90);
+    expect(updated.durationMinutes).toBe(90);
     expect(updated.startedAt).toBe('2026-06-01T03:00:00.000Z');
   });
 
@@ -258,5 +290,81 @@ describe('queries', () => {
       .run();
     deleteAllUserData(TEEN_ID);
     expect(getDb().select().from(outbox).all()).toHaveLength(0);
+  });
+
+  test('insertLocationSample stores foreground GPS rows locally', () => {
+    const active = createActiveSession(TEEN_ID);
+    insertLocationSample({
+      sessionId: active.id,
+      latitude: 41.88,
+      longitude: -87.63,
+      speedMps: 12.5,
+      accuracyM: 8,
+      roadCategory: 'local',
+    });
+    expect(countLocationSamplesForSession(active.id)).toBe(1);
+  });
+
+  test('stopSession stores road category minutes from GPS samples', () => {
+    const active = createActiveSession(TEEN_ID);
+    const startMs = new Date(active.startedAt).getTime();
+    const t10 = new Date(startMs + 10 * 60 * 1000).toISOString();
+    const t40 = new Date(startMs + 40 * 60 * 1000).toISOString();
+    const endedAt = new Date(startMs + 60 * 60 * 1000).toISOString();
+    insertLocationSample({
+      sessionId: active.id,
+      recordedAt: t10,
+      latitude: 41.88,
+      longitude: -87.63,
+      speedMps: 12.5,
+      roadCategory: 'local',
+    });
+    insertLocationSample({
+      sessionId: active.id,
+      recordedAt: t40,
+      latitude: 41.88,
+      longitude: -87.63,
+      speedMps: 25,
+      roadCategory: 'highway',
+    });
+    const draft = stopSession(active.id, endedAt);
+    expect(draft.highwayRoadMinutes).toBe(35);
+    expect(draft.durationMinutes - draft.highwayRoadMinutes).toBe(25);
+  });
+
+  test('stopSession leaves road category null when GPS coverage is insufficient', () => {
+    const active = createActiveSession(TEEN_ID);
+    const startMs = new Date(active.startedAt).getTime();
+    insertLocationSample({
+      sessionId: active.id,
+      recordedAt: new Date(startMs + 55 * 60 * 1000).toISOString(),
+      latitude: 41.88,
+      longitude: -87.63,
+      speedMps: 12.5,
+      roadCategory: 'local',
+    });
+    const draft = stopSession(active.id, new Date(startMs + 60 * 60 * 1000).toISOString());
+    expect(draft.highwayRoadMinutes).toBeNull();
+  });
+
+  test('stopSession leaves road category null without GPS samples', () => {
+    const active = createActiveSession(TEEN_ID);
+    const draft = stopSession(active.id, '2026-06-01T15:00:00.000Z');
+    expect(draft.highwayRoadMinutes).toBeNull();
+  });
+
+  test('discardDraft removes location samples for draft', () => {
+    const active = createActiveSession(TEEN_ID);
+    insertLocationSample({
+      sessionId: active.id,
+      latitude: 41.88,
+      longitude: -87.63,
+      speedMps: 0,
+      roadCategory: 'local',
+    });
+    stopSession(active.id);
+    discardDraft(active.id);
+    expect(getSessionById(active.id)).toBeNull();
+    expect(countLocationSamplesForSession(active.id)).toBe(0);
   });
 });

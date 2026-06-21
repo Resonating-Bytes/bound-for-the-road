@@ -2,6 +2,7 @@ import { getSupabase, isSupabaseConfigured } from './supabase';
 import { fetchLinkedPartners } from './links';
 import { addMonths } from '../utils/time';
 import { IL_RULES } from '../config/states/IL';
+import { legacyNightMinutes } from '../utils/dayNight';
 
 export function aggregateSessionProgress(rows = []) {
   let totalMinutes = 0;
@@ -9,8 +10,11 @@ export function aggregateSessionProgress(rows = []) {
   for (const row of rows) {
     const mins = Number(row.duration_minutes ?? row.durationMinutes ?? 0);
     totalMinutes += mins;
-    const dayNight = row.day_night ?? row.dayNight;
-    if (dayNight === 'night') nightMinutes += mins;
+    if (row.night_minutes != null || row.nightMinutes != null) {
+      nightMinutes += Number(row.night_minutes ?? row.nightMinutes ?? 0);
+    } else {
+      nightMinutes += legacyNightMinutes(row.day_night ?? row.dayNight, mins);
+    }
   }
   return { totalMinutes, nightMinutes, dayMinutes: totalMinutes - nightMinutes };
 }
@@ -22,7 +26,7 @@ export async function fetchProgressForTeens(teenUserIds) {
 
   const { data, error } = await getSupabase()
     .from('sessions')
-    .select('teen_user_id, duration_minutes, day_night')
+    .select('teen_user_id, duration_minutes, night_minutes, day_night')
     .in('teen_user_id', teenUserIds)
     .eq('status', 'saved')
     .is('deleted_at', null);
@@ -38,7 +42,11 @@ export async function fetchProgressForTeens(teenUserIds) {
     if (!byTeen[teenId]) continue;
     const mins = Number(row.duration_minutes ?? 0);
     byTeen[teenId].totalMinutes += mins;
-    if (row.day_night === 'night') byTeen[teenId].nightMinutes += mins;
+    if (row.night_minutes != null) {
+      byTeen[teenId].nightMinutes += Number(row.night_minutes);
+    } else {
+      byTeen[teenId].nightMinutes += legacyNightMinutes(row.day_night, mins);
+    }
     byTeen[teenId].dayMinutes = byTeen[teenId].totalMinutes - byTeen[teenId].nightMinutes;
   }
 

@@ -2,7 +2,7 @@ const LIGHT_TEXT = '#f8fafc';
 const DARK_TEXT = '#1a2b3c';
 
 /** Relative luminance threshold — below uses light text + light status bar. */
-const LUMINANCE_THRESHOLD = 0.45;
+export const LUMINANCE_THRESHOLD = 0.45;
 
 function expandHex(hex) {
   const normalized = hex.replace('#', '');

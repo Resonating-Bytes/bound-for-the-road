@@ -22,6 +22,7 @@ import { generateId, nowISO } from '../utils/time';
 import { notifyApprovalPush, PUSH_EVENTS } from './approvalPush';
 import { canUseRemoteWrite, getCachedCompatibility, assertRemoteWriteAllowed } from './compatibility';
 import { isNetworkOnline, isNetworkFailureError } from './network';
+import { legacyNightMinutes } from '../utils/dayNight';
 
 function isRemoteWriteAllowed() {
   if (!isSupabaseConfigured()) return false;
@@ -48,12 +49,33 @@ function mapSessionToRemote(session) {
     started_at: session.startedAt,
     ended_at: session.endedAt,
     duration_minutes: session.durationMinutes,
-    day_night: session.dayNight,
+    night_minutes: session.nightMinutes,
     notes: session.notes,
     request_hash: session.requestHash,
     payload_json: session.payloadJson,
     active_supervisor_id: session.activeSupervisorId,
     deleted_at: session.deletedAt,
+  };
+}
+
+function mapRemoteSession(row) {
+  if (!row) return null;
+  const durationMinutes = row.duration_minutes ?? row.durationMinutes ?? null;
+  let nightMinutes = row.night_minutes ?? row.nightMinutes ?? null;
+  if (nightMinutes == null && (row.day_night ?? row.dayNight)) {
+    nightMinutes = legacyNightMinutes(row.day_night ?? row.dayNight, durationMinutes);
+  }
+  return {
+    id: row.id,
+    teenUserId: row.teen_user_id ?? row.teenUserId,
+    startedAt: row.started_at ?? row.startedAt,
+    endedAt: row.ended_at ?? row.endedAt,
+    durationMinutes,
+    nightMinutes,
+    notes: row.notes,
+    requestHash: row.request_hash ?? row.requestHash,
+    status: row.status,
+    deletedAt: row.deleted_at ?? row.deletedAt,
   };
 }
 
@@ -341,6 +363,7 @@ export async function fetchPendingSubmissionsForAdult() {
         started_at,
         ended_at,
         duration_minutes,
+        night_minutes,
         day_night,
         notes
       )
@@ -380,17 +403,7 @@ export async function fetchPendingSubmissionsForAdult() {
       payloadJson: row.payload_json,
       submittedAt: row.submitted_at,
       submittedByUserId: row.submitted_by_user_id,
-      session: row.sessions
-        ? {
-            id: row.sessions.id,
-            teenUserId: row.sessions.teen_user_id,
-            startedAt: row.sessions.started_at,
-            endedAt: row.sessions.ended_at,
-            durationMinutes: row.sessions.duration_minutes,
-            dayNight: row.sessions.day_night,
-            notes: row.sessions.notes,
-          }
-        : null,
+      session: mapRemoteSession(row.sessions),
       teenName: teenNames[row.sessions?.teen_user_id] ?? 'Driver',
     }))
     .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
@@ -418,6 +431,7 @@ export async function fetchApprovedSubmissionsForAdult() {
         started_at,
         ended_at,
         duration_minutes,
+        night_minutes,
         day_night,
         notes,
         status,
@@ -472,17 +486,7 @@ export async function fetchApprovedSubmissionsForAdult() {
       row.supervisor_in_vehicle_name?.trim() ||
       approverNames[row.approved_by_user_id] ||
       'Supervisor',
-    session: row.sessions
-      ? {
-          id: row.sessions.id,
-          teenUserId: row.sessions.teen_user_id,
-          startedAt: row.sessions.started_at,
-          endedAt: row.sessions.ended_at,
-          durationMinutes: row.sessions.duration_minutes,
-          dayNight: row.sessions.day_night,
-          notes: row.sessions.notes,
-        }
-      : null,
+    session: mapRemoteSession(row.sessions),
     teenName: teenNames[row.sessions?.teen_user_id] ?? 'Driver',
   }));
 }
@@ -645,6 +649,7 @@ export async function fetchSubmissionDetail(requestHash) {
         started_at,
         ended_at,
         duration_minutes,
+        night_minutes,
         day_night,
         notes,
         request_hash,
@@ -674,7 +679,7 @@ export async function fetchSubmissionDetail(requestHash) {
 
     const { data: sessionRow, error: sessionError } = await supabase
       .from('sessions')
-      .select('id, teen_user_id, started_at, ended_at, duration_minutes, day_night, notes, request_hash')
+      .select('id, teen_user_id, started_at, ended_at, duration_minutes, night_minutes, day_night, notes, request_hash')
       .eq('id', approval.sessionId)
       .maybeSingle();
 
@@ -682,16 +687,7 @@ export async function fetchSubmissionDetail(requestHash) {
 
     return {
       submission: null,
-      session: {
-        id: sessionRow.id,
-        teenUserId: sessionRow.teen_user_id,
-        startedAt: sessionRow.started_at,
-        endedAt: sessionRow.ended_at,
-        durationMinutes: sessionRow.duration_minutes,
-        dayNight: sessionRow.day_night,
-        notes: sessionRow.notes,
-        requestHash: sessionRow.request_hash,
-      },
+      session: mapRemoteSession(sessionRow),
       payload: null,
       approval,
       approverName,
@@ -707,20 +703,7 @@ export async function fetchSubmissionDetail(requestHash) {
       submittedByUserId: data.submitted_by_user_id,
       superseded: data.superseded,
     },
-    session: data.sessions
-      ? {
-          id: data.sessions.id,
-          teenUserId: data.sessions.teen_user_id,
-          startedAt: data.sessions.started_at,
-          endedAt: data.sessions.ended_at,
-          durationMinutes: data.sessions.duration_minutes,
-          dayNight: data.sessions.day_night,
-          notes: data.sessions.notes,
-          requestHash: data.sessions.request_hash,
-          status: data.sessions.status,
-          deletedAt: data.sessions.deleted_at,
-        }
-      : null,
+    session: mapRemoteSession(data.sessions),
     payload: JSON.parse(data.payload_json),
     approval,
     approverName,

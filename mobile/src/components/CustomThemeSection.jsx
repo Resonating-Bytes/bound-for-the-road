@@ -37,10 +37,13 @@ function HexField({ label, value, onChangeText, onFocus, placeholder, fieldRef }
 export function CustomThemeSection({ onInputFocus }) {
   const {
     presetId,
+    selectedPreset,
     customColors,
     setCustomPrimary,
     setCustomAccent,
     selectCustomTheme,
+    copyPresetToCustom,
+    canCopyPresetToCustom,
   } = useTheme();
 
   const selected = presetId === CUSTOM_PRESET_ID;
@@ -113,6 +116,27 @@ export function CustomThemeSection({ onInputFocus }) {
           />
         </View>
       </View>
+
+      <Pressable
+        onPress={copyPresetToCustom}
+        disabled={!canCopyPresetToCustom}
+        accessibilityRole="button"
+        accessibilityLabel={
+          canCopyPresetToCustom
+            ? `Copy ${selectedPreset.label} colors to custom theme`
+            : 'Copy from preset'
+        }
+        accessibilityState={{ disabled: !canCopyPresetToCustom }}
+        style={({ pressed }) => [
+          styles.copyBtn,
+          !canCopyPresetToCustom && styles.copyBtnDisabled,
+          pressed && canCopyPresetToCustom && styles.copyBtnPressed,
+        ]}
+      >
+        <Text style={styles.copyBtnText}>
+          {canCopyPresetToCustom ? `Copy from ${selectedPreset.label}` : 'Copy from preset'}
+        </Text>
+      </Pressable>
 
       <Text style={styles.hint}>
         Your hex values are saved even when you pick a preset. Tap the swatch to apply them.
@@ -224,5 +248,26 @@ const styles = StyleSheet.create({
     color: '#6a7b8c',
     marginTop: 8,
     lineHeight: 18,
+  },
+  copyBtn: {
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    backgroundColor: '#fff',
+  },
+  copyBtnDisabled: {
+    opacity: 0.45,
+  },
+  copyBtnPressed: {
+    opacity: 0.85,
+  },
+  copyBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a2b3c',
   },
 });

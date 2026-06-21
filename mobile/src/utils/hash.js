@@ -12,7 +12,7 @@ const MVP_PAYLOAD_KEYS = [
   'startedAt',
   'endedAt',
   'durationMinutes',
-  'dayNight',
+  'nightMinutes',
   'notes',
   'savedAt',
   'savedByUserId',
@@ -28,7 +28,7 @@ const SUBMIT_PAYLOAD_KEYS = [
   'activeSupervisorId',
   'activeSupervisorJoinedAt',
   'durationMinutes',
-  'dayNight',
+  'nightMinutes',
   'notes',
   'submittedAt',
   'submittedByUserId',
@@ -53,10 +53,43 @@ export function stableSubmitStringify(obj) {
 }
 
 export function payloadKeyOrder(payload) {
-  if (payload && Object.prototype.hasOwnProperty.call(payload, 'submittedAt')) {
-    return SUBMIT_PAYLOAD_KEYS;
+  if (!payload) return MVP_PAYLOAD_KEYS;
+  const version = Number(payload.schemaVersion ?? 1);
+  if (version >= 2) {
+    if (Object.prototype.hasOwnProperty.call(payload, 'submittedAt')) {
+      return SUBMIT_PAYLOAD_KEYS;
+    }
+    return MVP_PAYLOAD_KEYS;
   }
-  return MVP_PAYLOAD_KEYS;
+  if (Object.prototype.hasOwnProperty.call(payload, 'submittedAt')) {
+    return [
+      'schemaVersion',
+      'sessionId',
+      'stateCode',
+      'startedAt',
+      'endedAt',
+      'endedBy',
+      'activeSupervisorId',
+      'activeSupervisorJoinedAt',
+      'durationMinutes',
+      'dayNight',
+      'notes',
+      'submittedAt',
+      'submittedByUserId',
+    ];
+  }
+  return [
+    'schemaVersion',
+    'sessionId',
+    'stateCode',
+    'startedAt',
+    'endedAt',
+    'durationMinutes',
+    'dayNight',
+    'notes',
+    'savedAt',
+    'savedByUserId',
+  ];
 }
 
 export function buildSavePayload({
@@ -65,7 +98,7 @@ export function buildSavePayload({
   startedAt,
   endedAt,
   durationMinutes,
-  dayNight,
+  nightMinutes,
   notes,
   savedByUserId,
 }) {
@@ -76,7 +109,7 @@ export function buildSavePayload({
     startedAt,
     endedAt,
     durationMinutes,
-    dayNight,
+    nightMinutes,
     notes: notes ?? null,
     savedAt: nowISO(),
     savedByUserId,
@@ -92,7 +125,7 @@ export function buildSubmitPayload({
   activeSupervisorId = null,
   activeSupervisorJoinedAt = null,
   durationMinutes,
-  dayNight,
+  nightMinutes,
   notes,
   submittedByUserId,
 }) {
@@ -106,7 +139,7 @@ export function buildSubmitPayload({
     activeSupervisorId,
     activeSupervisorJoinedAt,
     durationMinutes,
-    dayNight,
+    nightMinutes,
     notes: notes ?? null,
     submittedAt: nowISO(),
     submittedByUserId,

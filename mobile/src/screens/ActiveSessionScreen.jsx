@@ -1,10 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Text, Pressable, StyleSheet, AppState } from 'react-native';
+import { Text, Pressable, StyleSheet, AppState, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { getSessionById, stopSession } from '../db/queries';
 import { durationMinutes, formatDuration } from '../utils/time';
 import { cancelSessionNotifications } from '../utils/notifications';
+import { roadCategoryLabel } from '../utils/roadCategory';
+import { createSessionSunWindow, dayNightPhaseAt } from '../utils/dayNight';
+import { useForegroundLocationSampling } from '../hooks/useForegroundLocationSampling';
 import { Screen } from '../components/Screen';
 
 function elapsedFromStart(startedAt) {
@@ -12,10 +16,41 @@ function elapsedFromStart(startedAt) {
   return durationMinutes(startedAt, new Date().toISOString());
 }
 
+function locationStatusHint(status) {
+  switch (status) {
+    case 'denied':
+      return 'Location off — road category not tracked while driving.';
+    case 'unavailable':
+      return 'Location unavailable on this device.';
+    case 'requesting':
+      return 'Waiting for location permission…';
+    default:
+      return null;
+  }
+}
+
+function DayNightIcon({ phase }) {
+  const isNight = phase === 'night';
+  return (
+    <Ionicons
+      name={isNight ? 'moon' : 'sunny'}
+      size={28}
+      color="#e5e7eb"
+      accessibilityLabel={isNight ? 'Night driving' : 'Day driving'}
+    />
+  );
+}
+
 export function ActiveSessionScreen({ route, navigation }) {
   const { sessionId } = route.params;
   const [session, setSession] = useState(() => getSessionById(sessionId));
   const [, setTick] = useState(0);
+  const isActive = session?.status === 'active';
+  const { status: locationStatus, latest, sunWindow } = useForegroundLocationSampling(
+    sessionId,
+    session?.startedAt,
+    isActive,
+  );
 
   const refresh = useCallback(() => {
     setSession(getSessionById(sessionId));
@@ -41,6 +76,14 @@ export function ActiveSessionScreen({ route, navigation }) {
   );
 
   const elapsed = elapsedFromStart(session?.startedAt);
+  const locationHint = locationStatusHint(locationStatus);
+  const displaySunWindow =
+    sunWindow ?? (session?.startedAt ? createSessionSunWindow(session.startedAt) : null);
+  const liveDayNight = displaySunWindow
+    ? dayNightPhaseAt(new Date().toISOString(), displaySunWindow)
+    : 'day';
+  const roadCategory = latest?.roadCategory;
+  const showRoadCategory = locationStatus === 'tracking';
 
   async function handleStop() {
     stopSession(sessionId);
@@ -61,8 +104,29 @@ export function ActiveSessionScreen({ route, navigation }) {
     <Screen style={styles.screen}>
       <StatusBar style="light" />
       <Text style={styles.label}>Practice in progress</Text>
+
+      {showRoadCategory ? (
+        <View style={styles.statsRow}>
+          <View style={styles.statSide}>
+            <DayNightIcon phase={liveDayNight} />
+          </View>
+          <View style={styles.statCenter}>
+            <Text style={styles.statValue}>{roadCategoryLabel(roadCategory)}</Text>
+            <Text style={styles.statLabel}>Road category</Text>
+          </View>
+          <View style={styles.statSide} />
+        </View>
+      ) : (
+        <View style={styles.statsRowCentered}>
+          <DayNightIcon phase={liveDayNight} />
+        </View>
+      )}
+
       <Text style={styles.timer}>{formatDuration(elapsed)}</Text>
-      <Text style={styles.hint}>Stop when you're done driving.</Text>
+
+      {locationHint ? <Text style={styles.locationHint}>{locationHint}</Text> : null}
+
+      <Text style={styles.hint}>Stop when you&apos;re done driving.</Text>
       <Pressable style={styles.stopBtn} onPress={handleStop}>
         <Text style={styles.stopBtnText}>Stop session</Text>
       </Pressable>
@@ -78,13 +142,53 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  label: { fontSize: 18, color: '#9ca3af', marginBottom: 8 },
+  label: { fontSize: 18, color: '#9ca3af', marginBottom: 16 },
   timer: {
     fontSize: 64,
     fontWeight: '700',
     color: '#ffffff',
-    marginBottom: 16,
+    marginBottom: 24,
     fontVariant: ['tabular-nums'],
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    maxWidth: 320,
+    marginBottom: 20,
+  },
+  statsRowCentered: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  statSide: {
+    alignItems: 'center',
+    minWidth: 44,
+  },
+  statCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#e5e7eb',
+  },
+  locationHint: {
+    fontSize: 13,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 18,
+    paddingHorizontal: 16,
   },
   hint: { fontSize: 15, color: '#6b7280', textAlign: 'center', marginBottom: 40, lineHeight: 22 },
   missing: { color: '#9ca3af', fontSize: 16 },

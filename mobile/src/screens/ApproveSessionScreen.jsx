@@ -14,7 +14,7 @@ import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { fetchSubmissionDetail, approveSubmissionRemote, declineSubmissionRemote } from '../lib/submissions';
 import { formatDate, formatDateTime, formatDuration } from '../utils/time';
-import { dayNightLabel } from '../utils/dayNight';
+import { formatDayNightSummary } from '../utils/dayNight';
 import { SUPERVISOR_NAME_HINT } from '../config/profileCopy';
 import { limitNameLength, clampName, MAX_LEGAL_NAME_LENGTH } from '../utils/names';
 import { useTheme } from '../context/ThemeContext';
@@ -169,7 +169,7 @@ export function ApproveSessionScreen({ route, navigation }) {
           <Row label="Start" value={formatDateTime(session.startedAt)} />
           <Row label="End" value={formatDateTime(session.endedAt)} />
           <Row label="Duration" value={formatDuration(session.durationMinutes ?? 0)} />
-          <Row label="Day / night" value={dayNightLabel(session.dayNight)} />
+          <Row label="Day / night" value={formatDayNightSummary(session.durationMinutes, session.nightMinutes)} />
           {session.notes ? <Row label="Notes" value={session.notes} /> : null}
         </View>
 

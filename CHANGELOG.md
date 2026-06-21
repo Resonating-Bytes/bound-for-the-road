@@ -5,6 +5,28 @@ All notable changes to the mobile app and its Supabase backend are documented he
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 
+## [1.5.6] - 2026-06-21
+
+### Added
+
+- Foreground GPS sampling during active session (local only); live road category and day/night on Active screen
+- Road category breakdown on Review (local/highway minutes); Insufficient data when coverage is below threshold
+- Export all dialog on Dashboard with optional road category lines; preference persisted in settings storage
+- Copy from preset on Appearance — copies preset header and accent into custom theme fields
+- Header border color derived from background luminance (presets and custom themes)
+- Local SQLite: `session_location_samples`, `highway_road_minutes` (migration v7)
+- Supabase: `sessions.night_minutes` for IL night-hour progress (`20260625120000`)
+
+### Changed
+
+- Mixed road category summary shows two lines (local then highway) without a Mixed prefix; single-category sessions show Local or Highway only
+- Active session hides road category when location is not tracking; day/night icon centers when alone
+
+### Fixed
+
+- Road category coverage uses millisecond gaps so ~5s GPS samples count toward the 50% threshold
+- Lead-in and tail excluded symmetrically from the coverage gate (inter-sample gaps only)
+
 ## [1.5.5] - 2026-06-21
 
 ### Added

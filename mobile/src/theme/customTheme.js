@@ -72,3 +72,12 @@ export function resolveCustomTheme(customColors) {
 export function isCustomPresetId(presetId) {
   return presetId === CUSTOM_PRESET_ID;
 }
+
+/** Map a built-in preset's header + accent to custom hex fields (no # prefix). */
+export function customColorsFromPreset(preset) {
+  if (!preset?.headerBackground || !preset?.accent) return null;
+  return {
+    primary: sanitizeHexInput(String(preset.headerBackground).replace(/^#/, '')),
+    accent: sanitizeHexInput(String(preset.accent).replace(/^#/, '')),
+  };
+}

@@ -8,6 +8,7 @@ export function createSessionEditBackup(session) {
     startedAt: session.startedAt,
     endedAt: session.endedAt,
     durationMinutes: session.durationMinutes,
-    dayNight: session.dayNight,
+    nightMinutes: session.nightMinutes,
+    highwayRoadMinutes: session.highwayRoadMinutes,
   };
 }
