@@ -9,7 +9,7 @@ describe('sessionEdit', () => {
       startedAt: '2026-06-01T14:00:00.000Z',
       endedAt: '2026-06-01T15:00:00.000Z',
       durationMinutes: 60,
-      dayNight: 'day',
+      nightMinutes: 0,
     });
 
     expect(backup).toEqual({
@@ -19,7 +19,7 @@ describe('sessionEdit', () => {
       startedAt: '2026-06-01T14:00:00.000Z',
       endedAt: '2026-06-01T15:00:00.000Z',
       durationMinutes: 60,
-      dayNight: 'day',
+      nightMinutes: 0,
     });
   });
 });

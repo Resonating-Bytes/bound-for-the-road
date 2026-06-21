@@ -1,5 +1,7 @@
 /** Hex ↔ HSL helpers for accent derivation (theme spike). */
 
+import { getHeaderContrast, LUMINANCE_THRESHOLD, relativeLuminance } from './contrast';
+
 function expandHex(hex) {
   const normalized = String(hex).replace('#', '');
   if (normalized.length === 3) {
@@ -95,8 +97,69 @@ export function deriveAccentFromHeader(headerBackground) {
   return hslToHex((h + 360) % 360, accentS, accentL);
 }
 
-/** Slightly darken header color for border (custom theme). */
-export function deriveHeaderBorderFromBackground(headerBackground) {
-  const { h, s, l } = hexToHsl(headerBackground);
-  return hslToHex(h, Math.min(100, s + 4), Math.max(0, l - 12));
+/** Header border tuning — presets and custom themes (reload Expo after edits). */
+export const HEADER_BORDER_TUNING = {
+  /** Dark header: minimum HSL lightness added at contrast threshold. */
+  darkHeaderBaseLightnessDelta: 6,
+  /** Dark header: additional lighten at darkest (luminance → 0). Max = base + extra. */
+  darkHeaderExtraLightnessDelta: 16,
+  /** Light header: minimum HSL lightness removed at contrast threshold. */
+  lightHeaderBaseLightnessDelta: 5,
+  /** Light header: additional darken at lightest (luminance → 1). Max = base + extra. */
+  lightHeaderExtraLightnessDelta: 7,
+  /** Extra saturation on border vs header (both cases). */
+  saturationDelta: 4,
+};
+
+/** @deprecated Use HEADER_BORDER_TUNING */
+export const PRESET_HEADER_BORDER_TUNING = HEADER_BORDER_TUNING;
+
+/** 0 at contrast midpoint, 1 at black or white edge. */
+export function headerBorderDistanceFromMid(luminance, isDarkHeader) {
+  if (isDarkHeader) {
+    if (luminance >= LUMINANCE_THRESHOLD) return 0;
+    return (LUMINANCE_THRESHOLD - luminance) / LUMINANCE_THRESHOLD;
+  }
+  if (luminance <= LUMINANCE_THRESHOLD) return 0;
+  return (luminance - LUMINANCE_THRESHOLD) / (1 - LUMINANCE_THRESHOLD);
 }
+
+/** base + extra × distance — always at least base for entries near the midpoint. */
+export function borderLightnessDelta(baseDelta, extraDelta, distance) {
+  const d = Math.min(1, Math.max(0, distance));
+  return baseDelta + extraDelta * d;
+}
+
+/**
+ * Header border from background — shift lightness based on title contrast.
+ * Light text (dark header) → lighter border; dark text (light header) → darker border.
+ * delta = base + extra × distanceFromMid (see HEADER_BORDER_TUNING).
+ */
+export function deriveHeaderBorderFromBackground(
+  headerBackground,
+  tuning = HEADER_BORDER_TUNING,
+) {
+  const { statusBarStyle } = getHeaderContrast(headerBackground);
+  const isDarkHeader = statusBarStyle === 'light';
+  const luminance = relativeLuminance(headerBackground);
+  const distance = headerBorderDistanceFromMid(luminance, isDarkHeader);
+  const { h, s, l } = hexToHsl(headerBackground);
+
+  const delta = isDarkHeader
+    ? borderLightnessDelta(
+        tuning.darkHeaderBaseLightnessDelta,
+        tuning.darkHeaderExtraLightnessDelta,
+        distance,
+      )
+    : borderLightnessDelta(
+        tuning.lightHeaderBaseLightnessDelta,
+        tuning.lightHeaderExtraLightnessDelta,
+        distance,
+      );
+
+  const borderL = isDarkHeader ? Math.min(100, l + delta) : Math.max(0, l - delta);
+  return hslToHex(h, Math.min(100, s + tuning.saturationDelta), borderL);
+}
+
+/** @deprecated Use deriveHeaderBorderFromBackground */
+export const derivePresetHeaderBorderFromBackground = deriveHeaderBorderFromBackground;

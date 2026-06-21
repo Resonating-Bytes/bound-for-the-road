@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { ProgressBar } from '../components/ProgressBar';
 import { ListRowChevron } from '../components/ListRowChevron';
+import { ExportOptionsModal } from '../components/ExportOptionsModal';
 import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { IconCircleButton } from '../components/IconCircleButton';
@@ -45,8 +46,9 @@ import { useApprovalPushRefresh } from '../hooks/useApprovalPushRefresh';
 import { useOutboxSyncRefresh } from '../hooks/useOutboxSyncRefresh';
 import { IL_RULES } from '../config/states/IL';
 import { formatDate, formatDuration, addMonths } from '../utils/time';
-import { dayNightLabel } from '../utils/dayNight';
+import { formatDayNightSummary, computeDayNightMinutes } from '../utils/dayNight';
 import { renderExportTemplate } from '../utils/export';
+import { readExportIncludeRoadCategory, writeExportIncludeRoadCategory } from '../lib/exportPreferences';
 import { TEEN_DASHBOARD_TITLE } from '../theme/headerTitleEffects';
 import {
   scheduleSessionNudge,
@@ -62,6 +64,8 @@ export function DashboardScreen({ navigation }) {
   const [progress, setProgress] = useState({ totalMinutes: 0, nightMinutes: 0 });
   const [statusBySessionId, setStatusBySessionId] = useState({});
   const [refreshing, setRefreshing] = useState(false);
+  const [exportModalVisible, setExportModalVisible] = useState(false);
+  const [exportIncludeRoadCategory, setExportIncludeRoadCategory] = useState(false);
 
   const loadLocalDashboard = useCallback(() => {
     if (!userId) return;
@@ -203,7 +207,7 @@ export function DashboardScreen({ navigation }) {
         <View style={styles.rowBody}>
           <Text style={styles.rowDate}>{formatDate(item.startedAt)}</Text>
           <Text style={styles.rowMeta}>
-            {formatDuration(item.durationMinutes ?? 0)} · {dayNightLabel(item.dayNight)}
+            {formatDuration(item.durationMinutes ?? 0)} · {formatDayNightSummary(item.durationMinutes, item.nightMinutes)}
           </Text>
           {status?.label ? (
             <Text
@@ -250,9 +254,18 @@ export function DashboardScreen({ navigation }) {
     navigation.navigate('ActiveSession', { sessionId: session.id });
   }
 
-  async function handleExportAll() {
+  function handleExportAll() {
+    setExportIncludeRoadCategory(readExportIncludeRoadCategory(userId));
+    setExportModalVisible(true);
+  }
+
+  async function handleConfirmExport() {
+    writeExportIncludeRoadCategory(userId, exportIncludeRoadCategory);
     const rows = listSavedSessions(userId);
-    const text = renderExportTemplate(rows, user);
+    const text = renderExportTemplate(rows, user, {
+      includeRoadCategory: exportIncludeRoadCategory,
+    });
+    setExportModalVisible(false);
     await Share.share({ message: text });
   }
 
@@ -316,6 +329,16 @@ export function DashboardScreen({ navigation }) {
         renderItem={({ item }) => renderSessionRow(item)}
       />
       </View>
+
+      <ExportOptionsModal
+        visible={exportModalVisible}
+        includeRoadCategory={exportIncludeRoadCategory}
+        onIncludeRoadCategoryChange={setExportIncludeRoadCategory}
+        onCancel={() => setExportModalVisible(false)}
+        onExport={handleConfirmExport}
+        accent={theme.accent}
+        accentText={theme.accentText}
+      />
     </Screen>
   );
 }

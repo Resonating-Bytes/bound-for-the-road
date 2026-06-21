@@ -14,10 +14,10 @@ jest.mock('../../src/lib/supabase', () => ({
 const fullCapabilities = Object.values(BACKEND_CAPABILITIES);
 
 const compatibleRemote = {
-  backend_revision: '20260624120000',
+  backend_revision: '20260625120000',
   min_app_version: '1.0.0',
   latest_app_version: '1.5.1',
-  payload_schema_version: '1',
+  payload_schema_version: '2',
   capabilities: fullCapabilities,
 };
 

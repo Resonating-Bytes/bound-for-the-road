@@ -7,10 +7,10 @@ import capabilityContract from './requiredBackendCapabilities.json';
 export const APP_VERSION = appJson.expo.version;
 
 /** Oldest backend_revision this app build supports (Supabase migration id). */
-export const MIN_BACKEND_REVISION = '20260624120000';
+export const MIN_BACKEND_REVISION = '20260625120000';
 
-export const CURRENT_PAYLOAD_SCHEMA_VERSION = 1;
-export const SUPPORTED_PAYLOAD_SCHEMA_VERSION = 1;
+export const CURRENT_PAYLOAD_SCHEMA_VERSION = 2;
+export const SUPPORTED_PAYLOAD_SCHEMA_VERSION = 2;
 
 /** Contract version for get_app_compatibility shape (see docs/RPC_CONTRACT.md). */
 export const COMPATIBILITY_CONTRACT_VERSION = capabilityContract.contractVersion;

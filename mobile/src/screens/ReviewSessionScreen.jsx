@@ -21,6 +21,8 @@ import {
   getSessionApprovalContext,
   getApprovalForHash,
   hasUnsyncedSubmissionOutbox,
+  countLocationSamplesForSession,
+  recomputeSessionRoadCategory,
   updateDraftSessionFields,
 } from '../db/queries';
 import {
@@ -31,7 +33,13 @@ import {
   syncSessionReopenedForEdit,
 } from '../lib/submissions';
 import { formatDateTime, formatDuration, durationMinutes } from '../utils/time';
-import { classifyDayNight, dayNightLabel } from '../utils/dayNight';
+import { formatDayNightSummary, computeDayNightMinutes } from '../utils/dayNight';
+import {
+  formatRoadCategorySummary,
+  hasRoadCategoryBreakdown,
+  ROAD_CATEGORY_INSUFFICIENT_DATA,
+  ROAD_CATEGORY_INSUFFICIENT_DATA_HINT,
+} from '../utils/roadCategory';
 import { getCurfewWarning } from '../utils/curfew';
 import { IL_RULES } from '../config/states/IL';
 import { cancelSessionNotifications, scheduleSessionNudge } from '../utils/notifications';
@@ -115,7 +123,15 @@ export function ReviewSessionScreen({ route, navigation }) {
   const displayStart = startedAt ?? session.startedAt;
   const displayEnd = endedAt ?? session.endedAt;
   const mins = durationMinutes(displayStart, displayEnd);
-  const dayNight = classifyDayNight(displayStart);
+  const { nightMinutes } = computeDayNightMinutes(displayStart, displayEnd);
+  const sampleCount = countLocationSamplesForSession(sessionId);
+  const roadCategoryBreakdown =
+    displayStart && displayEnd && sampleCount > 0
+      ? recomputeSessionRoadCategory(sessionId, displayStart, displayEnd)
+      : null;
+  const showRoadCategoryBreakdown =
+    roadCategoryBreakdown && hasRoadCategoryBreakdown(roadCategoryBreakdown.highwayRoadMinutes);
+  const showRoadCategoryNotTracked = sampleCount > 0 && !showRoadCategoryBreakdown;
   const curfewWarning = getCurfewWarning(displayStart, displayEnd);
   const isDraft = session.status === 'draft';
   const submitBlocked = isSupabaseConfigured() && !canRemoteWrite;
@@ -402,7 +418,19 @@ export function ReviewSessionScreen({ route, navigation }) {
             </>
           )}
           <Row label="Duration" value={formatDuration(mins)} />
-          <Row label="Day / night" value={dayNightLabel(dayNight)} />
+          <Row label="Day / night" value={formatDayNightSummary(mins, nightMinutes)} />
+          {showRoadCategoryBreakdown ? (
+            <Row
+              label="Road category"
+              value={formatRoadCategorySummary(mins, roadCategoryBreakdown.highwayRoadMinutes)}
+              valueStyle={styles.rowValueMultiline}
+            />
+          ) : showRoadCategoryNotTracked ? (
+            <>
+              <Row label="Road category" value={ROAD_CATEGORY_INSUFFICIENT_DATA} />
+              <Text style={styles.roadCategoryHint}>{ROAD_CATEGORY_INSUFFICIENT_DATA_HINT}</Text>
+            </>
+          ) : null}
         </View>
 
         {staleExpired && (
@@ -540,11 +568,11 @@ export function ReviewSessionScreen({ route, navigation }) {
   );
 }
 
-function Row({ label, value }) {
+function Row({ label, value, valueStyle }) {
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
+      <Text style={[styles.rowValue, valueStyle]}>{value}</Text>
     </View>
   );
 }
@@ -564,6 +592,14 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   rowLabel: { color: '#5a6b7c', fontSize: 15 },
   rowValue: { color: '#1a2b3c', fontSize: 15, fontWeight: '500', flexShrink: 1, textAlign: 'right' },
+  rowValueMultiline: { lineHeight: 21 },
+  roadCategoryHint: {
+    fontSize: 13,
+    color: '#6a7b8c',
+    lineHeight: 18,
+    marginTop: -4,
+    marginBottom: 4,
+  },
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',

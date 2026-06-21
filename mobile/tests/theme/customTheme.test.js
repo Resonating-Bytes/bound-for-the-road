@@ -1,12 +1,15 @@
 import {
   CUSTOM_PRESET_ID,
   DEFAULT_CUSTOM_THEME_COLORS,
+  customColorsFromPreset,
   isValidCustomThemeColors,
   parseCustomThemeColors,
   resolveCustomTheme,
   sanitizeHexInput,
   serializeCustomThemeColors,
 } from '../../src/theme/customTheme';
+import { deriveHeaderBorderFromBackground } from '../../src/theme/colorMath';
+import { getPresetById } from '../../src/theme/presets';
 import { resolveTheme } from '../../src/theme/resolveTheme';
 
 describe('customTheme', () => {
@@ -32,6 +35,9 @@ describe('customTheme', () => {
   test('resolveCustomTheme builds header and accent tokens', () => {
     const theme = resolveCustomTheme(DEFAULT_CUSTOM_THEME_COLORS);
     expect(theme.headerBackground).toBe('#DBEAFE');
+    expect(theme.headerBorder).toBe(
+      deriveHeaderBorderFromBackground('#DBEAFE'),
+    );
     expect(theme.accent).toBe('#2563EB');
     expect(theme.headerText).toBe('#1a2b3c');
     expect(theme.statusBarStyle).toBe('dark');
@@ -51,5 +57,14 @@ describe('customTheme', () => {
   test('isValidCustomThemeColors requires six hex digits', () => {
     expect(isValidCustomThemeColors(DEFAULT_CUSTOM_THEME_COLORS)).toBe(true);
     expect(isValidCustomThemeColors({ primary: 'ABC', accent: '2563EB' })).toBe(false);
+  });
+
+  test('customColorsFromPreset maps header and accent hex without hash', () => {
+    const preset = getPresetById('ocean');
+    expect(customColorsFromPreset(preset)).toEqual({
+      primary: 'DBEAFE',
+      accent: '2563EB',
+    });
+    expect(customColorsFromPreset(null)).toBeNull();
   });
 });

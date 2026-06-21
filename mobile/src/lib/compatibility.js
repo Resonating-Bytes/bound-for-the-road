@@ -258,9 +258,9 @@ export async function fetchBackendCompatibility() {
 
 export function assertPayloadSchemaSupported(schemaVersion) {
   const version = Number(schemaVersion ?? 1);
-  if (version > SUPPORTED_PAYLOAD_SCHEMA_VERSION) {
+  if (version < 1 || version > SUPPORTED_PAYLOAD_SCHEMA_VERSION) {
     throw new Error(
-      `Session data uses schema v${version}, but this app only supports up to v${SUPPORTED_PAYLOAD_SCHEMA_VERSION}. Update the app.`,
+      `Session data uses schema v${version}, but this app only supports v1–v${SUPPORTED_PAYLOAD_SCHEMA_VERSION}. Update the app.`,
     );
   }
 }

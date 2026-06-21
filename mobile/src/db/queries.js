@@ -1,13 +1,41 @@
 import { eq, and, or, isNull, desc, asc, sql, inArray } from 'drizzle-orm';
 import { getDb } from './client';
-import { users, sessions, outbox, links, settings, submissions, approvals, userAliases } from './schema';
+import { users, sessions, outbox, links, settings, submissions, approvals, userAliases, sessionLocationSamples } from './schema';
 import { generateId, nowISO, durationMinutes } from '../utils/time';
-import { classifyDayNight } from '../utils/dayNight';
+import { computeDayNightMinutes } from '../utils/dayNight';
+import { computeRoadCategoryMinutes } from '../utils/roadCategory';
 import { buildSubmitPayload, computeRequestHash, stableSubmitStringify } from '../utils/hash';
 import { IL_RULES } from '../config/states/IL';
 import { clearHeaderThemePreference } from '../theme/headerTheme';
 import { clearAdultSelectedTeen } from '../lib/adultSelectedTeen';
+import { exportIncludeRoadCategoryKey } from '../lib/exportPreferences';
 import { hasLegalName, hasDisplayName, clampName, MAX_NICKNAME_LENGTH } from '../utils/names';
+
+/** Derive duration and night minutes from session start/end (day = duration - night). */
+export function recomputeSessionTiming(startedAt, endedAt) {
+  const durationMinutesValue = durationMinutes(startedAt, endedAt);
+  const { nightMinutes } = computeDayNightMinutes(startedAt, endedAt);
+  return {
+    durationMinutes: durationMinutesValue,
+    nightMinutes,
+  };
+}
+
+/** Derive highway minutes from foreground GPS samples (null when coverage insufficient). */
+export function recomputeSessionRoadCategory(sessionId, startedAt, endedAt) {
+  if (countLocationSamplesForSession(sessionId) === 0) {
+    return { highwayRoadMinutes: null };
+  }
+  const samples = listLocationSamplesForSession(sessionId);
+  return computeRoadCategoryMinutes(startedAt, endedAt, samples);
+}
+
+export function recomputeSessionFields(sessionId, startedAt, endedAt) {
+  return {
+    ...recomputeSessionTiming(startedAt, endedAt),
+    ...recomputeSessionRoadCategory(sessionId, startedAt, endedAt),
+  };
+}
 
 export function getUserById(userId) {
   const db = getDb();
@@ -76,6 +104,7 @@ export function deleteAllUserData(userId) {
   if (sessionIds.length) {
     db.delete(submissions).where(inArray(submissions.sessionId, sessionIds)).run();
     db.delete(approvals).where(inArray(approvals.sessionId, sessionIds)).run();
+    db.delete(sessionLocationSamples).where(inArray(sessionLocationSamples.sessionId, sessionIds)).run();
   }
   db.delete(approvals).where(eq(approvals.approvedByUserId, userId)).run();
   db.delete(submissions).where(eq(submissions.submittedByUserId, userId)).run();
@@ -84,6 +113,7 @@ export function deleteAllUserData(userId) {
   db.delete(userAliases).where(or(eq(userAliases.ownerUserId, userId), eq(userAliases.targetUserId, userId))).run();
   db.delete(settings).where(eq(settings.key, roleChosenKey(userId))).run();
   db.delete(settings).where(eq(settings.key, linkInviteDeferredKey(userId))).run();
+  db.delete(settings).where(eq(settings.key, exportIncludeRoadCategoryKey(userId))).run();
   db.delete(users).where(eq(users.id, userId)).run();
   clearHeaderThemePreference(userId);
   clearAdultSelectedTeen(userId);
@@ -101,7 +131,8 @@ export function createActiveSession(teenUserId, stateCode = 'IL') {
     startedAt: now,
     endedAt: null,
     durationMinutes: null,
-    dayNight: null,
+    nightMinutes: null,
+    highwayRoadMinutes: null,
     notes: null,
     requestHash: null,
     payloadJson: null,
@@ -152,10 +183,20 @@ export function getDraftSession(teenUserId) {
 }
 
 export function stopSession(sessionId, endedAt = nowISO()) {
+  const session = getSessionById(sessionId);
+  if (!session) return null;
+  const timing = recomputeSessionFields(sessionId, session.startedAt, endedAt);
   const db = getDb();
   const now = nowISO();
   db.update(sessions)
-    .set({ status: 'draft', endedAt, updatedAt: now })
+    .set({
+      status: 'draft',
+      endedAt,
+      durationMinutes: timing.durationMinutes,
+      nightMinutes: timing.nightMinutes,
+      highwayRoadMinutes: timing.highwayRoadMinutes,
+      updatedAt: now,
+    })
     .where(eq(sessions.id, sessionId))
     .run();
   return getSessionById(sessionId);
@@ -166,8 +207,53 @@ export function getSessionById(sessionId) {
   return db.select().from(sessions).where(eq(sessions.id, sessionId)).get() ?? null;
 }
 
+export function insertLocationSample({
+  sessionId,
+  recordedAt = nowISO(),
+  latitude,
+  longitude,
+  speedMps = null,
+  accuracyM = null,
+  roadCategory = null,
+}) {
+  const db = getDb();
+  const row = {
+    id: generateId(),
+    sessionId,
+    recordedAt,
+    latitude: String(latitude),
+    longitude: String(longitude),
+    speedMps: speedMps == null ? null : String(speedMps),
+    accuracyM: accuracyM == null ? null : String(accuracyM),
+    roadCategory,
+  };
+  db.insert(sessionLocationSamples).values(row).run();
+  return row;
+}
+
+export function listLocationSamplesForSession(sessionId) {
+  const db = getDb();
+  return db
+    .select()
+    .from(sessionLocationSamples)
+    .where(eq(sessionLocationSamples.sessionId, sessionId))
+    .orderBy(asc(sessionLocationSamples.recordedAt))
+    .all();
+}
+
+export function countLocationSamplesForSession(sessionId) {
+  const db = getDb();
+  const row = db
+    .select({ count: sql`COUNT(*)` })
+    .from(sessionLocationSamples)
+    .where(eq(sessionLocationSamples.sessionId, sessionId))
+    .get();
+  return Number(row?.count ?? 0);
+}
+
 export function discardDraft(sessionId) {
   const db = getDb();
+  db.delete(sessionLocationSamples).where(eq(sessionLocationSamples.sessionId, sessionId)).run();
   db.delete(sessions)
     .where(and(eq(sessions.id, sessionId), eq(sessions.status, 'draft')))
     .run();
@@ -177,7 +263,14 @@ export function resumeSession(sessionId) {
   const db = getDb();
   const now = nowISO();
   db.update(sessions)
-    .set({ status: 'active', endedAt: null, updatedAt: now })
+    .set({
+      status: 'active',
+      endedAt: null,
+      durationMinutes: null,
+      nightMinutes: null,
+      highwayRoadMinutes: null,
+      updatedAt: now,
+    })
     .where(eq(sessions.id, sessionId))
     .run();
   return getSessionById(sessionId);
@@ -212,7 +305,8 @@ export function restoreSavedSession(sessionId, backup) {
       startedAt: backup.startedAt,
       endedAt: backup.endedAt,
       durationMinutes: backup.durationMinutes,
-      dayNight: backup.dayNight,
+      nightMinutes: backup.nightMinutes,
+      highwayRoadMinutes: backup.highwayRoadMinutes,
       updatedAt: now,
     })
     .where(eq(sessions.id, sessionId))
@@ -239,15 +333,15 @@ export function updateDraftSessionFields(
     throw new Error('End time must be after start time');
   }
 
-  const mins = durationMinutes(nextStart, nextEnd);
-  const dayNight = classifyDayNight(nextStart);
+  const timing = recomputeSessionFields(sessionId, nextStart, nextEnd);
   const db = getDb();
   db.update(sessions)
     .set({
       startedAt: nextStart,
       endedAt: nextEnd,
-      durationMinutes: mins,
-      dayNight,
+      durationMinutes: timing.durationMinutes,
+      nightMinutes: timing.nightMinutes,
+      highwayRoadMinutes: timing.highwayRoadMinutes,
       ...(notes !== undefined ? { notes } : {}),
       updatedAt: nowISO(),
     })
@@ -264,8 +358,7 @@ export async function submitSession(
   if (!session || session.status !== 'draft') {
     throw new Error('Session must be in draft status to submit');
   }
-  const mins = durationMinutes(session.startedAt, session.endedAt);
-  const dayNight = classifyDayNight(session.startedAt);
+  const timing = recomputeSessionFields(sessionId, session.startedAt, session.endedAt);
   const payload = buildSubmitPayload({
     sessionId: session.id,
     stateCode: session.stateCode,
@@ -274,8 +367,8 @@ export async function submitSession(
     endedBy,
     activeSupervisorId: activeSupervisorId ?? session.activeSupervisorId ?? null,
     activeSupervisorJoinedAt,
-    durationMinutes: mins,
-    dayNight,
+    durationMinutes: timing.durationMinutes,
+    nightMinutes: timing.nightMinutes,
     notes: notes ?? session.notes ?? null,
     submittedByUserId,
   });
@@ -286,8 +379,9 @@ export async function submitSession(
   db.update(sessions)
     .set({
       status: 'saved',
-      durationMinutes: mins,
-      dayNight,
+      durationMinutes: timing.durationMinutes,
+      nightMinutes: timing.nightMinutes,
+      highwayRoadMinutes: timing.highwayRoadMinutes,
       notes: notes ?? session.notes ?? null,
       requestHash,
       payloadJson: canonical,
@@ -480,7 +574,7 @@ export function getProgress(teenUserId) {
   const row = db
     .select({
       totalMinutes: sql`COALESCE(SUM(${sessions.durationMinutes}), 0)`,
-      nightMinutes: sql`COALESCE(SUM(CASE WHEN ${sessions.dayNight} = 'night' THEN ${sessions.durationMinutes} ELSE 0 END), 0)`,
+      nightMinutes: sql`COALESCE(SUM(${sessions.nightMinutes}), 0)`,
     })
     .from(sessions)
     .where(

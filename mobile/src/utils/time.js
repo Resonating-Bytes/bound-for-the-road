@@ -10,10 +10,14 @@ export function nowISO() {
   return new Date().toISOString();
 }
 
-export function durationMinutes(startedAt, endedAt) {
+export function durationMs(startedAt, endedAt) {
   if (!startedAt || !endedAt) return 0;
   const ms = new Date(endedAt).getTime() - new Date(startedAt).getTime();
-  return Math.max(0, Math.round(ms / 60000));
+  return Math.max(0, ms);
+}
+
+export function durationMinutes(startedAt, endedAt) {
+  return Math.round(durationMs(startedAt, endedAt) / 60000);
 }
 
 export function formatDuration(minutes) {

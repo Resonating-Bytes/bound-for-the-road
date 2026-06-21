@@ -17,10 +17,10 @@ import { BACKEND_CAPABILITIES } from '../../src/config/compatibility';
 
 describe('compatibility', () => {
   const compatibleRemote = {
-    backend_revision: '20260624120000',
+    backend_revision: '20260625120000',
     min_app_version: '1.0.0',
     latest_app_version: '1.5.1',
-    payload_schema_version: '1',
+    payload_schema_version: '2',
     capabilities: Object.values(BACKEND_CAPABILITIES),
   };
 

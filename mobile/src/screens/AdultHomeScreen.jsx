@@ -32,7 +32,7 @@ import {
   groupAdultDashboardSections,
 } from '../utils/dashboardSessions';
 import { formatDate, formatDuration } from '../utils/time';
-import { dayNightLabel } from '../utils/dayNight';
+import { formatDayNightSummary } from '../utils/dayNight';
 import { shortDisplayNameForTeen } from '../utils/displayName';
 import { formatAdultApprovedLabel } from '../utils/approvalDisplay';
 import { useTheme } from '../context/ThemeContext';
@@ -155,7 +155,7 @@ export function AdultHomeScreen({ navigation }) {
           <Text style={styles.rowDate}>{formatDate(item.session?.startedAt)}</Text>
           <Text style={styles.rowMeta}>
             {formatDuration(item.session?.durationMinutes ?? 0)} ·{' '}
-            {dayNightLabel(item.session?.dayNight)}
+            {formatDayNightSummary(item.session?.durationMinutes, item.session?.nightMinutes)}
           </Text>
           {isApproved ? (
             <Text style={styles.approvedMeta}>

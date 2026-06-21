@@ -12,6 +12,7 @@ This document captures platform-specific implementation decisions, known diverge
 | iOS Live Activity (lock screen timer) | ❌ | ✅ | ✅ | ✅ |
 | Android foreground service (persistent timer) | ❌ | ✅ | ✅ | ✅ |
 | Sign in with Apple (production config) | ⚠️ Limited | ✅ | ✅ | ✅ |
+| GPS / foreground location (active session) | ✅ | ✅ | ✅ | ✅ |
 | GPS / background location | ❌ | ✅ | ✅ | ✅ |
 | Deep links (universal / app links) | ⚠️ | ✅ | ✅ | ✅ |
 
@@ -129,11 +130,11 @@ Channels are permanent on the user's device once created. They cannot be renamed
 
 All channels must be created at app first launch, even if not immediately used.
 
-## GPS and location (post-MVP)
+## GPS and location
 
-Location permissions are **not required for MVP**. No GPS features are in scope until the app graduates beyond Expo Go.
+**Foreground (Expo Go — shipped):** While a practice session is active and the app is in the foreground, `expo-location` samples coordinates and speed. Points are stored locally in `session_location_samples` and are **not** uploaded to Supabase. Road category (local vs highway) is inferred on-device from speed heuristics.
 
-When GPS is added (post-MVP):
+**Background (dev build — later):**
 
 **Android background location:**
 - Android 10+ requires `ACCESS_BACKGROUND_LOCATION` as a separate permission, shown in a dedicated system prompt.

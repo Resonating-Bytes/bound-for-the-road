@@ -1,8 +1,10 @@
 import { formatDate, formatDateTime, formatDuration, addMonths } from './time';
-import { dayNightLabel } from './dayNight';
+import { formatDayNightSummary } from './dayNight';
+import { formatRoadCategorySummary, hasRoadCategoryBreakdown } from './roadCategory';
 import { IL_RULES, hoursFromMinutes } from '../config/states/IL';
 
-export function renderExportTemplate(sessionRows, user) {
+export function renderExportTemplate(sessionRows, user, options = {}) {
+  const includeRoadCategory = options.includeRoadCategory === true;
   const lines = [];
   lines.push('Bound for the Road — Illinois Supervised Driving Log');
   lines.push('==========================================');
@@ -31,14 +33,19 @@ export function renderExportTemplate(sessionRows, user) {
     lines.push(`  Start: ${formatDateTime(s.startedAt)}`);
     lines.push(`  End: ${formatDateTime(s.endedAt)}`);
     lines.push(`  Duration: ${formatDuration(s.durationMinutes ?? 0)}`);
-    lines.push(`  Day/Night: ${dayNightLabel(s.dayNight)}`);
+    lines.push(`  Day/Night: ${formatDayNightSummary(s.durationMinutes, s.nightMinutes)}`);
+    if (
+      includeRoadCategory &&
+      hasRoadCategoryBreakdown(s.highwayRoadMinutes)
+    ) {
+      const summary = formatRoadCategorySummary(s.durationMinutes, s.highwayRoadMinutes);
+      lines.push(`  Road category: ${summary.replace(/\n/g, '\n  ')}`);
+    }
     if (s.notes) lines.push(`  Notes: ${s.notes}`);
   });
 
   const totalMin = sessionRows.reduce((sum, s) => sum + (s.durationMinutes ?? 0), 0);
-  const nightMin = sessionRows
-    .filter((s) => s.dayNight === 'night')
-    .reduce((sum, s) => sum + (s.durationMinutes ?? 0), 0);
+  const nightMin = sessionRows.reduce((sum, s) => sum + (s.nightMinutes ?? 0), 0);
 
   lines.push('');
   lines.push('Totals');
