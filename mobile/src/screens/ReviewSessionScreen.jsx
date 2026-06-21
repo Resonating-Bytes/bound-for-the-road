@@ -8,6 +8,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
+import * as Location from 'expo-location';
 import { useAuth } from '../context/AuthContext';
 import { useCompatibility } from '../context/CompatibilityContext';
 import {
@@ -53,7 +54,7 @@ import { createSessionEditBackup } from '../utils/sessionEdit';
 import { useKeyboardScrollAlign } from '../hooks/useKeyboardScrollAlign';
 
 export function ReviewSessionScreen({ route, navigation }) {
-  const { sessionId, editing, editBackup, staleExpired } = route.params ?? {};
+  const { sessionId, editing, editBackup, staleExpired, manualEntry } = route.params ?? {};
   const { userId } = useAuth();
   const { theme } = useTheme();
   const { canRemoteWrite } = useCompatibility();
@@ -64,6 +65,7 @@ export function ReviewSessionScreen({ route, navigation }) {
   const [saving, setSaving] = useState(false);
   const [displayStatus, setDisplayStatus] = useState(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const [locationGranted, setLocationGranted] = useState(false);
   const notesFieldRef = useRef(null);
   const { scrollRef, scrollInputIntoView, onScroll, contentPaddingBottom } =
     useKeyboardScrollAlign(40);
@@ -99,6 +101,17 @@ export function ReviewSessionScreen({ route, navigation }) {
       cancelled = true;
     };
   }, [sessionId, canRemoteWrite]);
+
+  useEffect(() => {
+    if (!manualEntry) return undefined;
+    let cancelled = false;
+    Location.getForegroundPermissionsAsync().then(({ status }) => {
+      if (!cancelled) setLocationGranted(status === 'granted');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [manualEntry]);
 
   useEffect(() => {
     if (!editing || !sessionId) return;
@@ -379,7 +392,9 @@ export function ReviewSessionScreen({ route, navigation }) {
   return (
     <Screen withHeader>
       <ScreenHeader
-        title={editing ? 'Edit session' : 'Review session'}
+        title={
+          editing ? 'Edit session' : manualEntry && isDraft ? 'Add manual entry' : 'Review session'
+        }
         onBack={
           editing ? handleBackFromEdit : !isDraft ? handleBackFromSavedReview : undefined
         }
@@ -487,6 +502,15 @@ export function ReviewSessionScreen({ route, navigation }) {
           </>
         )}
 
+        {showDraftActions && manualEntry ? (
+          <Text style={styles.info}>
+            Record a practice session you drove without the app (forgot phone, dead battery, etc.).
+            {locationGranted
+              ? '\n\nLocation-based details (road category, etc.) are not recorded for manual entries.'
+              : ''}
+          </Text>
+        ) : null}
+
         {showDraftActions && (
           <View style={styles.actions}>
             <Pressable
@@ -506,7 +530,7 @@ export function ReviewSessionScreen({ route, navigation }) {
                     : 'Submit for approval'}
               </Text>
             </Pressable>
-            {!editing && (
+            {!editing && !manualEntry && (
               <Pressable style={styles.secondaryBtn} onPress={handleResume}>
                 <Text style={styles.secondaryBtnText}>Resume</Text>
               </Pressable>
@@ -610,6 +634,15 @@ const styles = StyleSheet.create({
   warning: {
     backgroundColor: '#fef3c7',
     color: '#92400e',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  info: {
+    backgroundColor: '#f1f5f9',
+    color: '#475569',
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,

@@ -11,6 +11,7 @@ import { initTestDb, resetTestDb } from '../helpers/testDb';
 import {
   upsertUser,
   createActiveSession,
+  createManualDraftSession,
   stopSession,
   saveSession,
   submitSession,
@@ -366,5 +367,19 @@ describe('queries', () => {
     discardDraft(active.id);
     expect(getSessionById(active.id)).toBeNull();
     expect(countLocationSamplesForSession(active.id)).toBe(0);
+  });
+
+  test('createManualDraftSession creates draft with computed timing and no road category', () => {
+    const draft = createManualDraftSession(TEEN_ID, {
+      startedAt: '2020-06-01T14:00:00.000Z',
+      endedAt: '2020-06-01T15:00:00.000Z',
+      notes: 'Forgot phone',
+    });
+    expect(draft.status).toBe('draft');
+    expect(draft.durationMinutes).toBe(60);
+    expect(draft.nightMinutes).toBeDefined();
+    expect(draft.highwayRoadMinutes).toBeNull();
+    expect(draft.notes).toBe('Forgot phone');
+    expect(countLocationSamplesForSession(draft.id)).toBe(0);
   });
 });

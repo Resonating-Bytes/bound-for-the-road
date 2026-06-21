@@ -7,6 +7,7 @@ import {
   SectionList,
   Share,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -22,6 +23,7 @@ import {
   getActiveSession,
   getDraftSession,
   createActiveSession,
+  createDefaultManualDraftSession,
   expireStaleActiveSession,
   getSessionById,
   reopenSavedSession,
@@ -254,6 +256,24 @@ export function DashboardScreen({ navigation }) {
     navigation.navigate('ActiveSession', { sessionId: session.id });
   }
 
+  function handleManualEntry() {
+    const active = getActiveSession(userId);
+    if (active) {
+      Alert.alert('Session in progress', 'Stop your active session before adding a manual entry.');
+      return;
+    }
+    const draft = getDraftSession(userId);
+    if (draft) {
+      Alert.alert(
+        'Draft in progress',
+        'Finish or discard your current draft before adding a manual entry.',
+      );
+      return;
+    }
+    const session = createDefaultManualDraftSession(userId, user?.stateCode ?? 'IL');
+    navigation.navigate('ReviewSession', { sessionId: session.id, manualEntry: true });
+  }
+
   function handleExportAll() {
     setExportIncludeRoadCategory(readExportIncludeRoadCategory(userId));
     setExportModalVisible(true);
@@ -313,6 +333,10 @@ export function DashboardScreen({ navigation }) {
         </Pressable>
       </View>
 
+      <Pressable style={styles.manualEntryLink} onPress={handleManualEntry}>
+        <Text style={styles.manualEntryLinkText}>Add manual entry</Text>
+      </Pressable>
+
       <SectionList
         style={styles.list}
         contentContainerStyle={sessionSections.length === 0 ? styles.listEmpty : undefined}
@@ -365,6 +389,8 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
   },
   secondaryBtnText: { color: '#1a2b3c', fontWeight: '600', fontSize: 16 },
+  manualEntryLink: { alignSelf: 'center', marginBottom: 16, paddingVertical: 4 },
+  manualEntryLinkText: { color: '#5a6b7c', fontSize: 15, fontWeight: '500' },
   listSectionTitle: {
     fontSize: 18,
     fontWeight: '600',

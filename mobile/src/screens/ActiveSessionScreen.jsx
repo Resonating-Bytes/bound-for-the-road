@@ -105,22 +105,15 @@ export function ActiveSessionScreen({ route, navigation }) {
       <StatusBar style="light" />
       <Text style={styles.label}>Practice in progress</Text>
 
-      {showRoadCategory ? (
-        <View style={styles.statsRow}>
-          <View style={styles.statSide}>
-            <DayNightIcon phase={liveDayNight} />
-          </View>
-          <View style={styles.statCenter}>
+      <View style={styles.statsStack}>
+        <DayNightIcon phase={liveDayNight} />
+        {showRoadCategory ? (
+          <View style={styles.roadCategoryBlock}>
             <Text style={styles.statValue}>{roadCategoryLabel(roadCategory)}</Text>
             <Text style={styles.statLabel}>Road category</Text>
           </View>
-          <View style={styles.statSide} />
-        </View>
-      ) : (
-        <View style={styles.statsRowCentered}>
-          <DayNightIcon phase={liveDayNight} />
-        </View>
-      )}
+        ) : null}
+      </View>
 
       <Text style={styles.timer}>{formatDuration(elapsed)}</Text>
 
@@ -150,24 +143,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     fontVariant: ['tabular-nums'],
   },
-  statsRow: {
-    flexDirection: 'row',
+  statsStack: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    maxWidth: 320,
+    gap: 16,
     marginBottom: 20,
   },
-  statsRowCentered: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  statSide: {
-    alignItems: 'center',
-    minWidth: 44,
-  },
-  statCenter: {
-    flex: 1,
+  roadCategoryBlock: {
     alignItems: 'center',
   },
   statLabel: {

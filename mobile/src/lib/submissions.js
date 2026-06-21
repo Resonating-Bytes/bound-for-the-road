@@ -17,6 +17,7 @@ import {
   markSubmissionOutboxSynced,
   clearOutboxForSession,
   hasUnsyncedSubmissionOutbox,
+  enqueueOutbox,
 } from '../db/queries';
 import { generateId, nowISO } from '../utils/time';
 import { notifyApprovalPush, PUSH_EVENTS } from './approvalPush';
@@ -220,19 +221,43 @@ export async function discardSessionSubmission(sessionId) {
   const submission = getSubmissionForSession(sessionId);
   const session = discardSubmittedSession(sessionId);
   clearOutboxForSession(sessionId);
-  if (isSupabaseConfigured() && submission && isRemoteWriteAllowed()) {
-    try {
-      await markSubmissionSupersededRemote(submission.requestHash);
-      await syncSessionToRemote(session);
-      await notifyApprovalPush(PUSH_EVENTS.SESSION_DISCARDED, {
-        sessionId: session.id,
-        requestHash: submission.requestHash,
-      });
-    } catch (e) {
+  if (!isSupabaseConfigured() || !submission) {
+    return session;
+  }
+
+  const payload = { sessionId: session.id, requestHash: submission.requestHash };
+  const userId = session.teenUserId;
+
+  if (!isRemoteWriteAllowed()) {
+    enqueueOutbox('session_withdrawn', payload, userId);
+    return session;
+  }
+  if (!(await isNetworkOnline())) {
+    enqueueOutbox('session_withdrawn', payload, userId);
+    return session;
+  }
+  try {
+    await pushWithdrawToRemote(payload);
+  } catch (e) {
+    if (isNetworkFailureError(e)) {
+      enqueueOutbox('session_withdrawn', payload, userId);
+    } else {
       console.warn('Remote discard sync failed:', e.message);
     }
   }
   return session;
+}
+
+export async function pushWithdrawToRemote({ sessionId, requestHash }) {
+  await markSubmissionSupersededRemote(requestHash);
+  const current = getSessionById(sessionId);
+  if (current) {
+    await syncSessionToRemote(current);
+  }
+  await notifyApprovalPush(PUSH_EVENTS.SESSION_DISCARDED, {
+    sessionId,
+    requestHash,
+  });
 }
 
 async function assertSubmissionStillPending(sessionId, requestHash) {
@@ -491,28 +516,38 @@ export async function fetchApprovedSubmissionsForAdult() {
   }));
 }
 
-export async function approveSubmissionRemote({
+export async function pushDeclineToRemote({ sessionId, requestHash }) {
+  await assertSubmissionStillPending(sessionId, requestHash);
+
+  const { error } = await getSupabase().rpc('decline_submission', {
+    p_request_hash: requestHash,
+  });
+  if (error) throw error;
+
+  await notifyApprovalPush(PUSH_EVENTS.SESSION_DECLINED, {
+    sessionId,
+    requestHash,
+  });
+}
+
+export async function pushApprovalToRemote({
   sessionId,
   requestHash,
   approvedByUserId,
   joinedSession,
   supervisorInVehicleName,
   approverPresent,
+  approvalId,
+  approvedAt,
 }) {
-  if (!isSupabaseConfigured()) {
-    throw new Error('Supabase is required to approve sessions.');
-  }
-
-  assertRemoteWriteAllowed();
-
   await assertSubmissionStillPending(sessionId, requestHash);
 
   const approval = {
-    id: generateId(),
+    id: approvalId ?? generateId(),
     request_hash: requestHash,
     session_id: sessionId,
     approved_by_user_id: approvedByUserId,
-    approved_at: nowISO(),
+    approved_at: approvedAt ?? nowISO(),
     joined_session: joinedSession,
     supervisor_in_vehicle_name: supervisorInVehicleName,
     approver_present: approverPresent,
@@ -530,6 +565,62 @@ export async function approveSubmissionRemote({
   return local;
 }
 
+export async function approveSubmissionRemote({
+  sessionId,
+  requestHash,
+  approvedByUserId,
+  joinedSession,
+  supervisorInVehicleName,
+  approverPresent,
+}) {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase is required to approve sessions.');
+  }
+
+  assertRemoteWriteAllowed();
+
+  const approvalId = generateId();
+  const approvedAt = nowISO();
+  const outboxPayload = {
+    sessionId,
+    requestHash,
+    approvedByUserId,
+    joinedSession,
+    supervisorInVehicleName,
+    approverPresent,
+    approvalId,
+    approvedAt,
+  };
+
+  const localApproval = {
+    id: approvalId,
+    requestHash,
+    sessionId,
+    approvedByUserId,
+    approvedAt,
+    joinedSession,
+    supervisorInVehicleName,
+    approverPresent,
+  };
+
+  if (!(await isNetworkOnline())) {
+    upsertApproval(localApproval);
+    enqueueOutbox('session_approved', outboxPayload, approvedByUserId);
+    return localApproval;
+  }
+
+  try {
+    return await pushApprovalToRemote(outboxPayload);
+  } catch (e) {
+    if (isNetworkFailureError(e)) {
+      upsertApproval(localApproval);
+      enqueueOutbox('session_approved', outboxPayload, approvedByUserId);
+      return localApproval;
+    }
+    throw e;
+  }
+}
+
 export async function declineSubmissionRemote({ sessionId, requestHash }) {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase is required to send a session back.');
@@ -537,17 +628,23 @@ export async function declineSubmissionRemote({ sessionId, requestHash }) {
 
   assertRemoteWriteAllowed();
 
-  await assertSubmissionStillPending(sessionId, requestHash);
+  const authUserId = await requireAuthUserId();
+  const payload = { sessionId, requestHash };
 
-  const { error } = await getSupabase().rpc('decline_submission', {
-    p_request_hash: requestHash,
-  });
-  if (error) throw error;
+  if (!(await isNetworkOnline())) {
+    enqueueOutbox('session_declined', payload, authUserId);
+    return;
+  }
 
-  await notifyApprovalPush(PUSH_EVENTS.SESSION_DECLINED, {
-    sessionId,
-    requestHash,
-  });
+  try {
+    await pushDeclineToRemote(payload);
+  } catch (e) {
+    if (isNetworkFailureError(e)) {
+      enqueueOutbox('session_declined', payload, authUserId);
+      return;
+    }
+    throw e;
+  }
 }
 
 export async function syncDeclinedSubmissionsForTeen(teenUserId) {
