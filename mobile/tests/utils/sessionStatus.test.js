@@ -86,4 +86,30 @@ describe('sessionStatus', () => {
     expect(status.key).toBe('needs_revision');
     expect(status.label).toBe('Revision requested');
   });
+
+  test('time_invalid when session overlaps another', () => {
+    const status = getSessionDisplayStatus(
+      { ...session, timeInvalid: true },
+      {
+        submission: null,
+        approval: null,
+        latestApproval: null,
+      },
+    );
+    expect(status.key).toBe('time_invalid');
+    expect(status.label).toContain('edit this session or discard');
+  });
+
+  test('time_invalid with pending submission uses teen hint', () => {
+    const status = getSessionDisplayStatus(
+      { ...session, timeInvalid: true },
+      {
+        submission: { requestHash: 'hash-new', superseded: false },
+        approval: null,
+        latestApproval: null,
+      },
+    );
+    expect(status.key).toBe('time_invalid');
+    expect(status.label).toContain('Overlapping');
+  });
 });

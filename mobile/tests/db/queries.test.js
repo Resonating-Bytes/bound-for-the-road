@@ -37,6 +37,7 @@ import {
   deleteAllUserData,
   listPendingOutboxRows,
   markOutboxRowSynced,
+  hasUnsyncedSubmissionOutbox,
 } from '../../src/db/queries';
 import { getDb } from '../../src/db/client';
 import { outbox } from '../../src/db/schema';
@@ -381,5 +382,50 @@ describe('queries', () => {
     expect(draft.highwayRoadMinutes).toBeNull();
     expect(draft.notes).toBe('Forgot phone');
     expect(countLocationSamplesForSession(draft.id)).toBe(0);
+  });
+
+  test('submit marks overlapping newer session timeInvalid and excludes from progress', async () => {
+    const s1 = createManualDraftSession(TEEN_ID, {
+      startedAt: '2020-06-01T14:00:00.000Z',
+      endedAt: '2020-06-01T15:00:00.000Z',
+    });
+    await submitSession(s1.id, { submittedByUserId: TEEN_ID });
+
+    const s2 = createManualDraftSession(TEEN_ID, {
+      startedAt: '2020-06-01T14:30:00.000Z',
+      endedAt: '2020-06-01T15:30:00.000Z',
+    });
+    await submitSession(s2.id, { submittedByUserId: TEEN_ID });
+
+    expect(getSessionById(s1.id).timeInvalid).toBe(false);
+    expect(getSessionById(s2.id).timeInvalid).toBe(true);
+    expect(getProgress(TEEN_ID).totalMinutes).toBe(60);
+    expect(hasUnsyncedSubmissionOutbox(s2.id)).toBe(false);
+    expect(hasUnsyncedSubmissionOutbox(s1.id)).toBe(true);
+  });
+
+  test('recompute clears timeInvalid after overlap is fixed', async () => {
+    const s1 = createManualDraftSession(TEEN_ID, {
+      startedAt: '2020-06-01T14:00:00.000Z',
+      endedAt: '2020-06-01T15:00:00.000Z',
+    });
+    await submitSession(s1.id, { submittedByUserId: TEEN_ID });
+
+    const s2 = createManualDraftSession(TEEN_ID, {
+      startedAt: '2020-06-01T14:30:00.000Z',
+      endedAt: '2020-06-01T15:30:00.000Z',
+    });
+    await submitSession(s2.id, { submittedByUserId: TEEN_ID });
+    expect(getSessionById(s2.id).timeInvalid).toBe(true);
+
+    reopenSavedSession(s2.id);
+    updateDraftSessionFields(s2.id, {
+      startedAt: '2020-06-01T16:00:00.000Z',
+      endedAt: '2020-06-01T17:00:00.000Z',
+    });
+    await submitSession(s2.id, { submittedByUserId: TEEN_ID });
+
+    expect(getSessionById(s2.id).timeInvalid).toBe(false);
+    expect(getProgress(TEEN_ID).totalMinutes).toBe(120);
   });
 });

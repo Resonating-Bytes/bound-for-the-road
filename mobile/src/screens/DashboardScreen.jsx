@@ -29,18 +29,19 @@ import {
   reopenSavedSession,
   getSessionApprovalContext,
   hasUnsyncedSubmissionOutbox,
+  recomputeSessionTimeValidation,
 } from '../db/queries';
 import {
-  syncApprovalsForTeen,
-  syncDeclinedSubmissionsForTeen,
   fetchRemoteUserLabel,
   resolveApproverName,
   syncSessionReopenedForEdit,
 } from '../lib/submissions';
+import { pullAndMergeTeenSessions } from '../lib/sessionSync';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { isNetworkOnline } from '../lib/network';
 import { useCompatibility } from '../context/CompatibilityContext';
 import { useTheme } from '../context/ThemeContext';
+import { getPrimaryInvalidHint } from '../utils/sessionValidation';
 import { getSessionDisplayStatus } from '../utils/sessionStatus';
 import { groupSessionsForDashboard } from '../utils/dashboardSessions';
 import { createSessionEditBackup } from '../utils/sessionEdit';
@@ -71,6 +72,7 @@ export function DashboardScreen({ navigation }) {
 
   const loadLocalDashboard = useCallback(() => {
     if (!userId) return;
+    recomputeSessionTimeValidation(userId);
     const rows = listSavedSessions(userId);
     setSessions(rows);
     setProgress(getProgress(userId));
@@ -95,8 +97,7 @@ export function DashboardScreen({ navigation }) {
     if (!userId || !isSupabaseConfigured()) return;
     if (!(await isNetworkOnline())) return;
     try {
-      await syncApprovalsForTeen(userId);
-      await syncDeclinedSubmissionsForTeen(userId);
+      await pullAndMergeTeenSessions(userId);
     } catch {
       return;
     }
@@ -189,19 +190,21 @@ export function DashboardScreen({ navigation }) {
 
   function handleSessionRowPress(item) {
     const status = statusBySessionId[item.id];
-    if (status?.key === 'needs_revision') {
+    if (status?.key === 'needs_revision' || status?.key === 'time_invalid') {
       openSessionEdit(item.id);
       return;
     }
     navigation.navigate('ReviewSession', { sessionId: item.id });
   }
 
-  function renderSessionRow(item) {
+  function renderSessionRow(item, sectionKey) {
     const status = statusBySessionId[item.id];
+    const invalidHint =
+      sectionKey === 'invalid' ? getPrimaryInvalidHint(item, 'teen') : null;
 
     return (
       <Pressable
-        style={styles.row}
+        style={[styles.row, sectionKey === 'invalid' && styles.rowInvalid]}
         onPress={() => handleSessionRowPress(item)}
         accessibilityRole="button"
         accessibilityLabel={`Session ${formatDate(item.startedAt)}`}
@@ -211,7 +214,9 @@ export function DashboardScreen({ navigation }) {
           <Text style={styles.rowMeta}>
             {formatDuration(item.durationMinutes ?? 0)} · {formatDayNightSummary(item.durationMinutes, item.nightMinutes)}
           </Text>
-          {status?.label ? (
+          {invalidHint ? (
+            <Text style={styles.statusTimeInvalid}>{invalidHint}</Text>
+          ) : status?.label ? (
             <Text
               style={[
                 styles.statusText,
@@ -220,6 +225,7 @@ export function DashboardScreen({ navigation }) {
                 status.key === 'saved_local' && styles.statusSavedLocal,
                 status.key === 'needs_revision' && styles.statusNeedsRevision,
                 status.key === 'superseded' && styles.statusSuperseded,
+                status.key === 'time_invalid' && styles.statusTimeInvalid,
               ]}
             >
               {status.label}
@@ -350,7 +356,7 @@ export function DashboardScreen({ navigation }) {
         renderSectionHeader={({ section: { title } }) => (
           <Text style={styles.listSectionTitle}>{title}</Text>
         )}
-        renderItem={({ item }) => renderSessionRow(item)}
+        renderItem={({ item, section }) => renderSessionRow(item, section.key)}
       />
       </View>
 
@@ -411,6 +417,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  rowInvalid: {
+    borderColor: '#f59e0b',
+    backgroundColor: '#fffbeb',
+  },
   rowBody: {
     flex: 1,
     minWidth: 0,
@@ -424,4 +434,5 @@ const styles = StyleSheet.create({
   statusSavedLocal: { color: '#1d4ed8' },
   statusNeedsRevision: { color: '#dc2626' },
   statusSuperseded: { color: '#9333ea' },
+  statusTimeInvalid: { color: '#dc2626' },
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ import {
   countLocationSamplesForSession,
   recomputeSessionRoadCategory,
   updateDraftSessionFields,
+  listSavedSessions,
 } from '../db/queries';
 import {
   submitSessionForApproval,
@@ -33,7 +34,7 @@ import {
   resolveApproverName,
   syncSessionReopenedForEdit,
 } from '../lib/submissions';
-import { formatDateTime, formatDuration, durationMinutes } from '../utils/time';
+import { formatDate, formatDateTime, formatDuration, durationMinutes } from '../utils/time';
 import { formatDayNightSummary, computeDayNightMinutes } from '../utils/dayNight';
 import {
   formatRoadCategorySummary,
@@ -42,6 +43,16 @@ import {
   ROAD_CATEGORY_INSUFFICIENT_DATA_HINT,
 } from '../utils/roadCategory';
 import { getCurfewWarning } from '../utils/curfew';
+import {
+  SESSION_TIME_OVERLAP_HINT,
+  findConflictingSessions,
+  formatOverlapConflictMessage,
+} from '../utils/sessionTimeValidation';
+import {
+  getPrimaryInvalidHint,
+  getSessionInvalidHints,
+  sessionHasBlockingInvalid,
+} from '../utils/sessionValidation';
 import { IL_RULES } from '../config/states/IL';
 import { cancelSessionNotifications, scheduleSessionNudge } from '../utils/notifications';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -161,6 +172,19 @@ export function ReviewSessionScreen({ route, navigation }) {
     displayStart !== originalStart ||
     displayEnd !== originalEnd;
 
+  const conflictingSessions = useMemo(() => {
+    if (!showTimeEditor || !displayStart || !displayEnd || !userId) return [];
+    return findConflictingSessions(
+      sessionId,
+      displayStart,
+      displayEnd,
+      listSavedSessions(userId),
+    );
+  }, [showTimeEditor, displayStart, displayEnd, userId, sessionId]);
+
+  const overlapConflictMessage = formatOverlapConflictMessage(conflictingSessions);
+  const submitBlockedByOverlap = Boolean(overlapConflictMessage);
+
   function applyTimeChange(nextStart, nextEnd) {
     try {
       updateDraftSessionFields(sessionId, { startedAt: nextStart, endedAt: nextEnd });
@@ -199,6 +223,10 @@ export function ReviewSessionScreen({ route, navigation }) {
       );
       return;
     }
+    if (overlapConflictMessage) {
+      Alert.alert('Overlapping times', overlapConflictMessage);
+      return;
+    }
     if (mins < IL_RULES.minSessionWarnMinutes) {
       Alert.alert(
         'Short session',
@@ -223,6 +251,10 @@ export function ReviewSessionScreen({ route, navigation }) {
       });
       const result = await submitSessionForApproval(sessionId, { notes, submittedByUserId: userId });
       await cancelSessionNotifications(sessionId);
+      if (result.timeInvalid) {
+        Alert.alert('Overlapping times', SESSION_TIME_OVERLAP_HINT, [{ text: 'OK' }]);
+        return;
+      }
       if (result.pendingRemote) {
         const body =
           result.pendingReason === 'blocked'
@@ -457,6 +489,37 @@ export function ReviewSessionScreen({ route, navigation }) {
 
         {curfewWarning && <Text style={styles.warning}>{curfewWarning}</Text>}
 
+        {overlapConflictMessage ? (
+          <View style={styles.overlapBlock}>
+            <Text style={styles.warning}>{overlapConflictMessage}</Text>
+            {conflictingSessions.map((conflict) => (
+              <Pressable
+                key={conflict.id}
+                style={styles.conflictRow}
+                onPress={() =>
+                  navigation.push('ReviewSession', {
+                    sessionId: conflict.id,
+                    editing: true,
+                    editBackup: createSessionEditBackup(conflict),
+                  })
+                }
+              >
+                <Text style={styles.conflictRowLabel}>
+                  {formatDate(conflict.startedAt)} · {formatDateTime(conflict.startedAt)} –{' '}
+                  {formatDateTime(conflict.endedAt)}
+                </Text>
+                <Text style={styles.conflictRowHint}>Tap to edit conflicting session</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {!isDraft && !editing && sessionHasBlockingInvalid(session) ? (
+          <Text style={styles.warning}>
+            {getSessionInvalidHints(session, 'teen').join('\n\n')}
+          </Text>
+        ) : null}
+
         {!isDraft && !editing && displayStatus?.label ? (
           <Text
             style={[
@@ -466,6 +529,7 @@ export function ReviewSessionScreen({ route, navigation }) {
               displayStatus.key === 'saved_local' && styles.statusSavedLocal,
               displayStatus.key === 'needs_revision' && styles.statusNeedsRevision,
               displayStatus.key === 'superseded' && styles.statusSuperseded,
+              displayStatus.key === 'time_invalid' && styles.statusTimeInvalid,
             ]}
           >
             {displayStatus.label}
@@ -517,10 +581,10 @@ export function ReviewSessionScreen({ route, navigation }) {
               style={[
                 styles.saveBtn,
                 { backgroundColor: theme.accent },
-                saving && styles.disabled,
+                (saving || submitBlockedByOverlap) && styles.disabled,
               ]}
               onPress={handleSave}
-              disabled={saving}
+              disabled={saving || submitBlockedByOverlap}
             >
               <Text style={[styles.saveBtnText, { color: theme.accentText }]}>
                 {saving
@@ -640,6 +704,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  overlapBlock: {
+    marginBottom: 16,
+  },
+  conflictRow: {
+    backgroundColor: '#fff7ed',
+    borderWidth: 1,
+    borderColor: '#fdba74',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+  },
+  conflictRowLabel: {
+    color: '#9a3412',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  conflictRowHint: {
+    color: '#c2410c',
+    fontSize: 13,
+    marginTop: 4,
+  },
   info: {
     backgroundColor: '#f1f5f9',
     color: '#475569',
@@ -667,6 +752,7 @@ const styles = StyleSheet.create({
   statusSavedLocal: { color: '#1d4ed8' },
   statusNeedsRevision: { color: '#dc2626' },
   statusSuperseded: { color: '#9333ea' },
+  statusTimeInvalid: { color: '#dc2626' },
   input: {
     backgroundColor: '#fff',
     borderWidth: 1,

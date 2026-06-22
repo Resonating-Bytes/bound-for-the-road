@@ -1,7 +1,7 @@
 import { MIGRATION_STATEMENTS } from './migrations';
 import { firstTokenFromLegalName } from '../utils/names';
 
-export const LOCAL_DB_VERSION = 7;
+export const LOCAL_DB_VERSION = 8;
 
 function execSql(sqlite, sql) {
   if (typeof sqlite.execSync === 'function') {
@@ -155,6 +155,15 @@ const MIGRATIONS = [
       const sessionColumns = queryAll(sqlite, 'PRAGMA table_info(sessions)');
       if (sessionColumns.some((col) => col.name === 'local_road_minutes')) {
         execSql(sqlite, 'ALTER TABLE sessions DROP COLUMN local_road_minutes');
+      }
+    },
+  },
+  {
+    version: 8,
+    up(sqlite) {
+      const sessionColumns = queryAll(sqlite, 'PRAGMA table_info(sessions)');
+      if (!sessionColumns.some((col) => col.name === 'time_invalid')) {
+        execSql(sqlite, 'ALTER TABLE sessions ADD COLUMN time_invalid INTEGER NOT NULL DEFAULT 0');
       }
     },
   },

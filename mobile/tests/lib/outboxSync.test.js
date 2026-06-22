@@ -14,6 +14,12 @@ jest.mock('../../src/lib/network', () => ({
   subscribeNetwork: jest.fn(() => jest.fn()),
 }));
 
+const mockPullAndMerge = jest.fn(() => Promise.resolve());
+
+jest.mock('../../src/lib/sessionSync', () => ({
+  pullAndMergeTeenSessions: (...args) => mockPullAndMerge(...args),
+}));
+
 const mockPushSubmitted = jest.fn(() => Promise.resolve());
 const mockPushApproval = jest.fn(() => Promise.resolve());
 const mockPushDecline = jest.fn(() => Promise.resolve());
@@ -30,12 +36,14 @@ const mockListPending = jest.fn(() => []);
 const mockMarkSynced = jest.fn();
 const mockGetSession = jest.fn();
 const mockGetSubmission = jest.fn();
+const mockGetUserById = jest.fn(() => ({ role: 'teen' }));
 
 jest.mock('../../src/db/queries', () => ({
   listPendingOutboxRows: () => mockListPending(),
   markOutboxRowSynced: (...args) => mockMarkSynced(...args),
   getSessionById: (...args) => mockGetSession(...args),
   getSubmissionForSession: (...args) => mockGetSubmission(...args),
+  getUserById: (...args) => mockGetUserById(...args),
 }));
 
 import { flushOutbox, getOutboxSyncSnapshot } from '../../src/lib/outboxSync';
@@ -46,6 +54,30 @@ describe('flushOutbox', () => {
     jest.clearAllMocks();
     mockCanUseRemoteWrite.mockReturnValue(true);
     isNetworkOnline.mockResolvedValue(true);
+    mockGetUserById.mockReturnValue({ role: 'teen' });
+  });
+
+  test('pulls teen sessions before replaying session_submitted', async () => {
+    mockListPending.mockReturnValue([
+      {
+        id: 'ob-1',
+        operation: 'session_submitted',
+        payloadJson: JSON.stringify({ sessionId: 'sess-1' }),
+        userId: 'teen-1',
+      },
+    ]);
+    mockGetSession.mockReturnValue({
+      id: 'sess-1',
+      status: 'saved',
+      teenUserId: 'teen-1',
+      timeInvalid: false,
+    });
+    mockGetSubmission.mockReturnValue({ requestHash: 'hash-1', superseded: false });
+
+    await flushOutbox();
+
+    expect(mockPullAndMerge).toHaveBeenCalledWith('teen-1');
+    expect(mockPushSubmitted).toHaveBeenCalled();
   });
 
   test('replays session_approved rows', async () => {
@@ -63,24 +95,27 @@ describe('flushOutbox', () => {
     expect(mockMarkSynced).toHaveBeenCalledWith('ob-2');
   });
 
-  test('replays session_submitted rows in order', async () => {
+  test('defers session_submitted when session is time invalid', async () => {
     mockListPending.mockReturnValue([
       {
         id: 'ob-1',
         operation: 'session_submitted',
         payloadJson: JSON.stringify({ sessionId: 'sess-1' }),
+        userId: 'teen-1',
       },
     ]);
-    mockGetSession.mockReturnValue({ id: 'sess-1', status: 'saved' });
+    mockGetSession.mockReturnValue({
+      id: 'sess-1',
+      status: 'saved',
+      teenUserId: 'teen-1',
+      timeInvalid: true,
+    });
     mockGetSubmission.mockReturnValue({ requestHash: 'hash-1', superseded: false });
 
     const result = await flushOutbox();
 
-    expect(mockPushSubmitted).toHaveBeenCalledWith(
-      'sess-1',
-      { id: 'sess-1', status: 'saved' },
-      { requestHash: 'hash-1', superseded: false },
-    );
+    expect(mockPushSubmitted).not.toHaveBeenCalled();
+    expect(mockMarkSynced).not.toHaveBeenCalled();
     expect(result).toEqual({ processed: 1, failed: false });
   });
 
@@ -106,6 +141,7 @@ describe('flushOutbox', () => {
         id: 'ob-1',
         operation: 'session_submitted',
         payloadJson: JSON.stringify({ sessionId: 'sess-gone' }),
+        userId: 'teen-1',
       },
     ]);
     mockGetSession.mockReturnValue(null);

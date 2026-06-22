@@ -34,6 +34,9 @@ export function renderExportTemplate(sessionRows, user, options = {}) {
     lines.push(`  End: ${formatDateTime(s.endedAt)}`);
     lines.push(`  Duration: ${formatDuration(s.durationMinutes ?? 0)}`);
     lines.push(`  Day/Night: ${formatDayNightSummary(s.durationMinutes, s.nightMinutes)}`);
+    if (s.timeInvalid) {
+      lines.push('  Status: Excluded — overlapping times with another session');
+    }
     if (
       includeRoadCategory &&
       hasRoadCategoryBreakdown(s.highwayRoadMinutes)
@@ -44,8 +47,14 @@ export function renderExportTemplate(sessionRows, user, options = {}) {
     if (s.notes) lines.push(`  Notes: ${s.notes}`);
   });
 
-  const totalMin = sessionRows.reduce((sum, s) => sum + (s.durationMinutes ?? 0), 0);
-  const nightMin = sessionRows.reduce((sum, s) => sum + (s.nightMinutes ?? 0), 0);
+  const totalMin = sessionRows.reduce(
+    (sum, s) => sum + (s.timeInvalid ? 0 : (s.durationMinutes ?? 0)),
+    0,
+  );
+  const nightMin = sessionRows.reduce(
+    (sum, s) => sum + (s.timeInvalid ? 0 : (s.nightMinutes ?? 0)),
+    0,
+  );
 
   lines.push('');
   lines.push('Totals');

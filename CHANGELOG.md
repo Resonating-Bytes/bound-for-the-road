@@ -5,6 +5,25 @@ All notable changes to the mobile app and its Supabase backend are documented he
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 
+## [1.5.8] - 2026-06-22
+
+### Added
+
+- Client-only session overlap validation on teen device; invalid sessions grouped at top of dashboard with fix-before-approval hints
+- Inbound teen session sync (`pullAndMergeTeenSessions`) on dashboard focus and before outbox flush; overlap recompute on merged set
+- Review overlap banner with tap-to-edit conflicting sessions; submit disabled while times conflict
+- Server sync watermark RPCs (`teen_sync_watermark`, `submit_session_for_approval`, `approve_submission_synced`, `withdraw_submission_synced`); client resyncs and retries on `sync_stale`
+- Supabase migrations `20260626120000`–`20260627120000` (interim), `20260628120000` (remove server `time_invalid`), `20260629120000` (sync watermark)
+- Local SQLite `time_invalid` column (schema v8) for overlap flag; excluded from progress and remote push
+
+### Changed
+
+- Invalid sessions never enqueued or sent to server; adult no longer sees invalid-session UI or approval blocks
+- Outbox flush pulls and merges teen data before replaying `session_submitted`
+- Adult approve/decline flush outbox first and send client sync watermark with each write
+- Second-adult invite flow polls link count on mount and redirects when a new link appears
+- `MIN_BACKEND_REVISION` → `20260629120000`; four new backend capability strings
+
 ## [1.5.7] - 2026-06-21
 
 ### Added

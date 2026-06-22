@@ -10,6 +10,10 @@
     "REGISTER_PUSH_TOKEN": "register_push_token",
     "DELETE_MY_ACCOUNT": "delete_my_account",
     "UPSERT_USER_ALIAS": "upsert_user_alias",
-    "DELETE_USER_ALIAS": "delete_user_alias"
+    "DELETE_USER_ALIAS": "delete_user_alias",
+    "TEEN_SYNC_WATERMARK": "teen_sync_watermark",
+    "SUBMIT_SESSION_FOR_APPROVAL": "submit_session_for_approval",
+    "APPROVE_SUBMISSION_SYNCED": "approve_submission_synced",
+    "WITHDRAW_SUBMISSION_SYNCED": "withdraw_submission_synced"
   }
 }
