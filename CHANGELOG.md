@@ -5,6 +5,27 @@ All notable changes to the mobile app and its Supabase backend are documented he
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 
+## [1.5.9] - 2026-06-22
+
+### Added
+
+- Expected permit date up to one year ahead for early teen onboarding; editable in Settings
+- Practice logging (start session and manual entry) blocked until expected permit date
+- Export disabled until at least one approved, non-overlap-invalid session; export includes approved sessions only
+- Shared `PickerField` base; `DatePickerField` and `DateTimePickerField` wrappers for consistent interaction
+
+### Changed
+
+- Onboarding permit copy and export label use “Expected permit date”
+- Date and datetime fields: tap anywhere on the row to edit; iOS popover with tap-outside to dismiss (onboarding, Settings, Review)
+- Profile merges from Supabase when server `updated_at` is newer; dashboard refresh pulls remote profile
+- Settings profile prompts to keep editing or discard when leaving with unsaved changes
+
+### Fixed
+
+- Date-only fields showed the previous calendar day behind the picker in US timezones (`formatDate`, `addMonths`, `isAtLeastAge` use local calendar parse)
+- Outbox sync only replays pending rows for the signed-in user (avoids `forbidden` on multi-account devices)
+
 ## [1.5.8] - 2026-06-22
 
 ### Added

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Text, Pressable, StyleSheet, Alert, ScrollView, View } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { Screen } from '../../components/Screen';
@@ -7,21 +7,70 @@ import { DatePickerField } from '../../components/DatePickerField';
 import { DeleteAccountButton } from '../../components/DeleteAccountButton';
 import { ProfileNameFields } from '../../components/ProfileNameFields';
 import { toISODateOnly } from '../../utils/time';
+import {
+  PERMIT_DATE_FIELD_LABEL,
+  PERMIT_DATE_SETTINGS_HINT,
+  permitPickerMaximumDate,
+} from '../../utils/permitDate';
 import { firstTokenFromLegalName } from '../../utils/names';
 import { useTheme } from '../../context/ThemeContext';
+
+function profileFormBaseline(user) {
+  const legalName = user?.legalName ?? '';
+  return {
+    legalName,
+    displayName: user?.displayName || firstTokenFromLegalName(legalName),
+    permitIssueDate: user?.permitIssueDate ?? toISODateOnly(new Date()),
+  };
+}
 
 export function SettingsProfileScreen({ navigation }) {
   const { user, saveProfile, deleteAllData } = useAuth();
   const { theme } = useTheme();
-  const [legalName, setLegalName] = useState(user?.legalName ?? '');
-  const [displayName, setDisplayName] = useState(
-    user?.displayName || firstTokenFromLegalName(user?.legalName ?? ''),
-  );
+  const skipDirtyCheckRef = useRef(false);
+  const baseline = useMemo(() => profileFormBaseline(user), [user]);
+  const [legalName, setLegalName] = useState(baseline.legalName);
+  const [displayName, setDisplayName] = useState(baseline.displayName);
   const [displayTouched, setDisplayTouched] = useState(true);
-  const [permitDate, setPermitDate] = useState(
-    user?.permitIssueDate ?? toISODateOnly(new Date()),
-  );
+  const [permitDate, setPermitDate] = useState(baseline.permitIssueDate);
   const isTeen = user?.role === 'teen';
+
+  const hasDirtyChanges =
+    legalName.trim() !== baseline.legalName.trim() ||
+    displayName.trim() !== baseline.displayName.trim() ||
+    (isTeen && permitDate !== baseline.permitIssueDate);
+
+  function leaveScreen() {
+    skipDirtyCheckRef.current = true;
+    navigation.goBack();
+  }
+
+  function promptDiscardChanges(onDiscard) {
+    Alert.alert('Discard changes?', 'Your unsaved profile changes will be lost.', [
+      { text: 'Keep editing', style: 'cancel' },
+      { text: 'Discard', style: 'destructive', onPress: onDiscard },
+    ]);
+  }
+
+  function handleBack() {
+    if (!hasDirtyChanges) {
+      leaveScreen();
+      return;
+    }
+    promptDiscardChanges(leaveScreen);
+  }
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (skipDirtyCheckRef.current || !hasDirtyChanges) return;
+      e.preventDefault();
+      promptDiscardChanges(() => {
+        skipDirtyCheckRef.current = true;
+        navigation.dispatch(e.data.action);
+      });
+    });
+    return unsubscribe;
+  }, [navigation, hasDirtyChanges]);
 
   function handleLegalChange(text) {
     setLegalName(text);
@@ -73,7 +122,7 @@ export function SettingsProfileScreen({ navigation }) {
 
   return (
     <Screen withHeader>
-      <ScreenHeader title="Profile" onBack={() => navigation.goBack()} />
+      <ScreenHeader title="Profile" onBack={handleBack} />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <Text style={styles.meta}>Role: {isTeen ? 'Teen driver' : 'Supervising adult'}</Text>
 
@@ -86,12 +135,13 @@ export function SettingsProfileScreen({ navigation }) {
 
         {isTeen ? (
           <>
-            <Text style={styles.label}>Permit issue date</Text>
+            <Text style={styles.label}>{PERMIT_DATE_FIELD_LABEL}</Text>
+            <Text style={styles.fieldHint}>{PERMIT_DATE_SETTINGS_HINT}</Text>
             <DatePickerField
               value={permitDate}
               onChange={setPermitDate}
-              maximumDate={new Date()}
-              compact
+              maximumDate={permitPickerMaximumDate()}
+              accessibilityLabel="Expected permit date"
             />
           </>
         ) : null}
@@ -130,6 +180,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 },
   meta: { fontSize: 14, color: '#6a7b8c', marginBottom: 20 },
   label: { fontSize: 15, fontWeight: '600', color: '#1a2b3c', marginBottom: 6 },
+  fieldHint: { fontSize: 14, color: '#6a7b8c', marginBottom: 10, lineHeight: 20 },
   primaryBtn: {
     paddingVertical: 14,
     borderRadius: 10,

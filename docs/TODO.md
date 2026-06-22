@@ -1,6 +1,6 @@
 # Bound for the Road — Project TODO
 
-**Last updated:** 2026-06-22 · **App:** 1.5.8 · **Phase:** 2
+**Last updated:** 2026-06-22 · **App:** 1.5.9 · **Phase:** 2
 
 **Decisions:** [DECISIONS.md](./DECISIONS.md) — do not duplicate here.  
 **Screens:** [SCREENS.md](./SCREENS.md) · **Testing:** [TESTING.md](./TESTING.md)  
@@ -16,17 +16,10 @@
 
 ## Next up (priority)
 
-### 1. Sync local ↔ remote session state
+### 1. Auth + proximity (candidate)
 
-- [x] On sign-in / app open (online), pull saved sessions + submissions + approvals from Supabase into local SQLite (`sessionSync.js` / `pullAndMergeTeenSessions`). Outbox flush pulls first, recomputes overlap validity, then pushes valid rows only.
-
-**Session validity (client-only, teen device):**
-
-- Overlap checks in `sessionTimeValidation.js` / local `timeInvalid` flag. Invalid sessions grouped at top of teen dashboard; submit disabled with conflict hints on Review.
-- Invalid sessions are **never** pushed to server or shown to adult. Outbox enqueues only when valid (or when overlap clears after recompute).
-- Adult approves anything visible after their outbox flush + server pending check — no invalid flag on adult client.
-- Server has no `time_invalid` column (removed in migration `20260628120000`).
-- Sync watermark RPCs (`20260629120000`) reject teen/adult writes when remote data changed since last merge; client resyncs and retries once.
+- [ ] **Email + password sign-up / sign-in** — Supabase email auth for users without Google/Apple. See [AUTH.md](./AUTH.md).
+- [ ] **Nearby linked adults** — detect supervising adult on local network (mDNS/BLE per [WISHLIST.md](./WISHLIST.md)) to target push for session submit / join without notifying every linked adult
 
 ### 2. Location — background (after native dev build)
 

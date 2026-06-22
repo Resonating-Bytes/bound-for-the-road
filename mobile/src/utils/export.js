@@ -11,7 +11,7 @@ export function renderExportTemplate(sessionRows, user, options = {}) {
   lines.push('');
   lines.push(`Driver: ${user.legalName}`);
   if (user.permitIssueDate) {
-    lines.push(`Permit issue date: ${formatDate(user.permitIssueDate)}`);
+    lines.push(`Expected permit date: ${formatDate(user.permitIssueDate)}`);
     lines.push(
       `Earliest license eligibility (9 months): ${formatDate(addMonths(user.permitIssueDate, IL_RULES.holdingMonths))}`,
     );

@@ -57,7 +57,7 @@ export function upsertUser(profile) {
     stateCode: profile.stateCode ?? 'IL',
     permitIssueDate: profile.permitIssueDate ?? null,
     createdAt: existing?.createdAt ?? now,
-    updatedAt: now,
+    updatedAt: profile.updatedAt ?? now,
   };
   if (existing) {
     db.update(users).set(row).where(eq(users.id, profile.id)).run();
@@ -743,6 +743,18 @@ export function listSavedSessions(teenUserId) {
     .all();
 }
 
+/** Saved sessions with supervisor approval, excluding overlap-invalid rows (for export). */
+export function listApprovedSessionsForExport(teenUserId) {
+  return listSavedSessions(teenUserId).filter((session) => {
+    if (session.timeInvalid || !session.requestHash) return false;
+    return Boolean(getApprovalForHash(session.requestHash));
+  });
+}
+
+export function hasApprovedExportableSession(teenUserId) {
+  return listApprovedSessionsForExport(teenUserId).length > 0;
+}
+
 export function getProgress(teenUserId) {
   const db = getDb();
   const row = db
@@ -787,6 +799,25 @@ export function listPendingOutboxRows() {
     .where(isNull(outbox.syncedAt))
     .orderBy(asc(outbox.createdAt))
     .all();
+}
+
+/** Pending outbox rows for the signed-in user (ignores other accounts on this device). */
+export function listPendingOutboxRowsForUser(userId) {
+  if (!userId) return [];
+  return listPendingOutboxRows().filter((row) => {
+    if (row.userId === userId) return true;
+    if (row.userId) return false;
+    try {
+      const payload = JSON.parse(row.payloadJson);
+      if (row.operation === 'session_submitted') {
+        const session = getSessionById(payload?.sessionId);
+        return session?.teenUserId === userId;
+      }
+    } catch {
+      // ignore malformed payloads
+    }
+    return false;
+  });
 }
 
 export function countPendingOutbox() {

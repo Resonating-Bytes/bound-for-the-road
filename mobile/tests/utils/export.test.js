@@ -30,7 +30,7 @@ describe('export', () => {
 
     expect(text).toContain('Bound for the Road — Illinois Supervised Driving Log');
     expect(text).toContain('Driver: Alex Driver');
-    expect(text).toContain('Permit issue date:');
+    expect(text).toContain('Expected permit date:');
     expect(text).toContain('Earliest license eligibility (9 months):');
     expect(text).toContain('State: IL');
     expect(text).toContain('Neighborhood loop');

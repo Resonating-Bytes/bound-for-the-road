@@ -4,6 +4,11 @@ import { useAuth } from '../../context/AuthContext';
 import { Screen } from '../../components/Screen';
 import { DatePickerField } from '../../components/DatePickerField';
 import { toISODateOnly } from '../../utils/time';
+import {
+  PERMIT_DATE_FIELD_LABEL,
+  PERMIT_DATE_HINT,
+  permitPickerMaximumDate,
+} from '../../utils/permitDate';
 import { useTheme } from '../../context/ThemeContext';
 import { shared, themeAccentStyles } from './sharedStyles';
 
@@ -30,12 +35,13 @@ export function OnboardingPermitScreen() {
   return (
     <Screen>
       <View style={shared.content}>
-        <Text style={shared.title}>Permit issue date</Text>
-        <Text style={shared.hint}>Required for your eligibility date on the dashboard.</Text>
+        <Text style={shared.title}>{PERMIT_DATE_FIELD_LABEL}</Text>
+        <Text style={shared.hint}>{PERMIT_DATE_HINT}</Text>
         <DatePickerField
           value={permitDate}
           onChange={setPermitDate}
-          maximumDate={new Date()}
+          maximumDate={permitPickerMaximumDate()}
+          accessibilityLabel="Expected permit date"
         />
         <Pressable style={[shared.button, accent.button]} onPress={finish}>
           <Text style={[shared.buttonText, accent.buttonText]}>Continue</Text>
