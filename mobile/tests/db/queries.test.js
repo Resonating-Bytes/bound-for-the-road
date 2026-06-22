@@ -38,6 +38,8 @@ import {
   listPendingOutboxRows,
   markOutboxRowSynced,
   hasUnsyncedSubmissionOutbox,
+  hasApprovedExportableSession,
+  listApprovedSessionsForExport,
 } from '../../src/db/queries';
 import { getDb } from '../../src/db/client';
 import { outbox } from '../../src/db/schema';
@@ -427,5 +429,32 @@ describe('queries', () => {
 
     expect(getSessionById(s2.id).timeInvalid).toBe(false);
     expect(getProgress(TEEN_ID).totalMinutes).toBe(120);
+  });
+
+  test('export includes only approved non-invalid sessions', async () => {
+    const approved = createManualDraftSession(TEEN_ID, {
+      startedAt: '2020-06-02T14:00:00.000Z',
+      endedAt: '2020-06-02T15:00:00.000Z',
+    });
+    await submitSession(approved.id, { submittedByUserId: TEEN_ID });
+    const submission = getSubmissionForSession(approved.id);
+    upsertApproval({
+      id: 'appr-1',
+      requestHash: submission.requestHash,
+      sessionId: approved.id,
+      approvedByUserId: 'adult-1',
+      approvedAt: '2020-06-03T12:00:00.000Z',
+      joinedSession: true,
+    });
+
+    const pending = createManualDraftSession(TEEN_ID, {
+      startedAt: '2020-06-03T14:00:00.000Z',
+      endedAt: '2020-06-03T15:00:00.000Z',
+    });
+    await submitSession(pending.id, { submittedByUserId: TEEN_ID });
+
+    expect(hasApprovedExportableSession(TEEN_ID)).toBe(true);
+    const rows = listApprovedSessionsForExport(TEEN_ID);
+    expect(rows.map((row) => row.id)).toEqual([approved.id]);
   });
 });

@@ -9,11 +9,11 @@ const SyncContext = createContext(null);
 export function SyncProvider({ children }) {
   const { user } = useAuth();
   const { canRemoteWrite } = useCompatibility();
-  const [snapshot, setSnapshot] = useState(getOutboxSyncSnapshot);
+  const [snapshot, setSnapshot] = useState(() => getOutboxSyncSnapshot(user?.id));
 
   const refreshSnapshot = useCallback(() => {
-    setSnapshot(getOutboxSyncSnapshot());
-  }, []);
+    setSnapshot(getOutboxSyncSnapshot(user?.id));
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id || !isSupabaseConfigured()) {

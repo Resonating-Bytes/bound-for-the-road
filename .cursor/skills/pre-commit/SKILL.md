@@ -42,6 +42,7 @@ Copy this checklist and mark items as you go:
 
 ```
 Pre-flight progress:
+- [ ] 0. Confirm branch (not `main`)
 - [ ] 1. Inspect changes
 - [ ] 2. Bump version + CHANGELOG
 - [ ] 3. Backend docs (if Supabase changed)
@@ -49,6 +50,17 @@ Pre-flight progress:
 - [ ] 5. Run version checks
 - [ ] 6. Report + commit message (required final step)
 ```
+
+### 0. Confirm branch (not `main`)
+
+Run:
+
+```bash
+git rev-parse --abbrev-ref HEAD
+```
+
+- If the result is `main`, **stop** and tell the user to create or switch to a feature branch first (e.g. `git switch -c dev/permit-date`). Do not bump version, run tests for a release commit, or draft a ship message on `main`.
+- If already on a feature branch, continue.
 
 ### 1. Inspect changes
 

@@ -4,7 +4,9 @@ import {
   isValidISODate,
   toISODateOnly,
   parseISODate,
+  formatDate,
   formatDuration,
+  addMonths,
 } from '../../src/utils/time';
 
 describe('time', () => {
@@ -38,6 +40,20 @@ describe('time', () => {
     expect(toISODateOnly(d)).toBe('2026-06-17');
     expect(parseISODate('2026-06-17').getFullYear()).toBe(2026);
     expect(parseISODate('bad-date', d)).toBe(d);
+  });
+
+  test('date picker pipeline keeps local calendar day (no UTC midnight shift)', () => {
+    const picked = new Date(2026, 6, 31, 15, 45, 0);
+    const stored = toISODateOnly(picked);
+    expect(stored).toBe('2026-07-31');
+    expect(parseISODate(stored).getDate()).toBe(31);
+    expect(formatDate(stored)).toContain('31');
+    expect(formatDate(stored)).not.toContain('30');
+  });
+
+  test('addMonths preserves local calendar day for date-only strings', () => {
+    expect(addMonths('2026-07-31', 1)).toBe('2026-08-31');
+    expect(addMonths('2026-01-15', 9)).toBe('2026-10-15');
   });
 
   test('formatDuration renders hours and minutes', () => {

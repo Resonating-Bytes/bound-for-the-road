@@ -41,6 +41,7 @@ export function OnboardingDOBScreen({ navigation }) {
           onChange={setDob}
           minimumDate={yearsAgo(100)}
           maximumDate={yearsAgo(13)}
+          accessibilityLabel="Date of birth"
         />
         <Pressable style={[shared.button, accent.button]} onPress={next}>
           <Text style={[shared.buttonText, accent.buttonText]}>Continue</Text>

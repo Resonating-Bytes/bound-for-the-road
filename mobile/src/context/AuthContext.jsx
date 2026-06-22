@@ -17,7 +17,7 @@ import {
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase';
 import { signInWithGoogleOAuth } from '../lib/googleAuth';
 import { fetchRemoteLinks } from '../lib/links';
-import { syncProfileToSupabase } from '../lib/profileSync';
+import { syncProfileToSupabase, syncProfileToSupabaseAndStamp, fetchRemoteProfile, mergeProfileWithRemote, pullAndApplyRemoteProfile, mapRemoteUser } from '../lib/profileSync';
 import { unregisterCurrentDevicePushToken } from '../lib/pushTokens';
 import { deleteRemoteAccount } from '../lib/deleteAccount';
 import { cancelSessionNotificationsForIds } from '../utils/notifications';
@@ -26,21 +26,6 @@ import { firstTokenFromLegalName } from '../utils/names';
 const MOCK_USER_KEY = '@boundfortheroad/mockUserId';
 
 const AuthContext = createContext(null);
-
-function mapRemoteUser(row) {
-  if (!row) return null;
-  const legalName = row.legal_name ?? '';
-  return {
-    id: row.id,
-    role: row.role ?? 'teen',
-    legalName,
-    displayName: row.display_name?.trim() || firstTokenFromLegalName(legalName),
-    email: row.email ?? null,
-    dateOfBirth: row.date_of_birth ?? null,
-    stateCode: row.state_code ?? 'IL',
-    permitIssueDate: row.permit_issue_date ?? null,
-  };
-}
 
 function oauthLegalName(authUser) {
   const meta = authUser.user_metadata ?? {};
@@ -53,41 +38,15 @@ function ensureLocalUserFromAuth(authUser, remoteProfile) {
   const roleLockedLocally = existing?.id && isRoleChosen(existing.id);
   const oauthLegal = oauthLegalName(authUser);
   const oauthDisplay = firstTokenFromLegalName(oauthLegal);
-  if (existing) {
-    const merged = {
-      ...existing,
-      role: roleLockedLocally ? existing.role : (remote?.role ?? existing.role),
-      legalName: existing.legalName || remote?.legalName || oauthLegal,
-      displayName: existing.displayName || remote?.displayName || oauthDisplay,
-      email: existing.email || authUser.email || remote?.email || null,
-      dateOfBirth: existing.dateOfBirth ?? remote?.dateOfBirth ?? null,
-      stateCode: existing.stateCode ?? remote?.stateCode ?? 'IL',
-      permitIssueDate: existing.permitIssueDate ?? remote?.permitIssueDate ?? null,
-    };
-    return upsertUser(merged);
-  }
-
-  return upsertUser({
-    id: authUser.id,
-    role: remote?.role ?? 'teen',
-    legalName: remote?.legalName || oauthLegal,
-    displayName: remote?.displayName || oauthDisplay,
-    email: authUser.email ?? remote?.email ?? null,
-    dateOfBirth: remote?.dateOfBirth ?? null,
-    stateCode: remote?.stateCode ?? 'IL',
-    permitIssueDate: remote?.permitIssueDate ?? null,
+  const merged = mergeProfileWithRemote({
+    existing,
+    remote,
+    roleLockedLocally,
+    oauthLegalName: oauthLegal,
+    oauthDisplayName: oauthDisplay,
+    authEmail: authUser.email ?? null,
   });
-}
-
-async function fetchRemoteProfile(userId) {
-  if (!isSupabaseConfigured()) return null;
-  const { data, error } = await getSupabase()
-    .from('users')
-    .select('id, role, legal_name, display_name, email, date_of_birth, state_code, permit_issue_date')
-    .eq('id', userId)
-    .maybeSingle();
-  if (error) throw error;
-  return data;
+  return upsertUser({ ...merged, id: authUser.id });
 }
 
 export function AuthProvider({ children }) {
@@ -162,6 +121,23 @@ export function AuthProvider({ children }) {
     setUser(row);
     return row;
   }, []);
+
+  const refreshProfileFromRemote = useCallback(async () => {
+    if (!userId || !isSupabaseConfigured()) return refreshUser(userId);
+    try {
+      const row = await pullAndApplyRemoteProfile(userId, {
+        roleLockedLocally: isRoleChosen(userId),
+        oauthLegalName: '',
+        oauthDisplayName: '',
+        authEmail: user?.email ?? null,
+      });
+      setUser(row);
+      return row;
+    } catch (e) {
+      console.warn('Remote profile refresh failed:', e.message);
+      return refreshUser(userId);
+    }
+  }, [userId, user?.email, refreshUser]);
 
   useEffect(() => {
     let mounted = true;
@@ -299,7 +275,10 @@ export function AuthProvider({ children }) {
       setRoleChosen(userId);
       setRoleChosenFlag(true);
       setUser(row);
-      syncProfileToSupabase(row)
+      syncProfileToSupabaseAndStamp(row)
+        .then((synced) => {
+          if (synced) setUser(synced);
+        })
         .catch((e) => {
           console.warn('Supabase role sync failed:', e.message);
         })
@@ -316,7 +295,8 @@ export function AuthProvider({ children }) {
       const row = upsertUser({ ...profile, id: userId, role: profile.role ?? user?.role ?? 'teen' });
       setUser(row);
       try {
-        await syncProfileToSupabase(row);
+        const synced = await syncProfileToSupabaseAndStamp(row);
+        setUser(synced ?? row);
       } catch (e) {
         console.warn('Supabase profile sync failed:', e.message);
       }
@@ -430,6 +410,7 @@ export function AuthProvider({ children }) {
       deleteAllData,
       deleteMyAccount,
       refreshUser: () => refreshUser(userId),
+      refreshProfileFromRemote,
       refreshLinks: () => refreshLinks(userId),
     }),
     [
@@ -449,6 +430,7 @@ export function AuthProvider({ children }) {
       deleteAllData,
       deleteMyAccount,
       refreshUser,
+      refreshProfileFromRemote,
       refreshLinks,
     ],
   );

@@ -30,6 +30,8 @@ import {
   getSessionApprovalContext,
   hasUnsyncedSubmissionOutbox,
   recomputeSessionTimeValidation,
+  hasApprovedExportableSession,
+  listApprovedSessionsForExport,
 } from '../db/queries';
 import {
   fetchRemoteUserLabel,
@@ -53,6 +55,7 @@ import { formatDayNightSummary, computeDayNightMinutes } from '../utils/dayNight
 import { renderExportTemplate } from '../utils/export';
 import { readExportIncludeRoadCategory, writeExportIncludeRoadCategory } from '../lib/exportPreferences';
 import { TEEN_DASHBOARD_TITLE } from '../theme/headerTitleEffects';
+import { isPermitActive, formatPermitStartsMessage } from '../utils/permitDate';
 import {
   scheduleSessionNudge,
   cancelSessionNotifications,
@@ -60,7 +63,7 @@ import {
 } from '../utils/notifications';
 
 export function DashboardScreen({ navigation }) {
-  const { userId, user } = useAuth();
+  const { userId, user, refreshProfileFromRemote } = useAuth();
   const { canRemoteWrite } = useCompatibility();
   const { theme } = useTheme();
   const [sessions, setSessions] = useState([]);
@@ -97,6 +100,7 @@ export function DashboardScreen({ navigation }) {
     if (!userId || !isSupabaseConfigured()) return;
     if (!(await isNetworkOnline())) return;
     try {
+      await refreshProfileFromRemote();
       await pullAndMergeTeenSessions(userId);
     } catch {
       return;
@@ -125,7 +129,7 @@ export function DashboardScreen({ navigation }) {
       }),
     );
     setStatusBySessionId(statuses);
-  }, [userId, canRemoteWrite]);
+  }, [userId, canRemoteWrite, refreshProfileFromRemote]);
 
   const refresh = useCallback(async () => {
     loadLocalDashboard();
@@ -247,6 +251,10 @@ export function DashboardScreen({ navigation }) {
   }
 
   async function handleStart() {
+    if (!permitActive) {
+      Alert.alert('Permit not started yet', formatPermitStartsMessage(user?.permitIssueDate));
+      return;
+    }
     const active = getActiveSession(userId);
     if (active) {
       navigation.navigate('ActiveSession', { sessionId: active.id });
@@ -263,6 +271,10 @@ export function DashboardScreen({ navigation }) {
   }
 
   function handleManualEntry() {
+    if (!permitActive) {
+      Alert.alert('Permit not started yet', formatPermitStartsMessage(user?.permitIssueDate));
+      return;
+    }
     const active = getActiveSession(userId);
     if (active) {
       Alert.alert('Session in progress', 'Stop your active session before adding a manual entry.');
@@ -281,13 +293,14 @@ export function DashboardScreen({ navigation }) {
   }
 
   function handleExportAll() {
+    if (!canExport) return;
     setExportIncludeRoadCategory(readExportIncludeRoadCategory(userId));
     setExportModalVisible(true);
   }
 
   async function handleConfirmExport() {
     writeExportIncludeRoadCategory(userId, exportIncludeRoadCategory);
-    const rows = listSavedSessions(userId);
+    const rows = listApprovedSessionsForExport(userId);
     const text = renderExportTemplate(rows, user, {
       includeRoadCategory: exportIncludeRoadCategory,
     });
@@ -298,6 +311,8 @@ export function DashboardScreen({ navigation }) {
   const eligibility = user?.permitIssueDate
     ? addMonths(user.permitIssueDate, IL_RULES.holdingMonths)
     : null;
+  const permitActive = isPermitActive(user?.permitIssueDate);
+  const canExport = userId ? hasApprovedExportableSession(userId) : false;
 
   return (
     <Screen withHeader>
@@ -319,6 +334,10 @@ export function DashboardScreen({ navigation }) {
         </Text>
       )}
 
+      {!permitActive && user?.permitIssueDate ? (
+        <Text style={styles.permitNotice}>{formatPermitStartsMessage(user.permitIssueDate)}</Text>
+      ) : null}
+
       <ProgressBar
         label="Total practice"
         currentMinutes={progress.totalMinutes}
@@ -331,16 +350,42 @@ export function DashboardScreen({ navigation }) {
       />
 
       <View style={styles.actions}>
-        <Pressable style={[styles.primaryBtn, { backgroundColor: theme.accent }]} onPress={handleStart}>
+        <Pressable
+          style={[
+            styles.primaryBtn,
+            { backgroundColor: theme.accent },
+            !permitActive && styles.disabledBtn,
+          ]}
+          onPress={handleStart}
+          disabled={!permitActive}
+        >
           <Text style={[styles.primaryBtnText, { color: theme.accentText }]}>Start session</Text>
         </Pressable>
-        <Pressable style={styles.secondaryBtn} onPress={handleExportAll}>
-          <Text style={styles.secondaryBtnText}>Export all</Text>
+        <Pressable
+          style={[styles.secondaryBtn, !canExport && styles.disabledBtn]}
+          onPress={handleExportAll}
+          disabled={!canExport}
+        >
+          <Text style={[styles.secondaryBtnText, !canExport && styles.disabledBtnText]}>
+            Export all
+          </Text>
         </Pressable>
       </View>
 
-      <Pressable style={styles.manualEntryLink} onPress={handleManualEntry}>
-        <Text style={styles.manualEntryLinkText}>Add manual entry</Text>
+      {!canExport ? (
+        <Text style={styles.exportHint}>
+          Export unlocks after your first approved practice session.
+        </Text>
+      ) : null}
+
+      <Pressable
+        style={[styles.manualEntryLink, !permitActive && styles.disabledBtn]}
+        onPress={handleManualEntry}
+        disabled={!permitActive}
+      >
+        <Text style={[styles.manualEntryLinkText, !permitActive && styles.disabledBtnText]}>
+          Add manual entry
+        </Text>
       </Pressable>
 
       <SectionList
@@ -377,6 +422,23 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   body: { flex: 1, paddingHorizontal: 20, paddingTop: 16 },
   eligibility: { fontSize: 14, color: '#5a6b7c', marginBottom: 16 },
+  permitNotice: {
+    fontSize: 14,
+    color: '#92400e',
+    backgroundColor: '#fef3c7',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  exportHint: {
+    fontSize: 13,
+    color: '#6a7b8c',
+    textAlign: 'center',
+    marginTop: -12,
+    marginBottom: 12,
+    lineHeight: 18,
+  },
   actions: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   primaryBtn: {
     flex: 1,
@@ -395,6 +457,8 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
   },
   secondaryBtnText: { color: '#1a2b3c', fontWeight: '600', fontSize: 16 },
+  disabledBtn: { opacity: 0.45 },
+  disabledBtnText: { color: '#94a3b8' },
   manualEntryLink: { alignSelf: 'center', marginBottom: 16, paddingVertical: 4 },
   manualEntryLinkText: { color: '#5a6b7c', fontSize: 15, fontWeight: '500' },
   listSectionTitle: {

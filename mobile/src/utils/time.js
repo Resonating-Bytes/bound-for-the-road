@@ -40,7 +40,9 @@ export function formatDateTime(iso) {
 
 export function formatDate(iso) {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString(undefined, {
+  const d = isValidISODate(iso) ? parseISODate(iso) : new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -48,13 +50,13 @@ export function formatDate(iso) {
 }
 
 export function addMonths(isoDate, months) {
-  const d = new Date(isoDate);
+  const d = isValidISODate(isoDate) ? parseISODate(isoDate) : new Date(isoDate);
   d.setMonth(d.getMonth() + months);
-  return d.toISOString().slice(0, 10);
+  return toISODateOnly(d);
 }
 
 export function isAtLeastAge(isoDate, minYears) {
-  const dob = new Date(isoDate);
+  const dob = isValidISODate(isoDate) ? parseISODate(isoDate) : new Date(isoDate);
   const today = new Date();
   let age = today.getFullYear() - dob.getFullYear();
   const m = today.getMonth() - dob.getMonth();

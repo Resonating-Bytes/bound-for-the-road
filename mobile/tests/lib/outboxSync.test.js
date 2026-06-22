@@ -1,5 +1,10 @@
 jest.mock('../../src/lib/supabase', () => ({
   isSupabaseConfigured: () => true,
+  getSupabase: () => ({
+    auth: {
+      getUser: jest.fn(() => Promise.resolve({ data: { user: { id: 'teen-1' } } })),
+    },
+  }),
 }));
 
 const mockCanUseRemoteWrite = jest.fn(() => true);
@@ -39,7 +44,8 @@ const mockGetSubmission = jest.fn();
 const mockGetUserById = jest.fn(() => ({ role: 'teen' }));
 
 jest.mock('../../src/db/queries', () => ({
-  listPendingOutboxRows: () => mockListPending(),
+  listPendingOutboxRowsForUser: (userId) =>
+    mockListPending().filter((row) => row.userId === userId || !row.userId),
   markOutboxRowSynced: (...args) => mockMarkSynced(...args),
   getSessionById: (...args) => mockGetSession(...args),
   getSubmissionForSession: (...args) => mockGetSubmission(...args),
@@ -86,6 +92,7 @@ describe('flushOutbox', () => {
         id: 'ob-2',
         operation: 'session_approved',
         payloadJson: JSON.stringify({ sessionId: 'sess-1', requestHash: 'hash-1' }),
+        userId: 'teen-1',
       },
     ]);
 
@@ -117,6 +124,22 @@ describe('flushOutbox', () => {
     expect(mockPushSubmitted).not.toHaveBeenCalled();
     expect(mockMarkSynced).not.toHaveBeenCalled();
     expect(result).toEqual({ processed: 1, failed: false });
+  });
+
+  test('skips outbox rows for other signed-in users', async () => {
+    mockListPending.mockReturnValue([
+      {
+        id: 'ob-other',
+        operation: 'session_submitted',
+        payloadJson: JSON.stringify({ sessionId: 'sess-1' }),
+        userId: 'other-teen',
+      },
+    ]);
+
+    const result = await flushOutbox();
+
+    expect(mockPushSubmitted).not.toHaveBeenCalled();
+    expect(result).toEqual({ processed: 0, failed: false });
   });
 
   test('skips when offline', async () => {
