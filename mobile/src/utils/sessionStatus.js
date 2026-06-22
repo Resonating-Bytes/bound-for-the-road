@@ -1,4 +1,5 @@
 import { formatDate } from './time';
+import { getPrimaryInvalidHint, sessionHasBlockingInvalid } from './sessionValidation';
 
 /**
  * Derive Phase 2 display status for a saved session row.
@@ -16,6 +17,19 @@ export function getSessionDisplayStatus(
 ) {
   if (!session || session.status !== 'saved') {
     return { key: 'draft', label: 'Not submitted' };
+  }
+
+  if (sessionHasBlockingInvalid(session)) {
+    const hint =
+      getPrimaryInvalidHint(session, 'teen') ??
+      (submission && !submission.superseded
+        ? 'Session needs a fix before your supervisor can approve'
+        : 'Session needs a fix');
+    return {
+      key: 'time_invalid',
+      label: hint,
+      ...(submission && !submission.superseded ? { submission } : {}),
+    };
   }
 
   if (approval && approval.requestHash === session.requestHash) {

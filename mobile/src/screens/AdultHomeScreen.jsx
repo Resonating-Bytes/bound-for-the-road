@@ -21,6 +21,7 @@ import {
   fetchPendingSubmissionsForAdult,
   fetchApprovedSubmissionsForAdult,
 } from '../lib/submissions';
+import { fetchAndStoreTeenSyncWatermark } from '../lib/sessionSync';
 import { fetchLinkedTeenSummaries } from '../lib/teenProgress';
 import {
   readSavedSelectedTeenId,
@@ -66,6 +67,11 @@ export function AdultHomeScreen({ navigation }) {
       ]);
       setPending(pendingRows);
       setApproved(approvedRows);
+      await Promise.all(
+        summaries.map((teen) =>
+          fetchAndStoreTeenSyncWatermark(userId, teen.teenUserId).catch(() => {}),
+        ),
+      );
     } catch {
       setTeenSummaries([]);
       setPending([]);
@@ -261,8 +267,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
+  rowInvalid: {
+    borderColor: '#f59e0b',
+    backgroundColor: '#fffbeb',
+  },
   rowContent: { flex: 1, paddingRight: 8 },
   rowDate: { fontSize: 15, color: '#1a2b3c', marginTop: 2 },
   rowMeta: { fontSize: 14, color: '#5a6b7c', marginTop: 2 },
   approvedMeta: { fontSize: 13, color: '#15803d', marginTop: 6 },
+  invalidMeta: { fontSize: 13, color: '#b45309', marginTop: 6 },
 });

@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Share, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '../../context/AuthContext';
 import { Screen } from '../../components/Screen';
 import { ScreenHeader } from '../../components/ScreenHeader';
-import { setLinkInviteDeferred } from '../../db/queries';
+import { setLinkInviteDeferred, getActiveLinksForUser } from '../../db/queries';
 import { createLinkInvite, formatInviteCode } from '../../lib/links';
 import { canShowBackButton, navigateBackOrHome, resetToHome } from '../../navigation/helpers';
 import { useTheme } from '../../context/ThemeContext';
@@ -18,6 +18,13 @@ export function LinkTeenScreen({ navigation }) {
   const [code, setCode] = useState(null);
   const [expiresAt, setExpiresAt] = useState(null);
   const [loading, setLoading] = useState(false);
+  const linkCountOnMountRef = useRef(null);
+  if (linkCountOnMountRef.current === null && userId) {
+    linkCountOnMountRef.current = getActiveLinksForUser(userId).length;
+  }
+  const linkCountOnMount = linkCountOnMountRef.current ?? 0;
+  const [linkCount, setLinkCount] = useState(linkCountOnMount);
+  const newLinkEstablished = linkCount > linkCountOnMount;
 
   const loadInvite = useCallback(async () => {
     if (!userId) return;
@@ -33,30 +40,38 @@ export function LinkTeenScreen({ navigation }) {
     }
   }, [userId]);
 
+  const syncLinkCount = useCallback(async () => {
+    if (!userId) return linkCountOnMount;
+    await refreshLinks();
+    const count = getActiveLinksForUser(userId).length;
+    setLinkCount(count);
+    return count;
+  }, [refreshLinks, userId, linkCountOnMount]);
+
   useFocusEffect(
     useCallback(() => {
-      refreshLinks();
+      syncLinkCount();
       if (!code) {
         loadInvite();
       }
-    }, [refreshLinks, code, loadInvite]),
+    }, [syncLinkCount, code, loadInvite]),
   );
 
   useEffect(() => {
-    if (linked) return undefined;
+    if (!userId) return undefined;
     const timer = setInterval(() => {
-      refreshLinks();
+      syncLinkCount();
     }, 2000);
     return () => clearInterval(timer);
-  }, [linked, refreshLinks]);
+  }, [userId, syncLinkCount]);
 
   useEffect(() => {
-    if (!linked) return undefined;
+    if (!newLinkEstablished) return undefined;
     const timer = setTimeout(() => {
       resetToHome(navigation, 'teen');
     }, 0);
     return () => clearTimeout(timer);
-  }, [linked, navigation]);
+  }, [newLinkEstablished, navigation]);
 
   async function handleCopy() {
     if (!code) return;
@@ -115,8 +130,13 @@ export function LinkTeenScreen({ navigation }) {
           <Text style={styles.meta}>Expires {new Date(expiresAt).toLocaleString()}</Text>
         ) : null}
 
-        {linked ? (
+        {newLinkEstablished ? (
           <Text style={styles.waiting}>Linked! Taking you to the dashboard…</Text>
+        ) : linked ? (
+          <Text style={styles.waiting}>
+            Share this code to link another supervising adult, or generate a new code if the last
+            one expired.
+          </Text>
         ) : (
           <View style={styles.skipSection}>
             <Text style={styles.waiting}>

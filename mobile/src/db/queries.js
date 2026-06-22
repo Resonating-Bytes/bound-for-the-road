@@ -4,6 +4,7 @@ import { users, sessions, outbox, links, settings, submissions, approvals, userA
 import { generateId, nowISO, durationMinutes } from '../utils/time';
 import { computeDayNightMinutes } from '../utils/dayNight';
 import { computeRoadCategoryMinutes } from '../utils/roadCategory';
+import { computeInvalidSessionIds } from '../utils/sessionTimeValidation';
 import { buildSubmitPayload, computeRequestHash, stableSubmitStringify } from '../utils/hash';
 import { IL_RULES } from '../config/states/IL';
 import { clearHeaderThemePreference } from '../theme/headerTheme';
@@ -343,6 +344,8 @@ export function reopenSavedSession(sessionId) {
     })
     .where(and(eq(sessions.id, sessionId), eq(sessions.status, 'saved')))
     .run();
+  const teenUserId = getSessionById(sessionId)?.teenUserId;
+  if (teenUserId) recomputeSessionTimeValidation(teenUserId);
   return getSessionById(sessionId);
 }
 
@@ -364,7 +367,30 @@ export function restoreSavedSession(sessionId, backup) {
     })
     .where(eq(sessions.id, sessionId))
     .run();
+  const teenUserId = getSessionById(sessionId)?.teenUserId;
+  if (teenUserId) recomputeSessionTimeValidation(teenUserId);
   return getSessionById(sessionId);
+}
+
+/** Recompute time_invalid for all saved sessions for a teen (overlap detection). */
+export function recomputeSessionTimeValidation(teenUserId) {
+  const saved = listSavedSessions(teenUserId);
+  const invalidIds = computeInvalidSessionIds(saved);
+  const db = getDb();
+  const now = nowISO();
+  for (const session of saved) {
+    const wasInvalid = Boolean(session.timeInvalid);
+    const shouldBeInvalid = invalidIds.has(session.id);
+    if (wasInvalid !== shouldBeInvalid) {
+      db.update(sessions)
+        .set({ timeInvalid: shouldBeInvalid, updatedAt: now })
+        .where(eq(sessions.id, session.id))
+        .run();
+      if (wasInvalid && !shouldBeInvalid) {
+        enqueueSubmissionIfNeverSynced(session.id);
+      }
+    }
+  }
 }
 
 /** Update draft session fields; recomputes duration and day/night from times. */
@@ -442,6 +468,8 @@ export async function submitSession(
     })
     .where(eq(sessions.id, sessionId))
     .run();
+  recomputeSessionTimeValidation(session.teenUserId);
+  const afterSave = getSessionById(sessionId);
   supersedeSubmissionsForSession(sessionId);
   db.insert(submissions)
     .values({
@@ -453,8 +481,10 @@ export async function submitSession(
       superseded: false,
     })
     .run();
-  enqueueOutbox('session_submitted', { sessionId, requestHash }, submittedByUserId);
-  return getSessionById(sessionId);
+  if (!afterSave?.timeInvalid) {
+    enqueueOutbox('session_submitted', { sessionId, requestHash }, submittedByUserId);
+  }
+  return afterSave;
 }
 
 /** @deprecated Use submitSession — kept for tests migrating from Phase 1 naming */
@@ -471,6 +501,95 @@ export function supersedeSubmissionsForSession(sessionId) {
     .set({ superseded: true })
     .where(eq(submissions.sessionId, sessionId))
     .run();
+}
+
+export function remoteSyncAtKey(userId, teenUserId = null) {
+  if (teenUserId && teenUserId !== userId) {
+    return `remote_sync_at_${userId}_for_${teenUserId}`;
+  }
+  return `remote_sync_at_${userId}`;
+}
+
+export function getRemoteSyncAt(userId, teenUserId = null) {
+  return getSettingValue(remoteSyncAtKey(userId, teenUserId));
+}
+
+export function setRemoteSyncAt(userId, iso, teenUserId = null) {
+  setSettingValue(remoteSyncAtKey(userId, teenUserId), iso);
+}
+
+/** Merge a remote session row; skips when local outbox still pending for this session. */
+export function upsertSessionFromRemote(remoteRow) {
+  if (!remoteRow?.id) return null;
+
+  if (hasUnsyncedSubmissionOutbox(remoteRow.id)) {
+    return getSessionById(remoteRow.id);
+  }
+
+  const db = getDb();
+  const now = nowISO();
+  const existing = getSessionById(remoteRow.id);
+
+  if (
+    existing &&
+    (existing.status === 'active' || existing.status === 'draft') &&
+    (remoteRow.status === 'saved' || remoteRow.status === 'deleted')
+  ) {
+    return existing;
+  }
+
+  const row = {
+    id: remoteRow.id,
+    teenUserId: remoteRow.teenUserId,
+    stateCode: remoteRow.stateCode ?? 'IL',
+    status: remoteRow.status,
+    startedAt: remoteRow.startedAt,
+    endedAt: remoteRow.endedAt ?? null,
+    durationMinutes: remoteRow.durationMinutes ?? null,
+    nightMinutes: remoteRow.nightMinutes ?? null,
+    highwayRoadMinutes: existing?.highwayRoadMinutes ?? null,
+    notes: remoteRow.notes ?? null,
+    requestHash: remoteRow.requestHash ?? null,
+    payloadJson: remoteRow.payloadJson ?? null,
+    activeSupervisorId: remoteRow.activeSupervisorId ?? null,
+    deletedAt: remoteRow.deletedAt ?? null,
+    timeInvalid: false,
+    createdAt: remoteRow.createdAt ?? existing?.createdAt ?? now,
+    updatedAt: remoteRow.updatedAt ?? now,
+  };
+
+  if (!existing) {
+    db.insert(sessions).values(row).run();
+  } else {
+    db.update(sessions).set(row).where(eq(sessions.id, remoteRow.id)).run();
+  }
+  return getSessionById(remoteRow.id);
+}
+
+export function upsertSubmissionFromRemote(submission) {
+  if (!submission?.requestHash) return null;
+
+  if (hasUnsyncedSubmissionOutbox(submission.sessionId)) {
+    return getSubmissionForSession(submission.sessionId);
+  }
+
+  const db = getDb();
+  const existing = getSubmissionByHash(submission.requestHash);
+  const row = {
+    requestHash: submission.requestHash,
+    sessionId: submission.sessionId,
+    payloadJson: submission.payloadJson,
+    submittedAt: submission.submittedAt,
+    submittedByUserId: submission.submittedByUserId,
+    superseded: submission.superseded ?? false,
+  };
+
+  if (existing) {
+    db.update(submissions).set(row).where(eq(submissions.requestHash, submission.requestHash)).run();
+  } else {
+    db.insert(submissions).values(row).run();
+  }
+  return getSubmissionByHash(submission.requestHash);
 }
 
 export function getSubmissionForSession(sessionId) {
@@ -599,11 +718,13 @@ export function getSessionApprovalContext(sessionId) {
 
 export function softDeleteSession(sessionId) {
   const db = getDb();
+  const before = getSessionById(sessionId);
   const now = nowISO();
   db.update(sessions)
     .set({ status: 'deleted', deletedAt: now, updatedAt: now })
     .where(eq(sessions.id, sessionId))
     .run();
+  if (before?.teenUserId) recomputeSessionTimeValidation(before.teenUserId);
 }
 
 export function listSavedSessions(teenUserId) {
@@ -634,6 +755,7 @@ export function getProgress(teenUserId) {
       and(
         eq(sessions.teenUserId, teenUserId),
         eq(sessions.status, 'saved'),
+        eq(sessions.timeInvalid, false),
         isNull(sessions.deletedAt),
       ),
     )
@@ -691,6 +813,33 @@ export function hasUnsyncedSubmissionOutbox(sessionId) {
       return false;
     }
   });
+}
+
+export function wasSubmissionEverSynced(sessionId) {
+  const db = getDb();
+  const rows = db.select().from(outbox).where(eq(outbox.operation, 'session_submitted')).all();
+  return rows.some((row) => {
+    if (!row.syncedAt) return false;
+    try {
+      const payload = JSON.parse(row.payloadJson);
+      return payload.sessionId === sessionId;
+    } catch {
+      return false;
+    }
+  });
+}
+
+function enqueueSubmissionIfNeverSynced(sessionId) {
+  const session = getSessionById(sessionId);
+  const submission = getSubmissionForSession(sessionId);
+  if (!session || session.status !== 'saved' || session.timeInvalid) return;
+  if (!submission || submission.superseded) return;
+  if (hasUnsyncedSubmissionOutbox(sessionId) || wasSubmissionEverSynced(sessionId)) return;
+  enqueueOutbox(
+    'session_submitted',
+    { sessionId, requestHash: submission.requestHash },
+    submission.submittedByUserId,
+  );
 }
 
 export function markSubmissionOutboxSynced(sessionId) {

@@ -26,6 +26,7 @@ jest.mock('../../src/db/queries', () => ({
   recomputeSessionRoadCategory: jest.fn(() => ({
     highwayRoadMinutes: null,
   })),
+  listSavedSessions: jest.fn(() => []),
 }));
 
 jest.mock('../../src/lib/submissions', () => ({

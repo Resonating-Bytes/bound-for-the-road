@@ -1,6 +1,6 @@
 # Bound for the Road — Project TODO
 
-**Last updated:** 2026-06-21 · **App:** 1.5.7 · **Phase:** 2
+**Last updated:** 2026-06-22 · **App:** 1.5.8 · **Phase:** 2
 
 **Decisions:** [DECISIONS.md](./DECISIONS.md) — do not duplicate here.  
 **Screens:** [SCREENS.md](./SCREENS.md) · **Testing:** [TESTING.md](./TESTING.md)  
@@ -16,37 +16,19 @@
 
 ## Next up (priority)
 
-### 1. Outbox sync (+ nickname trim fix) `[x]`
+### 1. Sync local ↔ remote session state
 
-- [x] Outbox replay worker — NetInfo listener, ordered replay, exponential backoff ([OFFLINE_SYNC.md](./OFFLINE_SYNC.md))
-- [x] Route approve / decline / withdraw through outbox when offline
-- [x] Sync status UI — “Pending sync” / “Up to date” (Settings → About)
-- [x] **Nickname field:** `limitNameLength` on submit only in `SettingsLinkedAccountDetailScreen`
+- [x] On sign-in / app open (online), pull saved sessions + submissions + approvals from Supabase into local SQLite (`sessionSync.js` / `pullAndMergeTeenSessions`). Outbox flush pulls first, recomputes overlap validity, then pushes valid rows only.
 
-**Offline mode scope:** Local start → stop → review → save works without network. Outbox sync completes the **remote half** — queued submits replay when connectivity and compatibility allow.
+**Session validity (client-only, teen device):**
 
-### 2. Editable session times and fields `[x]`
+- Overlap checks in `sessionTimeValidation.js` / local `timeInvalid` flag. Invalid sessions grouped at top of teen dashboard; submit disabled with conflict hints on Review.
+- Invalid sessions are **never** pushed to server or shown to adult. Outbox enqueues only when valid (or when overlap clears after recompute).
+- Adult approves anything visible after their outbox flush + server pending check — no invalid flag on adult client.
+- Server has no `time_invalid` column (removed in migration `20260628120000`).
+- Sync watermark RPCs (`20260629120000`) reject teen/adult writes when remote data changed since last merge; client resyncs and retries once.
 
-- [x] Edit `startedAt` / `endedAt` on Review and Edit session (duration computed; day/night from start)
-- [x] Recompute hash and re-submit / re-approval when already submitted (edit flow reopens as draft → submit)
-- [x] Review fields documented in [SCREENS.md](./SCREENS.md)
-
-Promoted from [WISHLIST.md](./WISHLIST.md).
-
-### 3. Location during active session — foreground (Expo Go) `[x]`
-
-- [x] Sample `expo-location` while session is **active and app foreground** — coords + speed
-- [x] On-device road-category heuristics (highway vs local from speed); no server upload ([CROSS_PLATFORM.md](./CROSS_PLATFORM.md))
-
-### 4. Manual session entry `[x]`
-
-- [x] **Add manual entry** — Dashboard link; enter start/end + notes without Active session. No GPS samples or derived optional fields.
-
-### 5. Overlapping session validation
-
-- [ ] On save (initial Review save and save from edit), flag sessions whose time range overlaps another for the same teen. Validate locally (SQLite) and on the backend (Postgres) — offline may require both. When overlap is detected, mark all involved sessions **except the oldest** as invalid until times are corrected.
-
-### 6. Location — background (after native dev build)
+### 2. Location — background (after native dev build)
 
 - [ ] Background track, stall detection, route heat map — dev client + Live Activity / Android foreground service
 
@@ -60,40 +42,14 @@ Promoted from [WISHLIST.md](./WISHLIST.md).
 
 ---
 
-## Phase 1 — Expo Go (teen-only) `[x]`
+## Phase 2 — Dev build + Supabase (backlog)
 
-Foundation, auth, session flow, settings, and automated test harness are complete.
-
-### QA (manual — Expo Go, do now)
-
-- [x] Session state machine on iPhone + Android emulator
-
-**Checklist:** `C:\tmp\expo-go-qa-checklist.md` — walk through start → stop → review → save → edit → delete on Expo Go. Jest covers logic; this is a one-time device sanity pass. **Maestro E2E** waits until native dev build (not this checkbox).
-
----
-
-## Phase 2 — Dev build + Supabase
-
-### Done
-
-- [x] Postgres schema + RLS, Supabase auth (Google), profile sync, linking, invites
-- [x] Submit / approve / decline / withdraw, push + edge function
-- [x] Compatibility & versioning (1.5.x)
-- [x] Settings sub-pages, theme presets, display names + nicknames (1.5.0–1.5.2)
-- [x] Editable session times on Review and Edit session (1.5.5)
-- [x] Foreground GPS sampling on Active session — local `session_location_samples`, road category UI
-
-### Backlog (after next-up items)
-
-- [ ] **Sync local ↔ remote session state** — On sign-in / app open (online), pull saved sessions + approvals from Supabase into local SQLite so a new phone or fresh install matches cloud (e.g. approved sessions visible on teen dashboard). Today: local is source of truth on device; outbox pushes submits only — no inbound merge. See [OFFLINE_SYNC.md](./OFFLINE_SYNC.md), [ONBOARDING.md](./ONBOARDING.md) (new phone).
-- [x] **Road category time breakdown on Review** — Aggregate `session_location_samples` into local/highway/not-tracked; show on summary after user validates foreground GPS
 - [ ] **iOS development build** — Apple Developer enrollment; see [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md#development-build-bound-for-the-road-branding)
 - [ ] Sign in with Apple (after iOS dev build)
 - [ ] **Email + password sign-up / sign-in** — Supabase email auth as fallback for users without Google or Apple. Google/Apple is great when available; email/password covers everyone else. Bootstrap from Order Envy when starting — get that agent to write an implementation doc we can port. See [AUTH.md](./AUTH.md).
 - [ ] Maestro E2E happy path (dev/production build)
 - [ ] Live Activity (iOS) + Android foreground service
 - [ ] Deep links wired to push routes
-- [x] **Copy from preset (custom theme)** — On Settings theme screen, add a "Copy from preset" button enabled only when a built-in preset is selected; copies that preset's header + accent hex into the custom fields and selects custom theme. Lets users start from a preset and tweak one color.
 - [ ] Custom accent / header hex pickers (deferred)
 - [ ] **Weather conditions during session** — When foreground GPS is on, sample weather alongside location (API TBD). Track at least: clear, rain, high winds, snow, fog; expand if data allows. Active session: vertical stack — day/night icon, weather icon, road category label (heaviest, bottom). Review + optional export line (like road category). Local samples only unless we decide to sync later.
 

@@ -24,6 +24,8 @@ import { notifyApprovalPush, PUSH_EVENTS } from './approvalPush';
 import { canUseRemoteWrite, getCachedCompatibility, assertRemoteWriteAllowed } from './compatibility';
 import { isNetworkOnline, isNetworkFailureError } from './network';
 import { legacyNightMinutes } from '../utils/dayNight';
+import { withTeenSyncRetry, withAdultTeenSyncRetry } from './syncRetry';
+import { fetchAndStoreTeenSyncWatermark } from './sessionSync';
 
 function isRemoteWriteAllowed() {
   if (!isSupabaseConfigured()) return false;
@@ -31,14 +33,22 @@ function isRemoteWriteAllowed() {
 }
 
 export async function pushSubmittedSessionToRemote(sessionId, session, submission) {
-  await syncSessionToRemote(session);
-  await supersedeAllRemoteSubmissionsForSession(sessionId);
-  await syncSubmissionToRemote(submission);
+  await withTeenSyncRetry(session.teenUserId, async (clientSyncAt) => {
+    const { error } = await getSupabase().rpc('submit_session_for_approval', {
+      p_client_sync_at: clientSyncAt,
+      p_session: mapSessionToRemote(session),
+      p_request_hash: submission.requestHash,
+      p_payload_json: submission.payloadJson,
+      p_submitted_at: submission.submittedAt,
+    });
+    if (error) throw error;
+  });
   await notifyApprovalPush(PUSH_EVENTS.SESSION_SUBMITTED, {
     sessionId: session.id,
     requestHash: submission.requestHash,
   });
   markSubmissionOutboxSynced(sessionId);
+  await fetchAndStoreTeenSyncWatermark(session.teenUserId, session.teenUserId);
 }
 
 function mapSessionToRemote(session) {
@@ -163,31 +173,55 @@ export async function saveSessionToLog(sessionId, opts) {
 }
 
 /**
- * Save locally and send for supervisor approval when remote writes are allowed.
- * @returns {{ session: object; remoteSynced: boolean; pendingRemote?: boolean; pendingReason?: 'offline' | 'blocked' }}
+ * Save locally and queue for supervisor approval when valid.
+ * Remote push happens via outbox flush after inbound sync + validity recompute.
+ * @returns {{ session: object; remoteSynced: boolean; pendingRemote?: boolean; pendingReason?: 'offline' | 'blocked'; timeInvalid?: boolean }}
  */
 export async function submitSessionForApproval(sessionId, opts) {
-  const session = await submitSession(sessionId, opts);
-  const submission = getSubmissionForSession(sessionId);
-  if (!isSupabaseConfigured() || !submission) {
-    return { session, remoteSynced: false };
+  await submitSession(sessionId, opts);
+  const updated = getSessionById(sessionId);
+  const timeInvalid = Boolean(updated?.timeInvalid);
+
+  if (timeInvalid) {
+    return { session: updated, remoteSynced: false, timeInvalid: true };
   }
+
+  const hasPendingOutbox = hasUnsyncedSubmissionOutbox(sessionId);
+  if (!isSupabaseConfigured() || !hasPendingOutbox) {
+    return { session: updated, remoteSynced: false, timeInvalid: false };
+  }
+
   if (!isRemoteWriteAllowed()) {
-    return { session, remoteSynced: false, pendingRemote: true, pendingReason: 'blocked' };
+    return {
+      session: updated,
+      remoteSynced: false,
+      pendingRemote: true,
+      pendingReason: 'blocked',
+      timeInvalid: false,
+    };
   }
+
   if (!(await isNetworkOnline())) {
-    return { session, remoteSynced: false, pendingRemote: true, pendingReason: 'offline' };
+    return {
+      session: updated,
+      remoteSynced: false,
+      pendingRemote: true,
+      pendingReason: 'offline',
+      timeInvalid: false,
+    };
   }
-  try {
-    await pushSubmittedSessionToRemote(sessionId, session, submission);
-    return { session, remoteSynced: true };
-  } catch (e) {
-    if (isNetworkFailureError(e)) {
-      console.warn('Remote submit failed offline; queued for outbox replay:', e.message);
-      return { session, remoteSynced: false, pendingRemote: true, pendingReason: 'offline' };
-    }
-    throw e;
-  }
+
+  const { flushOutbox } = require('./outboxSync');
+  await flushOutbox();
+
+  const synced = !hasUnsyncedSubmissionOutbox(sessionId);
+  return {
+    session: getSessionById(sessionId) ?? updated,
+    remoteSynced: synced,
+    pendingRemote: !synced,
+    pendingReason: synced ? undefined : 'offline',
+    timeInvalid: false,
+  };
 }
 
 /** When remote writes are allowed, push a saved session that was queued offline. */
@@ -200,21 +234,21 @@ export async function sendSavedSessionForApproval(sessionId) {
   if (!session || session.status !== 'saved' || !submission) {
     throw new Error('This session is not ready to send for approval.');
   }
+  if (session.timeInvalid) {
+    throw new Error('Fix overlapping session times before sending for approval.');
+  }
   if (!hasUnsyncedSubmissionOutbox(sessionId)) {
     throw new Error('This session was already sent for approval.');
   }
   if (!(await isNetworkOnline())) {
     throw new Error('Connect to the internet to send for supervisor approval.');
   }
-  try {
-    await pushSubmittedSessionToRemote(sessionId, session, submission);
-  } catch (e) {
-    if (isNetworkFailureError(e)) {
-      throw new Error('Connect to the internet to send for supervisor approval.');
-    }
-    throw new Error(e.message ?? 'Could not send for approval. Try again when online.');
+  const { flushOutbox } = require('./outboxSync');
+  await flushOutbox();
+  if (hasUnsyncedSubmissionOutbox(sessionId)) {
+    throw new Error('Could not send for approval. Try again when online.');
   }
-  return session;
+  return getSessionById(sessionId);
 }
 
 export async function discardSessionSubmission(sessionId) {
@@ -249,15 +283,23 @@ export async function discardSessionSubmission(sessionId) {
 }
 
 export async function pushWithdrawToRemote({ sessionId, requestHash }) {
-  await markSubmissionSupersededRemote(requestHash);
   const current = getSessionById(sessionId);
-  if (current) {
-    await syncSessionToRemote(current);
-  }
+  if (!current) return;
+
+  await withTeenSyncRetry(current.teenUserId, async (clientSyncAt) => {
+    const { error } = await getSupabase().rpc('withdraw_submission_synced', {
+      p_client_sync_at: clientSyncAt,
+      p_request_hash: requestHash,
+      p_session: mapSessionToRemote(current),
+    });
+    if (error) throw error;
+  });
+
   await notifyApprovalPush(PUSH_EVENTS.SESSION_DISCARDED, {
     sessionId,
     requestHash,
   });
+  await fetchAndStoreTeenSyncWatermark(current.teenUserId, current.teenUserId);
 }
 
 async function assertSubmissionStillPending(sessionId, requestHash) {
@@ -516,18 +558,28 @@ export async function fetchApprovedSubmissionsForAdult() {
   }));
 }
 
-export async function pushDeclineToRemote({ sessionId, requestHash }) {
+export async function pushDeclineToRemote({ sessionId, requestHash, approvedByUserId, teenUserId }) {
   await assertSubmissionStillPending(sessionId, requestHash);
 
-  const { error } = await getSupabase().rpc('decline_submission', {
-    p_request_hash: requestHash,
+  const session = getSessionById(sessionId);
+  const teenId = teenUserId ?? session?.teenUserId;
+  const adultId = approvedByUserId ?? (await requireAuthUserId());
+
+  await withAdultTeenSyncRetry(adultId, teenId, async (clientSyncAt) => {
+    const { error } = await getSupabase().rpc('decline_submission', {
+      p_request_hash: requestHash,
+      p_client_sync_at: clientSyncAt,
+    });
+    if (error) throw error;
   });
-  if (error) throw error;
 
   await notifyApprovalPush(PUSH_EVENTS.SESSION_DECLINED, {
     sessionId,
     requestHash,
   });
+  if (teenId && adultId) {
+    await fetchAndStoreTeenSyncWatermark(adultId, teenId);
+  }
 }
 
 export async function pushApprovalToRemote({
@@ -539,29 +591,36 @@ export async function pushApprovalToRemote({
   approverPresent,
   approvalId,
   approvedAt,
+  teenUserId,
 }) {
   await assertSubmissionStillPending(sessionId, requestHash);
 
-  const approval = {
-    id: approvalId ?? generateId(),
-    request_hash: requestHash,
-    session_id: sessionId,
-    approved_by_user_id: approvedByUserId,
-    approved_at: approvedAt ?? nowISO(),
-    joined_session: joinedSession,
-    supervisor_in_vehicle_name: supervisorInVehicleName,
-    approver_present: approverPresent,
-  };
+  const session = getSessionById(sessionId);
+  const teenId = teenUserId ?? session?.teenUserId;
 
-  const { data, error } = await getSupabase().from('approvals').insert(approval).select().single();
-  if (error) throw error;
+  const local = await withAdultTeenSyncRetry(approvedByUserId, teenId, async (clientSyncAt) => {
+    const { data, error } = await getSupabase().rpc('approve_submission_synced', {
+      p_client_sync_at: clientSyncAt,
+      p_request_hash: requestHash,
+      p_session_id: sessionId,
+      p_approval_id: approvalId ?? generateId(),
+      p_approved_at: approvedAt ?? nowISO(),
+      p_joined_session: joinedSession,
+      p_supervisor_in_vehicle_name: supervisorInVehicleName,
+      p_approver_present: approverPresent,
+    });
+    if (error) throw error;
+    return mapRemoteApproval(data);
+  });
 
-  const local = mapRemoteApproval(data);
   upsertApproval(local);
   await notifyApprovalPush(PUSH_EVENTS.SESSION_APPROVED, {
     sessionId,
     requestHash,
   });
+  if (teenId) {
+    await fetchAndStoreTeenSyncWatermark(approvedByUserId, teenId);
+  }
   return local;
 }
 
@@ -578,6 +637,9 @@ export async function approveSubmissionRemote({
   }
 
   assertRemoteWriteAllowed();
+
+  const { flushOutbox } = require('./outboxSync');
+  await flushOutbox();
 
   const approvalId = generateId();
   const approvedAt = nowISO();
@@ -627,6 +689,9 @@ export async function declineSubmissionRemote({ sessionId, requestHash }) {
   }
 
   assertRemoteWriteAllowed();
+
+  const { flushOutbox } = require('./outboxSync');
+  await flushOutbox();
 
   const authUserId = await requireAuthUserId();
   const payload = { sessionId, requestHash };

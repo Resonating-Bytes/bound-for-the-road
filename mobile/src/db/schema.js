@@ -37,6 +37,8 @@ export const sessions = sqliteTable('sessions', {
   payloadJson: text('payload_json'),
   activeSupervisorId: text('active_supervisor_id'),
   deletedAt: text('deleted_at'),
+  /** True when saved session times overlap another saved session for this teen. */
+  timeInvalid: integer('time_invalid', { mode: 'boolean' }).notNull().default(false),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });

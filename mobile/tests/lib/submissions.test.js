@@ -31,17 +31,23 @@ jest.mock('../../src/lib/compatibility', () => ({
   getCachedCompatibility: jest.fn(() => ({ ok: true })),
 }));
 
+const mockFlushOutbox = jest.fn(() => Promise.resolve({ processed: 1, failed: false }));
+
+jest.mock('../../src/lib/outboxSync', () => ({
+  flushOutbox: (...args) => mockFlushOutbox(...args),
+}));
+
 jest.mock('../../src/db/queries', () => ({
   submitSession: jest.fn(async () => ({ id: 'sess-001', status: 'saved' })),
   getSubmissionForSession: jest.fn(() => ({
     requestHash: 'hash-1',
     sessionId: 'sess-001',
   })),
-  getSessionById: jest.fn(),
+  getSessionById: jest.fn(() => ({ id: 'sess-001', status: 'saved', timeInvalid: false })),
   discardSubmittedSession: jest.fn(() => ({ id: 'sess-001', status: 'deleted' })),
   markSubmissionOutboxSynced: jest.fn(),
   clearOutboxForSession: jest.fn(),
-  hasUnsyncedSubmissionOutbox: jest.fn(),
+  hasUnsyncedSubmissionOutbox: jest.fn(() => false),
   enqueueOutbox: jest.fn(),
 }));
 
@@ -51,26 +57,44 @@ jest.mock('../../src/lib/approvalPush', () => ({
 }));
 
 import { submitSessionForApproval, discardSessionSubmission } from '../../src/lib/submissions';
-import { getSupabase } from '../../src/lib/supabase';
-import { submitSession, getSubmissionForSession, discardSubmittedSession, enqueueOutbox } from '../../src/db/queries';
+import { submitSession, getSubmissionForSession, discardSubmittedSession, enqueueOutbox, getSessionById, hasUnsyncedSubmissionOutbox } from '../../src/db/queries';
 import { isNetworkOnline } from '../../src/lib/network';
 
 describe('submitSessionForApproval', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCanUseRemoteWrite.mockReturnValue(true);
+    getSessionById.mockReturnValue({ id: 'sess-001', status: 'saved', timeInvalid: false });
+    hasUnsyncedSubmissionOutbox.mockReturnValue(true);
+    mockFlushOutbox.mockResolvedValue({ processed: 1, failed: false });
   });
 
-  test('saves locally before remote sync when allowed', async () => {
+  test('flushes outbox after local save when online', async () => {
+    hasUnsyncedSubmissionOutbox.mockReturnValueOnce(true).mockReturnValue(false);
+
     const result = await submitSessionForApproval('sess-001', {
       notes: '',
       submittedByUserId: 'teen-001',
     });
+
     expect(submitSession).toHaveBeenCalled();
+    expect(mockFlushOutbox).toHaveBeenCalled();
     expect(result.remoteSynced).toBe(true);
   });
 
-  test('saves locally but skips remote when compatibility blocks writes', async () => {
+  test('returns timeInvalid without flushing when session overlaps', async () => {
+    getSessionById.mockReturnValue({ id: 'sess-001', status: 'saved', timeInvalid: true });
+
+    const result = await submitSessionForApproval('sess-001', {
+      notes: '',
+      submittedByUserId: 'teen-001',
+    });
+
+    expect(result.timeInvalid).toBe(true);
+    expect(mockFlushOutbox).not.toHaveBeenCalled();
+  });
+
+  test('queues for outbox when compatibility blocks writes', async () => {
     mockCanUseRemoteWrite.mockReturnValue(false);
     const result = await submitSessionForApproval('sess-001', {
       notes: '',
@@ -91,20 +115,7 @@ describe('submitSessionForApproval', () => {
     expect(result.remoteSynced).toBe(false);
     expect(result.pendingRemote).toBe(true);
     expect(result.pendingReason).toBe('offline');
-  });
-
-  test('queues for outbox when remote push fails with network error', async () => {
-    getSupabase()
-      .from()
-      .upsert.mockRejectedValueOnce(new TypeError('Network request failed'));
-
-    const result = await submitSessionForApproval('sess-001', {
-      notes: '',
-      submittedByUserId: 'teen-001',
-    });
-
-    expect(result.pendingRemote).toBe(true);
-    expect(result.pendingReason).toBe('offline');
+    expect(mockFlushOutbox).not.toHaveBeenCalled();
   });
 });
 
