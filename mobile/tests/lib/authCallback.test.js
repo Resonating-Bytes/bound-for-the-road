@@ -20,6 +20,7 @@ import {
   getAuthCallbackError,
   isAuthLinkAlreadyUsedError,
   resolveAuthCallback,
+  takePendingPasswordRecovery,
   AUTH_ALREADY_CONFIRMED_NOTICE,
 } from '../../src/lib/authCallback';
 
@@ -57,7 +58,10 @@ describe('authCallback', () => {
     const url =
       'boundfortheroad://auth/callback?error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired';
     const result = await resolveAuthCallback(url);
-    expect(result).toEqual({ type: 'already_used' });
+    expect(result).toEqual({
+      type: 'already_used',
+      message: AUTH_ALREADY_CONFIRMED_NOTICE,
+    });
     expect(mockGetSession).toHaveBeenCalled();
   });
 
@@ -111,5 +115,19 @@ describe('authCallback', () => {
       token_hash: 'hash1',
       type: 'signup',
     });
+  });
+
+  test('resolveAuthCallback marks password recovery for type=recovery links', async () => {
+    mockVerifyOtp.mockResolvedValue({
+      data: { session: { user: { id: 'auth-uuid' } } },
+      error: null,
+    });
+
+    const result = await resolveAuthCallback(
+      'boundfortheroad://auth/callback?token_hash=hash1&type=recovery',
+    );
+
+    expect(result.type).toBe('session');
+    expect(takePendingPasswordRecovery()).toBe(true);
   });
 });

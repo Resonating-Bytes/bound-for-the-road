@@ -84,7 +84,7 @@
           authParams.has('token_hash');
 
         if (alreadyUsed) {
-          showAlreadyConfirmed(appRedirect);
+          showAlreadyUsed(authParams.get('type') === 'recovery', appRedirect);
           return;
         }
 
@@ -114,11 +114,14 @@
         return root + '?auth_callback=1';
       }
 
-      function showAlreadyConfirmed(appRedirect) {
+      function showAlreadyUsed(isRecovery, appRedirect) {
         var openUrl = cleanAppOpenUrl(appRedirect);
         document.getElementById('content').innerHTML =
-          '<h1>Email already confirmed</h1>' +
-          '<p>This link was already used (for example on another device). Your account should be ready.</p>' +
+          (isRecovery
+            ? '<h1>Reset link expired</h1>' +
+              '<p>This password reset link was already used or has expired.</p>'
+            : '<h1>Email already confirmed</h1>' +
+              '<p>This link was already used (for example on another device). Your account should be ready.</p>') +
           (openUrl
             ? '<a class="button" href="' +
               encodeURI(openUrl) +

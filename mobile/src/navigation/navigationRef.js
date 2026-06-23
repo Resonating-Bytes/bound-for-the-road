@@ -12,7 +12,15 @@ export function navigateWhenReady(routeName, params, attempt = 0) {
 }
 
 export function navigateToSignInNotice(notice) {
-  navigateWhenReady('SignIn', { notice });
+  function go(attempt = 0) {
+    if (navigationRef.isReady()) {
+      navigationRef.navigate({ name: 'SignIn', params: { notice }, merge: true });
+      return;
+    }
+    if (attempt >= 20) return;
+    setTimeout(() => go(attempt + 1), 100);
+  }
+  go();
 }
 
 export function navigateFromPushPayload(data, role) {

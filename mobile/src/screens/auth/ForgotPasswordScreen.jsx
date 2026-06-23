@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   Text,
+  View,
   Pressable,
   ActivityIndicator,
   Alert,

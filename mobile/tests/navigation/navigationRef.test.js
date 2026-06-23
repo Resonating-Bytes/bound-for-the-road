@@ -53,8 +53,10 @@ describe('navigateToSignInNotice', () => {
 
   test('navigates to SignIn with notice when ready', () => {
     navigateToSignInNotice('Your email is already confirmed.');
-    expect(navigationRef.navigate).toHaveBeenCalledWith('SignIn', {
-      notice: 'Your email is already confirmed.',
+    expect(navigationRef.navigate).toHaveBeenCalledWith({
+      name: 'SignIn',
+      params: { notice: 'Your email is already confirmed.' },
+      merge: true,
     });
   });
 });

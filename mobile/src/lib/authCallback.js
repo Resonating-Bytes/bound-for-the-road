@@ -1,6 +1,19 @@
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import { getSupabase } from './supabase';
 
+let pendingPasswordRecovery = false;
+
+/** Consumed by AuthContext when a recovery deep link may not emit PASSWORD_RECOVERY. */
+export function takePendingPasswordRecovery() {
+  const pending = pendingPasswordRecovery;
+  pendingPasswordRecovery = false;
+  return pending;
+}
+
+function markPendingPasswordRecovery() {
+  pendingPasswordRecovery = true;
+}
+
 /** True when the URL is our Supabase auth redirect (OAuth, email confirm, password recovery, or auth error). */
 export function isAuthCallbackUrl(url) {
   if (!url) return false;
@@ -52,12 +65,19 @@ export function isAuthLinkAlreadyUsedError(url) {
 export const AUTH_ALREADY_CONFIRMED_NOTICE =
   'Your email is already confirmed. Sign in with your password to continue.';
 
+export const AUTH_PASSWORD_RESET_EXPIRED_NOTICE =
+  'This password reset link has expired. Request a new one from the app.';
+
 /** User-facing message when Supabase redirects with error query params (expired confirm link, etc.). */
 export function getAuthCallbackError(url) {
   const { params, errorCode, code, description } = parseAuthCallbackParams(url);
   if (!params.error && !params.error_code && !errorCode) return null;
 
   if (isAuthLinkAlreadyUsedError(url)) {
+    const { params } = parseAuthCallbackParams(url);
+    if (params.type === 'recovery' || url.includes('type=recovery')) {
+      return AUTH_PASSWORD_RESET_EXPIRED_NOTICE;
+    }
     return AUTH_ALREADY_CONFIRMED_NOTICE;
   }
 
@@ -79,7 +99,7 @@ export async function resolveAuthCallback(url) {
     if (data.session?.user) {
       return { type: 'session', session: data.session, alreadyUsed: true };
     }
-    return { type: 'already_used' };
+    return { type: 'already_used', message: getAuthCallbackError(url) };
   }
 
   const callbackError = getAuthCallbackError(url);
@@ -88,6 +108,11 @@ export async function resolveAuthCallback(url) {
   }
 
   try {
+    const { params: linkParams } = QueryParams.getQueryParams(url);
+    if (linkParams.type === 'recovery') {
+      markPendingPasswordRecovery();
+    }
+
     const session = await createSessionFromUrl(url);
     if (session) return { type: 'session', session };
     return { type: 'error', message: 'Could not complete sign-in from this link.' };
@@ -104,7 +129,10 @@ export async function createSessionFromUrl(url) {
 
   const { params, errorCode } = QueryParams.getQueryParams(url);
   if (errorCode) throw new Error(errorCode);
-  if (params.error_description) throw new Error(String(params.error_description));
+  if (params.error_description) {
+    const description = decodeURIComponent(String(params.error_description).replace(/\+/g, ' '));
+    throw new Error(description);
+  }
   if (params.error) throw new Error(String(params.error));
 
   const supabase = getSupabase();

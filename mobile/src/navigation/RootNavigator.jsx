@@ -311,7 +311,7 @@ export function RootNavigator() {
 
   if (!userId || passwordRecoveryPending) {
     const authInitial = passwordRecoveryPending ? 'ResetPassword' : 'SignIn';
-    content = <AuthNavigator initialRouteName={authInitial} />;
+    content = <AuthNavigator key={authInitial} initialRouteName={authInitial} />;
   } else if (!roleChosen || !profileComplete) {
     containerKey = `setup-${userId}`;
     const setupInitial =

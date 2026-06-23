@@ -11,7 +11,7 @@ import { Screen } from './src/components/Screen';
 import { ThemeProvider, ThemeStatusBar } from './src/context/ThemeContext';
 import { DEFAULT_COLORS } from './src/theme/colors';
 import { isSupabaseConfigured } from './src/lib/supabase';
-import { resolveAuthCallback, AUTH_ALREADY_CONFIRMED_NOTICE } from './src/lib/authCallback';
+import { resolveAuthCallback } from './src/lib/authCallback';
 import { subscribeAuthLinkUrls } from './src/lib/authLinkBootstrap';
 import { navigateToSignInNotice } from './src/navigation/navigationRef';
 export default function App() {
@@ -35,7 +35,7 @@ export default function App() {
       if (result.type === 'ignored') return;
 
       if (result.type === 'already_used') {
-        navigateToSignInNotice(AUTH_ALREADY_CONFIRMED_NOTICE);
+        navigateToSignInNotice(result.message);
         return;
       }
 

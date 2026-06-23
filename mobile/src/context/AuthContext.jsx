@@ -16,6 +16,7 @@ import {
 } from '../db/queries';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase';
 import { signInWithGoogleOAuth } from '../lib/googleAuth';
+import { takePendingPasswordRecovery } from '../lib/authCallback';
 import {
   signUpWithEmail,
   signInWithEmail,
@@ -185,10 +186,15 @@ export function AuthProvider({ children }) {
     } = getSupabase().auth.onAuthStateChange((event, session) => {
       if (!mounted || isSigningOutRef.current) return;
       if (event === 'PASSWORD_RECOVERY') {
+        takePendingPasswordRecovery();
         setPasswordRecoveryPending(true);
         return;
       }
       if (session?.user) {
+        if (takePendingPasswordRecovery()) {
+          setPasswordRecoveryPending(true);
+          return;
+        }
         setPasswordRecoveryPending(false);
         applyAuthUser(session.user);
       } else {
