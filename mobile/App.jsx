@@ -28,7 +28,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) return;
+    if (!dbReady || !isSupabaseConfigured()) return;
 
     async function handleUrl(url) {
       const result = await resolveAuthCallback(url);
@@ -51,7 +51,7 @@ export default function App() {
 
     const unsubscribe = subscribeAuthLinkUrls(handleUrl);
     return unsubscribe;
-  }, []);
+  }, [dbReady]);
 
   if (dbError) {
     return (

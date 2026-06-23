@@ -309,7 +309,7 @@ export function RootNavigator() {
   let content = null;
   let showPushHandler = false;
 
-  if (!userId || passwordRecoveryPending) {
+  if (!userId) {
     const authInitial = passwordRecoveryPending ? 'ResetPassword' : 'SignIn';
     content = <AuthNavigator key={authInitial} initialRouteName={authInitial} />;
   } else if (!roleChosen || !profileComplete) {

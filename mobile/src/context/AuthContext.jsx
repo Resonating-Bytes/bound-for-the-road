@@ -184,6 +184,8 @@ export function AuthProvider({ children }) {
             } else {
               await applyAuthUser(data.session.user);
             }
+          } else if (mounted && recoveryStored === '1') {
+            await exitPasswordRecovery();
           }
         } else {
           const stored = await AsyncStorage.getItem(MOCK_USER_KEY);
@@ -266,18 +268,20 @@ export function AuthProvider({ children }) {
   const signInWithGoogle = useCallback(async () => {
     const session = await signInWithGoogleOAuth();
     if (!session?.user) return null;
+    await exitPasswordRecovery();
     await applyAuthUser(session.user);
     return session;
-  }, [applyAuthUser]);
+  }, [applyAuthUser, exitPasswordRecovery]);
 
   const signInWithEmailPassword = useCallback(
     async (email, password) => {
       const session = await signInWithEmail(email, password);
       if (!session?.user) return null;
+      await exitPasswordRecovery();
       await applyAuthUser(session.user);
       return session;
     },
-    [applyAuthUser],
+    [applyAuthUser, exitPasswordRecovery],
   );
 
   const signUpWithEmailPassword = useCallback(async (email, password) => {
