@@ -16,6 +16,13 @@ import {
 } from '../db/queries';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase';
 import { signInWithGoogleOAuth } from '../lib/googleAuth';
+import {
+  signUpWithEmail,
+  signInWithEmail,
+  resendSignupConfirmation,
+  requestPasswordReset,
+  completePasswordReset,
+} from '../lib/emailAuth';
 import { fetchRemoteLinks } from '../lib/links';
 import { syncProfileToSupabase, syncProfileToSupabaseAndStamp, fetchRemoteProfile, mergeProfileWithRemote, pullAndApplyRemoteProfile, mapRemoteUser } from '../lib/profileSync';
 import { unregisterCurrentDevicePushToken } from '../lib/pushTokens';
@@ -55,6 +62,7 @@ export function AuthProvider({ children }) {
   const [linked, setLinked] = useState(false);
   const [roleChosen, setRoleChosenFlag] = useState(false);
   const [ready, setReady] = useState(false);
+  const [passwordRecoveryPending, setPasswordRecoveryPending] = useState(false);
   const isSigningOutRef = useRef(false);
   const isSavingRoleRef = useRef(false);
 
@@ -174,11 +182,17 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription },
-    } = getSupabase().auth.onAuthStateChange((_event, session) => {
+    } = getSupabase().auth.onAuthStateChange((event, session) => {
       if (!mounted || isSigningOutRef.current) return;
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecoveryPending(true);
+        return;
+      }
       if (session?.user) {
+        setPasswordRecoveryPending(false);
         applyAuthUser(session.user);
       } else {
+        setPasswordRecoveryPending(false);
         setUserId(null);
         setUser(null);
         setLinked(false);
@@ -221,8 +235,47 @@ export function AuthProvider({ children }) {
     return session;
   }, [applyAuthUser]);
 
+  const signInWithEmailPassword = useCallback(
+    async (email, password) => {
+      const session = await signInWithEmail(email, password);
+      if (!session?.user) return null;
+      await applyAuthUser(session.user);
+      return session;
+    },
+    [applyAuthUser],
+  );
+
+  const signUpWithEmailPassword = useCallback(async (email, password) => {
+    const result = await signUpWithEmail(email, password);
+    if (result.session?.user) {
+      await applyAuthUser(result.session.user);
+    }
+    return result;
+  }, [applyAuthUser]);
+
+  const resendSignupConfirmationEmail = useCallback(async (email) => {
+    return resendSignupConfirmation(email);
+  }, []);
+
+  const requestPasswordResetEmail = useCallback(async (email) => {
+    return requestPasswordReset(email);
+  }, []);
+
+  const completePasswordRecovery = useCallback(
+    async (newPassword) => {
+      const authUser = await completePasswordReset(newPassword);
+      setPasswordRecoveryPending(false);
+      if (authUser) {
+        await applyAuthUser(authUser);
+      }
+      return authUser;
+    },
+    [applyAuthUser],
+  );
+
   const signOut = useCallback(async () => {
     isSigningOutRef.current = true;
+    setPasswordRecoveryPending(false);
     const signingOutUserId = userId;
     setUserId(null);
     setUser(null);
@@ -402,7 +455,13 @@ export function AuthProvider({ children }) {
       onboardingComplete,
       requiresLink,
       supabaseAuth: isSupabaseConfigured(),
+      passwordRecoveryPending,
       signInWithGoogle,
+      signInWithEmailPassword,
+      signUpWithEmailPassword,
+      resendSignupConfirmation: resendSignupConfirmationEmail,
+      requestPasswordResetEmail,
+      completePasswordRecovery,
       mockSignIn,
       signOut,
       saveRole,
@@ -422,7 +481,13 @@ export function AuthProvider({ children }) {
       profileComplete,
       onboardingComplete,
       requiresLink,
+      passwordRecoveryPending,
       signInWithGoogle,
+      signInWithEmailPassword,
+      signUpWithEmailPassword,
+      resendSignupConfirmationEmail,
+      requestPasswordResetEmail,
+      completePasswordRecovery,
       mockSignIn,
       signOut,
       saveRole,

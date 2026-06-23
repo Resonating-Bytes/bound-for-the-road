@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { Text, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import * as Linking from 'expo-linking';
 import { initDb } from './src/db/client';
 import { AuthProvider } from './src/context/AuthContext';
 import { CompatibilityProvider } from './src/context/CompatibilityContext';
@@ -12,8 +11,9 @@ import { Screen } from './src/components/Screen';
 import { ThemeProvider, ThemeStatusBar } from './src/context/ThemeContext';
 import { DEFAULT_COLORS } from './src/theme/colors';
 import { isSupabaseConfigured } from './src/lib/supabase';
-import { createSessionFromUrl } from './src/lib/googleAuth';
-
+import { resolveAuthCallback, AUTH_ALREADY_CONFIRMED_NOTICE } from './src/lib/authCallback';
+import { subscribeAuthLinkUrls } from './src/lib/authLinkBootstrap';
+import { navigateToSignInNotice } from './src/navigation/navigationRef';
 export default function App() {
   const [dbReady, setDbReady] = useState(false);
   const [dbError, setDbError] = useState(null);
@@ -31,19 +31,26 @@ export default function App() {
     if (!isSupabaseConfigured()) return;
 
     async function handleUrl(url) {
-      if (!url || (!url.includes('code=') && !url.includes('access_token='))) return;
-      try {
-        await createSessionFromUrl(url);
-      } catch (e) {
-        console.warn('Auth callback failed:', e.message);
+      const result = await resolveAuthCallback(url);
+      if (result.type === 'ignored') return;
+
+      if (result.type === 'already_used') {
+        navigateToSignInNotice(AUTH_ALREADY_CONFIRMED_NOTICE);
+        return;
+      }
+
+      if (result.type === 'session') {
+        // Session is applied via Supabase client; AuthContext picks it up via onAuthStateChange.
+        return;
+      }
+
+      if (result.type === 'error') {
+        Alert.alert('Email link', result.message);
       }
     }
 
-    const subscription = Linking.addEventListener('url', ({ url }) => handleUrl(url));
-    Linking.getInitialURL().then((url) => {
-      if (url) handleUrl(url);
-    });
-    return () => subscription.remove();
+    const unsubscribe = subscribeAuthLinkUrls(handleUrl);
+    return unsubscribe;
   }, []);
 
   if (dbError) {

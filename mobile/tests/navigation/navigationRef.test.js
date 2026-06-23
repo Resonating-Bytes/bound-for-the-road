@@ -1,4 +1,8 @@
-import { navigateFromPushPayload, navigationRef } from '../../src/navigation/navigationRef';
+import {
+  navigateFromPushPayload,
+  navigateToSignInNotice,
+  navigationRef,
+} from '../../src/navigation/navigationRef';
 
 describe('navigateFromPushPayload', () => {
   beforeEach(() => {
@@ -38,5 +42,19 @@ describe('navigateFromPushPayload', () => {
     expect(navigateFromPushPayload({ type: 'session_approved' }, 'adult')).toBe(false);
     expect(navigateFromPushPayload({ type: 'pending_approval' }, 'adult')).toBe(false);
     expect(navigationRef.navigate).not.toHaveBeenCalled();
+  });
+});
+
+describe('navigateToSignInNotice', () => {
+  beforeEach(() => {
+    navigationRef.isReady = jest.fn(() => true);
+    navigationRef.navigate = jest.fn();
+  });
+
+  test('navigates to SignIn with notice when ready', () => {
+    navigateToSignInNotice('Your email is already confirmed.');
+    expect(navigationRef.navigate).toHaveBeenCalledWith('SignIn', {
+      notice: 'Your email is already confirmed.',
+    });
   });
 });

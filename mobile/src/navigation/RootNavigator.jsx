@@ -5,7 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
-import { SignInScreen } from '../screens/SignInScreen';
+import { SignInScreen } from '../screens/auth/SignInScreen';
 
 import { ActivityIndicator, StyleSheet } from 'react-native';
 
@@ -28,13 +28,28 @@ const AdultStack = createNativeStackNavigator();
 
 
 
-function AuthNavigator() {
+function AuthNavigator({ initialRouteName = 'SignIn' }) {
 
   return (
 
-    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+    <AuthStack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
 
       <AuthStack.Screen name="SignIn" component={SignInScreen} />
+
+      <AuthStack.Screen
+        name="Register"
+        getComponent={() => require('../screens/auth/RegisterScreen').RegisterScreen}
+      />
+
+      <AuthStack.Screen
+        name="ForgotPassword"
+        getComponent={() => require('../screens/auth/ForgotPasswordScreen').ForgotPasswordScreen}
+      />
+
+      <AuthStack.Screen
+        name="ResetPassword"
+        getComponent={() => require('../screens/auth/ResetPasswordScreen').ResetPasswordScreen}
+      />
 
     </AuthStack.Navigator>
 
@@ -278,7 +293,8 @@ function AdultNavigator({ navigatorKey, initialRouteName }) {
 
 
 export function RootNavigator() {
-  const { ready, userId, user, roleChosen, profileComplete, linked, requiresLink } = useAuth();
+  const { ready, userId, user, roleChosen, profileComplete, linked, requiresLink, passwordRecoveryPending } =
+    useAuth();
   const { theme } = useTheme();
 
   if (!ready) {
@@ -293,8 +309,9 @@ export function RootNavigator() {
   let content = null;
   let showPushHandler = false;
 
-  if (!userId) {
-    content = <AuthNavigator />;
+  if (!userId || passwordRecoveryPending) {
+    const authInitial = passwordRecoveryPending ? 'ResetPassword' : 'SignIn';
+    content = <AuthNavigator initialRouteName={authInitial} />;
   } else if (!roleChosen || !profileComplete) {
     containerKey = `setup-${userId}`;
     const setupInitial =

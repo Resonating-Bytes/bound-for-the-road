@@ -13,7 +13,7 @@ export function SettingsScreen({ navigation }) {
   }
 
   function handleSignOut() {
-    Alert.alert('Sign out?', 'Your local driving log stays on this device. Use this to switch Google accounts.', [
+    Alert.alert('Sign out?', 'Your local driving log stays on this device. Use this to switch accounts.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign out',

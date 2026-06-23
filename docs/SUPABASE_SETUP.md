@@ -100,8 +100,8 @@ Expected: `{ ok: true }`. `{ ok: false, reason: 'not_configured' }` means `.env`
 
 1. **Authentication → Providers → Google** — enable, paste Google Web client ID + secret, **Skip nonce checks** on.
 2. **Authentication → URL Configuration** — **both fields matter:**
-   - **Site URL** — **not** `http://localhost:3000`. Set to the same `exp://…/--/auth/callback` URI from the app (or Supabase falls back here on OAuth errors → “can’t connect” on iPhone).
-   - **Redirect URLs** — add the exact URI from the app sign-in screen (dev hint), e.g. `exp://192.168.68.175:8082/--/auth/callback`. Also add `exp://**` so IP/port changes do not break sign-in.
+   - **Site URL** — **not** `http://localhost:3000`. Copy **Email redirect** from the app sign-in screen (dev hint), e.g. `exp://192.168.68.121:8081?auth_callback=1`. Must match exactly (one `:PORT`, correct IP). Used when `emailRedirectTo` is missing or not on the allow list. Do **not** use `/--/auth/callback`.
+   - **Redirect URLs** — add `exp://**` and `boundfortheroad://**`. Supabase only accepts `emailRedirectTo` from the app when it matches this list; otherwise it falls back to **Site URL**.
 
 Run the app once in dev; copy the exact URI from the hint text under **Sign in with Google**.
 
@@ -136,6 +136,51 @@ See [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md#development-build-bound-for-th
 
 ---
 
+## 6b. Email sign-in (app)
+
+### Supabase
+
+1. **Authentication → Providers → Email** — enable.
+2. On the same **Email** provider screen: **Confirm email** — ON (recommended for production).
+3. **Authentication → URL Configuration** — add:
+   - `exp://**` and `boundfortheroad://**` (OAuth and Expo Go email links)
+   - Your hosted **email bridge** HTTPS URL when using `EXPO_PUBLIC_AUTH_WEB_REDIRECT_URL` (see below)
+4. **Authentication → Email Templates** — customize confirm and reset copy; keep `{{ .ConfirmationURL }}` in the body.
+5. **Authentication → SMTP Settings** (or **Project Settings → Authentication → SMTP**) — optional for dev (Supabase built-in is fine). Configure custom SMTP before production; see [TODO.md](./TODO.md) backlog.
+
+Optional hardening (location varies by dashboard version): minimum password length and rate limits may appear under **Authentication → Attack Protection** or on the **Email** provider panel — not required for initial testing.
+
+### Email redirect bridge (recommended for Expo Go)
+
+Email confirm links that jump straight to `exp://…/--/auth/callback` can make **Expo Go** show “Could not connect to the server” before the app loads — especially on a second tap (`otp_expired`) or when the link was opened on a laptop first.
+
+1. Host [`web/auth-callback/index.html`](../web/auth-callback/index.html) at a stable HTTPS URL (GitHub Pages, Netlify, etc.).
+2. Add that URL (and `https://your-host/**` if Supabase allows wildcards) under **Redirect URLs**.
+3. In `mobile/.env` set:
+   ```
+   EXPO_PUBLIC_AUTH_WEB_REDIRECT_URL=https://your-host/auth-callback
+   ```
+4. Restart Expo. The sign-in screen (dev) shows **Email redirect** — confirm it matches what you added in Supabase.
+5. **Resend confirmation** (or register again) so new emails use the bridge. Old emails still point at the previous redirect.
+
+The bridge page shows “Email already confirmed” for used links instead of handing a broken `exp://` URL to Expo Go. Successful confirms redirect into the app.
+
+Without the bridge, Expo Go uses `exp://YOUR_IP:PORT?auth_callback=1` (no `/--/` path). You must still **resend** after changing IP/port or redirect format.
+
+### Test in the app
+
+1. **Create account** — email, password, confirm password → “Check your email”.
+2. Open the confirmation link on device (mail app → browser/app) → completes sign-in.
+3. **Sign in** with email + password.
+4. **Forgot password** — generic success message even for unknown emails.
+5. Open reset link → **New password** screen → update → onboarding or dashboard.
+
+Unconfirmed sign-in shows a **Resend confirmation** option.
+
+**`otp_expired` on confirm link:** Usually the link was already used — e.g. first tap on a laptop (blank page is normal; `exp://` links do not open in a desktop browser) still confirms the account on Supabase. A second tap on the phone then shows `otp_expired`. With the HTTPS bridge or updated app, you should see “Email already confirmed” (web) or the sign-in screen with a green notice (app) instead of an Expo error. Sign in with your password to continue.
+
+---
+
 ## 7. RLS smoke test (optional)
 
 After you enable Email or Google auth in Dashboard and create a test user:
@@ -165,5 +210,7 @@ supabase/
 mobile/
   src/lib/supabase.js  # client + health check
   src/lib/googleAuth.js
+  src/lib/emailAuth.js
+  src/lib/authCallback.js
   .env.example
 ```
