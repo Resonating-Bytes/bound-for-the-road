@@ -2,25 +2,21 @@ import { createNavigationContainerRef } from '@react-navigation/native';
 
 export const navigationRef = createNavigationContainerRef();
 
-export function navigateWhenReady(routeName, params, attempt = 0) {
+export function navigateWhenReady(routeName, params, attempt = 0, { merge = false } = {}) {
   if (navigationRef.isReady()) {
-    navigationRef.navigate(routeName, params);
+    if (merge) {
+      navigationRef.navigate({ name: routeName, params, merge: true });
+    } else {
+      navigationRef.navigate(routeName, params);
+    }
     return;
   }
   if (attempt >= 20) return;
-  setTimeout(() => navigateWhenReady(routeName, params, attempt + 1), 100);
+  setTimeout(() => navigateWhenReady(routeName, params, attempt + 1, { merge }), 100);
 }
 
 export function navigateToSignInNotice(notice) {
-  function go(attempt = 0) {
-    if (navigationRef.isReady()) {
-      navigationRef.navigate({ name: 'SignIn', params: { notice }, merge: true });
-      return;
-    }
-    if (attempt >= 20) return;
-    setTimeout(() => go(attempt + 1), 100);
-  }
-  go();
+  navigateWhenReady('SignIn', { notice }, 0, { merge: true });
 }
 
 export function navigateFromPushPayload(data, role) {

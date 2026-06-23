@@ -22,6 +22,7 @@ import {
   resolveAuthCallback,
   takePendingPasswordRecovery,
   AUTH_ALREADY_CONFIRMED_NOTICE,
+  AUTH_PASSWORD_RESET_EXPIRED_NOTICE,
 } from '../../src/lib/authCallback';
 
 describe('authCallback', () => {
@@ -52,6 +53,12 @@ describe('authCallback', () => {
       'exp://192.168.68.175:8082/--/auth/callback?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired';
     expect(isAuthLinkAlreadyUsedError(url)).toBe(true);
     expect(getAuthCallbackError(url)).toBe(AUTH_ALREADY_CONFIRMED_NOTICE);
+  });
+
+  test('getAuthCallbackError explains expired password recovery links', () => {
+    const url =
+      'boundfortheroad://auth/callback?error_code=otp_expired&type=recovery&error_description=Email+link+is+invalid+or+has+expired';
+    expect(getAuthCallbackError(url)).toBe(AUTH_PASSWORD_RESET_EXPIRED_NOTICE);
   });
 
   test('resolveAuthCallback treats already-used links as sign-in prompt when logged out', async () => {

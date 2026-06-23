@@ -74,7 +74,6 @@ export function getAuthCallbackError(url) {
   if (!params.error && !params.error_code && !errorCode) return null;
 
   if (isAuthLinkAlreadyUsedError(url)) {
-    const { params } = parseAuthCallbackParams(url);
     if (params.type === 'recovery' || url.includes('type=recovery')) {
       return AUTH_PASSWORD_RESET_EXPIRED_NOTICE;
     }

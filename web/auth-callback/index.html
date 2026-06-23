@@ -60,7 +60,7 @@
       (function () {
         var pageParams = new URLSearchParams(window.location.search);
         var hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-        var appRedirect = pageParams.get('app_redirect');
+        var appRedirect = sanitizeAppRedirect(pageParams.get('app_redirect'));
         pageParams.delete('app_redirect');
 
         var authParams = new URLSearchParams();
@@ -100,6 +100,19 @@
 
         showGeneric();
       })();
+
+      function sanitizeAppRedirect(url) {
+        if (!url) return null;
+        try {
+          var parsed = new URL(url);
+          if (parsed.protocol === 'exp:' || parsed.protocol === 'boundfortheroad:') {
+            return url;
+          }
+        } catch (e) {
+          return null;
+        }
+        return null;
+      }
 
       function appendParams(base, params) {
         var qs = params.toString();
