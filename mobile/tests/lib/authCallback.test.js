@@ -137,4 +137,18 @@ describe('authCallback', () => {
     expect(result.type).toBe('session');
     expect(takePendingPasswordRecovery()).toBe(true);
   });
+
+  test('resolveAuthCallback does not mark recovery when session creation fails', async () => {
+    mockVerifyOtp.mockResolvedValue({
+      data: { session: null },
+      error: { message: 'Token has expired or is invalid' },
+    });
+
+    const result = await resolveAuthCallback(
+      'boundfortheroad://auth/callback?token_hash=hash1&type=recovery',
+    );
+
+    expect(result.type).toBe('error');
+    expect(takePendingPasswordRecovery()).toBe(false);
+  });
 });

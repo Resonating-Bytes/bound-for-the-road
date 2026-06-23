@@ -87,4 +87,9 @@ describe('authRedirect', () => {
     expect(uri).toMatch(/^https:\/\/example\.com\/auth-callback\?app_redirect=/);
     expect(decodeURIComponent(uri)).toContain('exp://192.168.1.1:8082?auth_callback=1');
   });
+
+  test('ignores non-HTTPS web bridge URLs', () => {
+    process.env.EXPO_PUBLIC_AUTH_WEB_REDIRECT_URL = 'http://example.com/auth-callback';
+    expect(getEmailAuthRedirectUri()).toBe('exp://192.168.1.1:8082?auth_callback=1');
+  });
 });

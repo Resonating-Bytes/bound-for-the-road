@@ -56,6 +56,10 @@ export function getEmailAuthRedirectUri() {
   const appUri = getAppAuthCallbackUri();
   const webBridge = process.env.EXPO_PUBLIC_AUTH_WEB_REDIRECT_URL?.trim();
   if (!webBridge) return appUri;
+  if (!/^https:\/\//i.test(webBridge)) {
+    console.warn('EXPO_PUBLIC_AUTH_WEB_REDIRECT_URL must be HTTPS; using in-app redirect.');
+    return appUri;
+  }
 
   const separator = webBridge.includes('?') ? '&' : '?';
   return `${webBridge}${separator}app_redirect=${encodeURIComponent(appUri)}`;

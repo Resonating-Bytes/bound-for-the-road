@@ -40,12 +40,19 @@ export function isAuthCallbackUrl(url) {
   return false;
 }
 
+function decodeAuthParam(value) {
+  const raw = String(value).replace(/\+/g, ' ');
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 function parseAuthCallbackParams(url) {
   const { params, errorCode } = QueryParams.getQueryParams(url);
   const code = String(params.error_code ?? errorCode ?? params.error ?? '');
-  const description = params.error_description
-    ? decodeURIComponent(String(params.error_description).replace(/\+/g, ' '))
-    : '';
+  const description = params.error_description ? decodeAuthParam(params.error_description) : '';
   return { params, errorCode, code, description };
 }
 
@@ -108,12 +115,13 @@ export async function resolveAuthCallback(url) {
 
   try {
     const { params: linkParams } = QueryParams.getQueryParams(url);
-    if (linkParams.type === 'recovery') {
-      markPendingPasswordRecovery();
-    }
-
     const session = await createSessionFromUrl(url);
-    if (session) return { type: 'session', session };
+    if (session) {
+      if (linkParams.type === 'recovery') {
+        markPendingPasswordRecovery();
+      }
+      return { type: 'session', session };
+    }
     return { type: 'error', message: 'Could not complete sign-in from this link.' };
   } catch (e) {
     return { type: 'error', message: e.message ?? 'Could not complete sign-in from this link.' };
@@ -129,8 +137,7 @@ export async function createSessionFromUrl(url) {
   const { params, errorCode } = QueryParams.getQueryParams(url);
   if (errorCode) throw new Error(errorCode);
   if (params.error_description) {
-    const description = decodeURIComponent(String(params.error_description).replace(/\+/g, ' '));
-    throw new Error(description);
+    throw new Error(decodeAuthParam(params.error_description));
   }
   if (params.error) throw new Error(String(params.error));
 

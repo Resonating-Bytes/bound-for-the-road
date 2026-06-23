@@ -32,6 +32,7 @@ import { cancelSessionNotificationsForIds } from '../utils/notifications';
 import { firstTokenFromLegalName } from '../utils/names';
 
 const MOCK_USER_KEY = '@boundfortheroad/mockUserId';
+const PASSWORD_RECOVERY_KEY = '@boundfortheroad/passwordRecoveryPending';
 
 const AuthContext = createContext(null);
 
@@ -66,6 +67,27 @@ export function AuthProvider({ children }) {
   const [passwordRecoveryPending, setPasswordRecoveryPending] = useState(false);
   const isSigningOutRef = useRef(false);
   const isSavingRoleRef = useRef(false);
+  const passwordRecoveryActiveRef = useRef(false);
+
+  const enterPasswordRecovery = useCallback(async () => {
+    passwordRecoveryActiveRef.current = true;
+    setPasswordRecoveryPending(true);
+    try {
+      await AsyncStorage.setItem(PASSWORD_RECOVERY_KEY, '1');
+    } catch (e) {
+      console.warn('Failed to persist password recovery flag:', e.message);
+    }
+  }, []);
+
+  const exitPasswordRecovery = useCallback(async () => {
+    passwordRecoveryActiveRef.current = false;
+    setPasswordRecoveryPending(false);
+    try {
+      await AsyncStorage.removeItem(PASSWORD_RECOVERY_KEY);
+    } catch (e) {
+      console.warn('Failed to clear password recovery flag:', e.message);
+    }
+  }, []);
 
   const syncRoleChosenFromDb = useCallback((id) => {
     if (!id) {
@@ -155,8 +177,13 @@ export function AuthProvider({ children }) {
       try {
         if (isSupabaseConfigured()) {
           const { data } = await getSupabase().auth.getSession();
+          const recoveryStored = await AsyncStorage.getItem(PASSWORD_RECOVERY_KEY);
           if (mounted && data.session?.user) {
-            await applyAuthUser(data.session.user);
+            if (recoveryStored === '1' || takePendingPasswordRecovery()) {
+              await enterPasswordRecovery();
+            } else {
+              await applyAuthUser(data.session.user);
+            }
           }
         } else {
           const stored = await AsyncStorage.getItem(MOCK_USER_KEY);
@@ -187,18 +214,20 @@ export function AuthProvider({ children }) {
       if (!mounted || isSigningOutRef.current) return;
       if (event === 'PASSWORD_RECOVERY') {
         takePendingPasswordRecovery();
-        setPasswordRecoveryPending(true);
+        enterPasswordRecovery();
         return;
       }
       if (session?.user) {
         if (takePendingPasswordRecovery()) {
-          setPasswordRecoveryPending(true);
+          enterPasswordRecovery();
           return;
         }
-        setPasswordRecoveryPending(false);
+        if (passwordRecoveryActiveRef.current) {
+          return;
+        }
         applyAuthUser(session.user);
       } else {
-        setPasswordRecoveryPending(false);
+        exitPasswordRecovery();
         setUserId(null);
         setUser(null);
         setLinked(false);
@@ -210,7 +239,7 @@ export function AuthProvider({ children }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [applyAuthUser, refreshUser]);
+  }, [applyAuthUser, enterPasswordRecovery, exitPasswordRecovery, refreshUser]);
 
   useEffect(() => {
     if (!userId || !isSupabaseConfigured() || linked) return undefined;
@@ -270,18 +299,18 @@ export function AuthProvider({ children }) {
   const completePasswordRecovery = useCallback(
     async (newPassword) => {
       const authUser = await completePasswordReset(newPassword);
-      setPasswordRecoveryPending(false);
+      await exitPasswordRecovery();
       if (authUser) {
         await applyAuthUser(authUser);
       }
       return authUser;
     },
-    [applyAuthUser],
+    [applyAuthUser, exitPasswordRecovery],
   );
 
   const signOut = useCallback(async () => {
     isSigningOutRef.current = true;
-    setPasswordRecoveryPending(false);
+    await exitPasswordRecovery();
     const signingOutUserId = userId;
     setUserId(null);
     setUser(null);
