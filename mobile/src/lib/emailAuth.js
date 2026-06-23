@@ -12,7 +12,7 @@ const EMAIL_NOT_CONFIRMED =
   'Confirm your email before signing in. Use “Resend confirmation” if you need a new link.';
 
 export function normalizeEmail(email) {
-  return email.trim().toLowerCase();
+  return String(email ?? '').trim().toLowerCase();
 }
 
 export function validateEmail(email) {

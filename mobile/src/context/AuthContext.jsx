@@ -72,6 +72,11 @@ export function AuthProvider({ children }) {
   const enterPasswordRecovery = useCallback(async () => {
     passwordRecoveryActiveRef.current = true;
     setPasswordRecoveryPending(true);
+    // Hide the main app while the user sets a new password (session may still exist in Supabase).
+    setUserId(null);
+    setUser(null);
+    setLinked(false);
+    setRoleChosenFlag(false);
     try {
       await AsyncStorage.setItem(PASSWORD_RECOVERY_KEY, '1');
     } catch (e) {
