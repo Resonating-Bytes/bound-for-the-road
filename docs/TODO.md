@@ -1,6 +1,6 @@
 # Bound for the Road — Project TODO
 
-**Last updated:** 2026-06-22 · **App:** 1.5.9 · **Phase:** 2
+**Last updated:** 2026-06-20 · **App:** 1.5.10 · **Phase:** 2
 
 **Decisions:** [DECISIONS.md](./DECISIONS.md) — do not duplicate here.  
 **Screens:** [SCREENS.md](./SCREENS.md) · **Testing:** [TESTING.md](./TESTING.md)  
@@ -18,7 +18,7 @@
 
 ### 1. Auth + proximity (candidate)
 
-- [ ] **Email + password sign-up / sign-in** — Supabase email auth for users without Google/Apple. See [AUTH.md](./AUTH.md).
+- [x] **Email + password sign-up / sign-in** — Supabase email auth for users without Google/Apple. See [AUTH.md](./AUTH.md).
 - [ ] **Nearby linked adults** — detect supervising adult on local network (mDNS/BLE per [WISHLIST.md](./WISHLIST.md)) to target push for session submit / join without notifying every linked adult
 
 ### 2. Location — background (after native dev build)
@@ -31,7 +31,7 @@
 
 | Question | Notes |
 |----------|-------|
-| Pricing | TBD |
+| Pricing | Paid App Store download + school subscription — see [DRIVING_SCHOOLS.md](./DRIVING_SCHOOLS.md#monetization-product) |
 
 ---
 
@@ -39,7 +39,9 @@
 
 - [ ] **iOS development build** — Apple Developer enrollment; see [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md#development-build-bound-for-the-road-branding)
 - [ ] Sign in with Apple (after iOS dev build)
-- [ ] **Email + password sign-up / sign-in** — Supabase email auth as fallback for users without Google or Apple. Google/Apple is great when available; email/password covers everyone else. Bootstrap from Order Envy when starting — get that agent to write an implementation doc we can port. See [AUTH.md](./AUTH.md).
+- [x] **Email + password sign-up / sign-in** — Supabase email auth as fallback for users without Google or Apple. See [AUTH.md](./AUTH.md).
+- [ ] **Custom SMTP for auth emails** — Configure Resend, SendGrid, SES, etc. in Supabase (confirm + password-reset). Using Supabase built-in defaults for dev until then. [SUPABASE_SETUP.md](./SUPABASE_SETUP.md#6b-email-sign-in-app)
+- [ ] **Instructor role + driving schools** — Third role (BTW instructor), school registry + paid listing, teen/adult ratings, proximity instructor push, parent backup approve (no push), contact ROI dashboard, subscription grace/lapse, referral credits (qualifying = instructor-approved session). **Spec:** [DRIVING_SCHOOLS.md](./DRIVING_SCHOOLS.md)
 - [ ] Maestro E2E happy path (dev/production build)
 - [ ] Live Activity (iOS) + Android foreground service
 - [ ] Deep links wired to push routes
@@ -70,6 +72,7 @@
 3. [SESSION_LIFECYCLE.md](./SESSION_LIFECYCLE.md)
 4. [DATA_MODEL.md](./DATA_MODEL.md) + [APPROVAL_AND_HASH.md](./APPROVAL_AND_HASH.md)
 5. [AUTH.md](./AUTH.md) + [ONBOARDING.md](./ONBOARDING.md)
-6. [OFFLINE_SYNC.md](./OFFLINE_SYNC.md) + [BACKEND.md](./BACKEND.md)
+6. [DRIVING_SCHOOLS.md](./DRIVING_SCHOOLS.md) — when working on instructor / school features
+7. [OFFLINE_SYNC.md](./OFFLINE_SYNC.md) + [BACKEND.md](./BACKEND.md)
 
 Constraints: all SQL via `queries.js`; hash per APPROVAL_AND_HASH MVP payload.

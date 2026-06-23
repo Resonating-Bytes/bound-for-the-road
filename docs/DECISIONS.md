@@ -15,7 +15,7 @@ All product and MVP technical choices live here. Other docs link here instead of
 | Illinois first | IL rules and text export; multi-state config layer for later |
 | Accounts | **One person per account** always |
 | Multi-teen | Adult may link many teens (Phase 2); teen sees **linked adults only**, never other teens |
-| Pricing | TBD before App Store |
+| Pricing | **Direction:** small **paid App Store download** (consumer) + **driving-school subscription** (B2B listing). Amounts TBD before submission. See [DRIVING_SCHOOLS.md](./DRIVING_SCHOOLS.md#monetization-product). |
 
 ---
 
@@ -88,6 +88,7 @@ Full flow: [ONBOARDING.md](./ONBOARDING.md). MVP overrides:
 | Lock screen | Live Activity (iOS) + foreground service (Android) |
 | Server data retention | Default **2 years** for synced records; user-configurable UI post-MVP ([WISHLIST.md](./WISHLIST.md)) |
 | Adult multi-teen context | One linked teen → static label with teen name (no switcher). Two or more → show who is selected and an easy control to switch (dropdown or equivalent). Adult dashboard content (approvals, session presence) scopes to the selected teen. Deferred until adult dashboard is fleshed out — not part of the linking-only slice |
+| Instructor + driving schools | Third role; school subscription listing; proximity instructor push; parent backup approve without push. Full spec: [DRIVING_SCHOOLS.md](./DRIVING_SCHOOLS.md) |
 
 ---
 
@@ -95,7 +96,7 @@ Full flow: [ONBOARDING.md](./ONBOARDING.md). MVP overrides:
 
 | Topic | Notes |
 |-------|-------|
-| Pricing | Free / one-time / subscription — decide before submission |
+| Pricing | Same as MVP row — paid download + school subscription; details in [DRIVING_SCHOOLS.md](./DRIVING_SCHOOLS.md) |
 
 ---
 
@@ -103,6 +104,7 @@ Full flow: [ONBOARDING.md](./ONBOARDING.md). MVP overrides:
 
 | Date | Change |
 |------|--------|
+| 2026-06-22 | Instructor role + driving schools backlog; paid download + school subscription; qualifying signup = instructor-approved session |
 | 2026-06-17 | Adult multi-teen dashboard: static name when one teen linked; picker/switcher when multiple (deferred past linking slice) |
 | 2026-06-17 | Cherry-pick from planning archive: stale-session guardrail, retention default, multi-teen open item |
 | 2026-06-07 | Initial consolidated decisions from planning sessions |

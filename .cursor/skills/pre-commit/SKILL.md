@@ -2,9 +2,9 @@
 name: pre-commit
 description: >-
   Run BoundForTheRoad pre-commit pre-flight before a mobile release commit.
-  Bumps app semver, updates CHANGELOG, runs tests and version checks, then
-  always ends with a commit message for all local changes. Use when the user
-  says run pre-commit, pre-commit, pre-flight, ship check, release prep, or
+  Bumps app semver and CHANGELOG when required, runs tests and version checks,
+  then always ends with a commit message for all local changes. Use when the
+  user says run pre-commit, pre-commit, pre-flight, ship check, release prep, or
   before merge checklist.
 disable-model-invocation: true
 ---
@@ -21,7 +21,11 @@ Execute when the user asks to run pre-commit, pre-flight, ship check, or release
 
 **Do not run `git commit` unless the user's message contains the exact phrase `create a git commit`.**
 
-Reference: [docs/RELEASE_CHECKLIST.md](../../docs/RELEASE_CHECKLIST.md) (before-merge section).
+References:
+
+- [docs/RELEASE.md](../../docs/RELEASE.md) — semver bump levels, CI gates
+- [docs/RELEASE_CHECKLIST.md](../../docs/RELEASE_CHECKLIST.md) — before-merge section
+- `scripts/check-app-version.js` — exempt paths and bump rules (source of truth for CI)
 
 ## Trigger phrases
 
@@ -31,10 +35,11 @@ Reference: [docs/RELEASE_CHECKLIST.md](../../docs/RELEASE_CHECKLIST.md) (before-
 - `run pre-commit checklist`
 - `ship check`
 - `release prep`
+- `before merge`
 
 If the skill does not attach, reference it with `@pre-commit` or `@.cursor/skills/pre-commit/SKILL.md`.
 
-User may pass optional hints: target version (`1.5.6`), release theme, or "checks only".
+User may pass optional hints: target version (`1.5.6`), bump level (patch/minor/major), release theme, `checks only`, or `exempt`.
 
 ## Workflow
 
@@ -43,8 +48,8 @@ Copy this checklist and mark items as you go:
 ```
 Pre-flight progress:
 - [ ] 0. Confirm branch (not `main`)
-- [ ] 1. Inspect changes
-- [ ] 2. Bump version + CHANGELOG
+- [ ] 1. Inspect changes (vs `origin/main`)
+- [ ] 2. Bump version + CHANGELOG (if required)
 - [ ] 3. Backend docs (if Supabase changed)
 - [ ] 4. Run tests
 - [ ] 5. Run version checks
@@ -56,41 +61,65 @@ Pre-flight progress:
 Run:
 
 ```bash
+git fetch origin
 git rev-parse --abbrev-ref HEAD
 ```
 
-- If the result is `main`, **stop** and tell the user to create or switch to a feature branch first (e.g. `git switch -c dev/permit-date`). Do not bump version, run tests for a release commit, or draft a ship message on `main`.
+- If the result is `main`, **stop** and tell the user to create or switch to a feature branch first (e.g. `git switch -c dev/feature-name`). Do not bump version, run release checks, or draft a ship message on `main`.
 - If already on a feature branch, continue.
 
-### 1. Inspect changes
+**All version decisions use `origin/main` as the baseline** — not the parent commit, not the previous commit on this branch.
+
+### 1. Inspect changes (vs `origin/main`)
 
 Run in parallel:
 
 - `git status --short`
-- `git diff --stat HEAD`
-- `git log -3 --oneline`
+- `git diff --stat origin/main` — working tree vs main (includes uncommitted)
+- `git diff --name-only origin/main` — file list for bump decision
+- `git log origin/main..HEAD --oneline`
+- `git show origin/main:mobile/app.json` — read `expo.version` on main (or parse JSON)
 
 Note mobile vs Supabase vs docs-only changes.
 
-### 2. Version + CHANGELOG (mobile changes)
+### 2. Version + CHANGELOG (if required vs `origin/main`)
 
-When `mobile/src/**`, `mobile/app.json`, or `mobile/package.json` changed (excluding tests-only):
+Matches `scripts/check-app-version.js` (CI **App version** job).
 
-1. Read current version from `mobile/app.json` (`expo.version`).
-2. Bump **patch** by default unless the user specified otherwise.
-3. Set the **same** version in `mobile/app.json` and `mobile/package.json`.
-4. Add `## [x.y.z] - YYYY-MM-DD` to the top of `CHANGELOG.md` (after the header blurb).
-5. Use Keep a Changelog sections: `### Added`, `### Changed`, `### Fixed` (omit empty sections).
-6. Bullets must be `- ` prefixed (CI validates format).
+**Exempt (no app semver bump):** changes only under paths that do **not** match:
 
-If the user already bumped version/changelog, verify they match and only fix gaps.
+- `mobile/src/**` (except `mobile/tests/**`)
+- `mobile/app.json`
+- `mobile/package.json`
+
+Examples that are exempt on their own: `docs/**`, `mobile/tests/**`, `web/**`, `.github/**`, `supabase/**` (backend has its own gate), `mobile/App.jsx` / `mobile/index.js` (runtime but not in CI app-path list — still bump if the same PR already bumps for `mobile/src/**`).
+
+**Required:** any path under `mobile/src/**` except `mobile/tests/**`, or changes to `mobile/app.json` / `mobile/package.json`.
+
+**Bump rule (matches CI):**
+
+1. Collect functional paths from `git diff --name-only origin/main` (working tree vs main, includes uncommitted).
+2. Filter to app paths above (exclude `mobile/tests/**`).
+3. If **no** functional paths → **skip bump** (step 2 done).
+4. If **yes** functional paths:
+   - `main_version` = `expo.version` from `git show origin/main:mobile/app.json`
+   - `head_version` = read `mobile/app.json` from disk
+   - If `head_version == main_version` → **must bump** (default **patch** unless user specified minor/major). Add a **new** `## [X.Y.Z] - YYYY-MM-DD` section at the top of `CHANGELOG.md` — do not only extend an older section.
+   - If `head_version` is already **greater than** `main_version` → **one bump per branch**: do not bump again; ensure top `CHANGELOG.md` heading matches `head_version` and bullets cover this branch's changes.
+5. Set the **same** version in `mobile/app.json` (`expo.version`) and `mobile/package.json` (`version`).
+6. Use Keep a Changelog sections: `### Added`, `### Changed`, `### Fixed` (omit empty sections).
+7. Bullets must be `- ` prefixed (CI validates format).
+
+**Why this matters:** CI runs `check-app-version.js --base origin/main --head HEAD`. It fails when functional `mobile/src/**` files changed on the branch but `expo.version` still equals main. Extending an existing changelog section without bumping version does **not** pass CI.
 
 Optional: update `docs/TODO.md` header line `**App:** x.y.z` when the release is feature-complete.
 
-### 3. Backend docs (only if `supabase/**` changed)
+If the user already bumped version/changelog, verify against `origin/main` and only fix gaps.
+
+### 3. Backend docs (only if `supabase/**` changed vs `origin/main`)
 
 - [ ] New migration filename: `YYYYMMDDHHMMSS_description.sql`
-- [ ] `CHANGELOG.md` documents Supabase changes in the release section
+- [ ] `CHANGELOG.md` documents Supabase changes (new bullets or release section; backend-only PRs may use `[Unreleased]` per [RELEASE.md](../../docs/RELEASE.md))
 - [ ] Raise `MIN_BACKEND_REVISION` if this app build requires the new migration
 - [ ] Update `mobile/src/config/requiredBackendCapabilities.json` if RPC capabilities changed
 
@@ -107,38 +136,46 @@ Fix failures before continuing. Common gotchas:
 - Renamed theme preset IDs → update `mobile/tests/theme/theme.test.js`
 - New DB helpers → extend `mobile/tests/db/queries.test.js`
 
-### 5. Run version checks
+### 5. Run version checks (same as CI)
 
 From repo root:
 
 ```bash
+git fetch origin
 node scripts/check-version-bump.js --base origin/main --head HEAD
 ```
 
-This runs app version, backend revision, and capability contract checks.
+This compares **committed** branch changes (`origin/main...HEAD`) vs `origin/main` but reads `mobile/app.json`, `mobile/package.json`, and `CHANGELOG.md` from the **working tree** — so step 2 must update those files before this command.
+
+If it fails, fix step 2 (or commit mobile changes so the branch diff includes them) and re-run. Do not finish pre-commit with a failing version check.
+
+**Note:** If step 2 required a bump based on **uncommitted** `mobile/src/**` changes, step 5 may still pass until those files are committed; remind the user CI will enforce the bump once the PR includes those paths.
 
 ### 6. Report + commit message (always last)
 
 Summarize:
 
-- Version bumped to `x.y.z` (or "already at x.y.z")
+- `origin/main` app version vs branch `expo.version` (bumped to `x.y.z`, already ahead of main, or exempt)
 - Test count / pass-fail
-- Version script pass-fail
-- Any skipped steps (docs-only, user said checks-only, etc.)
+- `check-version-bump.js --base origin/main` pass-fail
+- Any skipped steps (checks-only, exempt, docs-only, etc.)
 
 Then **always** provide a commit message covering **every file in the current working tree**
 (`git status` / full diff). Do not wait for the user to ask.
 
-**Commit message format** (one fenced code block, summary line + `-` bullets):
+**Commit message format** (one fenced code block, summary line + `-` bullets — one-click copy):
 
 - **Do not** put the semver in the commit message — version lives in `CHANGELOG.md`, `app.json`, and the pre-flight report only.
-- Summary line: short thematic description of the release (no `1.5.x`, no "Release x.y.z").
+- Summary line: short thematic description (no `1.5.x`, no "Release x.y.z").
 - Bullets: details from CHANGELOG or diff.
+- Bullets describe **what** was done, not why. As brief as possible.
+- Large changes (5+ areas): summary line naming the main theme, then bullets.
+- **Do not** duplicate bullets outside the code block.
 
 ```
-Foreground GPS, road category breakdown, and export polish
-- Live road category and day/night on Active; Review breakdown and Insufficient data below threshold
-- Export all dialog with optional road category; copy-from-preset on Appearance
+Short thematic summary of the change
+- what changed
+- what changed
 ```
 
 Do not commit unless the user said `create a git commit`.
@@ -157,3 +194,4 @@ Manual QA in Expo Go is optional; remind the user if the change is UI-heavy and 
 | `pre-commit checks only` | Steps 4–5 only |
 | `pre-commit changelog` | Steps 1–2 + commit message draft |
 | `pre-commit with 1.6.0` | Use specified semver in step 2 |
+| `pre-commit exempt` | Steps 1, 4–6 only (confirm diff is docs/tests-only or otherwise exempt per step 2) |

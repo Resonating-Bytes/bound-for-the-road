@@ -5,6 +5,35 @@ All notable changes to the mobile app and its Supabase backend are documented he
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 
+## [1.5.10] - 2026-06-22
+
+### Added
+
+- Email and password sign-up, sign-in, forgot password, and reset password via Supabase Auth
+- Auth screens (`SignIn`, `Register`, `ForgotPassword`, `ResetPassword`) and shared `AuthTextField`
+- Deep-link auth callback handling for email confirm and password recovery (`authCallback`, early link capture in `index.js`)
+- Optional HTTPS email redirect bridge (`web/auth-callback`, `EXPO_PUBLIC_AUTH_WEB_REDIRECT_URL`) for Expo Go confirm links
+- Driving schools and instructor role backlog spec (`docs/DRIVING_SCHOOLS.md`)
+- `authLinkBootstrap` tests for early URL queue and deduplication
+
+### Changed
+
+- Sign-in screen: Google on top, email/password below; dev hints show OAuth and email redirect URIs
+- Expo Go auth redirect uses `exp://IP:PORT?auth_callback=1` instead of `/--/auth/callback` (avoids Expo Go connection error before JS loads)
+- `AuthContext` supports email session alongside Google; `Settings` sign-out copy is provider-neutral
+- Profile permit-date hint uses unicode arrow; Supabase setup docs clarify Site URL vs Redirect URLs
+- Password recovery persisted across app restarts (`AsyncStorage`); cleared on sign-in or completed reset
+- Auth deep links deduplicated and deferred until the local database is ready
+- PKCE password-reset links mark recovery via `redirectType` from `exchangeCodeForSession`
+- HTTPS required for `EXPO_PUBLIC_AUTH_WEB_REDIRECT_URL`; web bridge `app_redirect` limited to `exp:` and `boundfortheroad:` schemes
+
+### Fixed
+
+- Email confirmation links respect Supabase Site URL and allow-list configuration (documented duplicate-port Site URL pitfall)
+- Password recovery routes to Reset Password when `PASSWORD_RECOVERY` does not fire after a valid callback
+- Recovery vs confirm messaging on expired auth links (app and web bridge)
+- Email normalization coerces null/undefined before trim
+
 ## [1.5.9] - 2026-06-22
 
 ### Added

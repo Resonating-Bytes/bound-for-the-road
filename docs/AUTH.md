@@ -14,6 +14,29 @@ Read this before writing any auth-related code or backend endpoints.
 | iOS | Google Sign-In | Optional but recommended for users without Apple ID |
 | Android | Google Sign-In | Primary provider |
 | Android | Sign in with Apple | Not available as native SDK; excluded from Android |
+| iOS + Android | Email + password | Supabase Auth — sign-up, confirm, sign-in, forgot/reset |
+
+---
+
+## Current implementation (Phase 2 — Supabase)
+
+The app uses **Supabase Auth**, not a custom JWT backend. Google OAuth and email/password share one session model (`@supabase/supabase-js`); `public.users` is created by the `handle_new_auth_user` trigger.
+
+| Flow | Client API | Mobile module |
+|------|------------|---------------|
+| Google sign-in | `signInWithOAuth({ provider: 'google' })` | `lib/googleAuth.js` |
+| Email sign-up | `auth.signUp` + `emailRedirectTo` | `lib/emailAuth.js` |
+| Email sign-in | `auth.signInWithPassword` | `lib/emailAuth.js` |
+| Confirm email | Link opens app → `auth/callback` | `lib/authCallback.js` |
+| Forgot password | `auth.resetPasswordForEmail` | `lib/emailAuth.js` |
+| Reset password | `auth.updateUser({ password })` after `PASSWORD_RECOVERY` | `AuthContext` |
+| Resend confirmation | `auth.resend({ type: 'signup' })` | Sign-in screen |
+
+After any successful auth, `AuthContext.applyAuthUser` merges the Supabase user into local SQLite (same path as Google).
+
+**Dashboard setup:** enable Email provider, confirm-email, and SMTP — see [SUPABASE_SETUP.md](./SUPABASE_SETUP.md).
+
+The sections below describe provider token shapes and original Phase 1 planning; they are **not** the live wire-up (no custom `POST /auth/signin` endpoint).
 
 ---
 

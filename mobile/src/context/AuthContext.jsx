@@ -16,6 +16,14 @@ import {
 } from '../db/queries';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase';
 import { signInWithGoogleOAuth } from '../lib/googleAuth';
+import { takePendingPasswordRecovery } from '../lib/authCallback';
+import {
+  signUpWithEmail,
+  signInWithEmail,
+  resendSignupConfirmation,
+  requestPasswordReset,
+  completePasswordReset,
+} from '../lib/emailAuth';
 import { fetchRemoteLinks } from '../lib/links';
 import { syncProfileToSupabase, syncProfileToSupabaseAndStamp, fetchRemoteProfile, mergeProfileWithRemote, pullAndApplyRemoteProfile, mapRemoteUser } from '../lib/profileSync';
 import { unregisterCurrentDevicePushToken } from '../lib/pushTokens';
@@ -24,6 +32,7 @@ import { cancelSessionNotificationsForIds } from '../utils/notifications';
 import { firstTokenFromLegalName } from '../utils/names';
 
 const MOCK_USER_KEY = '@boundfortheroad/mockUserId';
+const PASSWORD_RECOVERY_KEY = '@boundfortheroad/passwordRecoveryPending';
 
 const AuthContext = createContext(null);
 
@@ -55,8 +64,35 @@ export function AuthProvider({ children }) {
   const [linked, setLinked] = useState(false);
   const [roleChosen, setRoleChosenFlag] = useState(false);
   const [ready, setReady] = useState(false);
+  const [passwordRecoveryPending, setPasswordRecoveryPending] = useState(false);
   const isSigningOutRef = useRef(false);
   const isSavingRoleRef = useRef(false);
+  const passwordRecoveryActiveRef = useRef(false);
+
+  const enterPasswordRecovery = useCallback(async () => {
+    passwordRecoveryActiveRef.current = true;
+    setPasswordRecoveryPending(true);
+    // Hide the main app while the user sets a new password (session may still exist in Supabase).
+    setUserId(null);
+    setUser(null);
+    setLinked(false);
+    setRoleChosenFlag(false);
+    try {
+      await AsyncStorage.setItem(PASSWORD_RECOVERY_KEY, '1');
+    } catch (e) {
+      console.warn('Failed to persist password recovery flag:', e.message);
+    }
+  }, []);
+
+  const exitPasswordRecovery = useCallback(async () => {
+    passwordRecoveryActiveRef.current = false;
+    setPasswordRecoveryPending(false);
+    try {
+      await AsyncStorage.removeItem(PASSWORD_RECOVERY_KEY);
+    } catch (e) {
+      console.warn('Failed to clear password recovery flag:', e.message);
+    }
+  }, []);
 
   const syncRoleChosenFromDb = useCallback((id) => {
     if (!id) {
@@ -146,8 +182,15 @@ export function AuthProvider({ children }) {
       try {
         if (isSupabaseConfigured()) {
           const { data } = await getSupabase().auth.getSession();
+          const recoveryStored = await AsyncStorage.getItem(PASSWORD_RECOVERY_KEY);
           if (mounted && data.session?.user) {
-            await applyAuthUser(data.session.user);
+            if (recoveryStored === '1' || takePendingPasswordRecovery()) {
+              await enterPasswordRecovery();
+            } else {
+              await applyAuthUser(data.session.user);
+            }
+          } else if (mounted && recoveryStored === '1') {
+            await exitPasswordRecovery();
           }
         } else {
           const stored = await AsyncStorage.getItem(MOCK_USER_KEY);
@@ -174,11 +217,24 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription },
-    } = getSupabase().auth.onAuthStateChange((_event, session) => {
+    } = getSupabase().auth.onAuthStateChange((event, session) => {
       if (!mounted || isSigningOutRef.current) return;
+      if (event === 'PASSWORD_RECOVERY') {
+        takePendingPasswordRecovery();
+        enterPasswordRecovery();
+        return;
+      }
       if (session?.user) {
+        if (takePendingPasswordRecovery()) {
+          enterPasswordRecovery();
+          return;
+        }
+        if (passwordRecoveryActiveRef.current) {
+          return;
+        }
         applyAuthUser(session.user);
       } else {
+        exitPasswordRecovery();
         setUserId(null);
         setUser(null);
         setLinked(false);
@@ -190,7 +246,7 @@ export function AuthProvider({ children }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [applyAuthUser, refreshUser]);
+  }, [applyAuthUser, enterPasswordRecovery, exitPasswordRecovery, refreshUser]);
 
   useEffect(() => {
     if (!userId || !isSupabaseConfigured() || linked) return undefined;
@@ -217,12 +273,53 @@ export function AuthProvider({ children }) {
   const signInWithGoogle = useCallback(async () => {
     const session = await signInWithGoogleOAuth();
     if (!session?.user) return null;
+    await exitPasswordRecovery();
     await applyAuthUser(session.user);
     return session;
+  }, [applyAuthUser, exitPasswordRecovery]);
+
+  const signInWithEmailPassword = useCallback(
+    async (email, password) => {
+      const session = await signInWithEmail(email, password);
+      if (!session?.user) return null;
+      await exitPasswordRecovery();
+      await applyAuthUser(session.user);
+      return session;
+    },
+    [applyAuthUser, exitPasswordRecovery],
+  );
+
+  const signUpWithEmailPassword = useCallback(async (email, password) => {
+    const result = await signUpWithEmail(email, password);
+    if (result.session?.user) {
+      await applyAuthUser(result.session.user);
+    }
+    return result;
   }, [applyAuthUser]);
+
+  const resendSignupConfirmationEmail = useCallback(async (email) => {
+    return resendSignupConfirmation(email);
+  }, []);
+
+  const requestPasswordResetEmail = useCallback(async (email) => {
+    return requestPasswordReset(email);
+  }, []);
+
+  const completePasswordRecovery = useCallback(
+    async (newPassword) => {
+      const authUser = await completePasswordReset(newPassword);
+      await exitPasswordRecovery();
+      if (authUser) {
+        await applyAuthUser(authUser);
+      }
+      return authUser;
+    },
+    [applyAuthUser, exitPasswordRecovery],
+  );
 
   const signOut = useCallback(async () => {
     isSigningOutRef.current = true;
+    await exitPasswordRecovery();
     const signingOutUserId = userId;
     setUserId(null);
     setUser(null);
@@ -402,7 +499,13 @@ export function AuthProvider({ children }) {
       onboardingComplete,
       requiresLink,
       supabaseAuth: isSupabaseConfigured(),
+      passwordRecoveryPending,
       signInWithGoogle,
+      signInWithEmailPassword,
+      signUpWithEmailPassword,
+      resendSignupConfirmation: resendSignupConfirmationEmail,
+      requestPasswordResetEmail,
+      completePasswordRecovery,
       mockSignIn,
       signOut,
       saveRole,
@@ -422,7 +525,13 @@ export function AuthProvider({ children }) {
       profileComplete,
       onboardingComplete,
       requiresLink,
+      passwordRecoveryPending,
       signInWithGoogle,
+      signInWithEmailPassword,
+      signUpWithEmailPassword,
+      resendSignupConfirmationEmail,
+      requestPasswordResetEmail,
+      completePasswordRecovery,
       mockSignIn,
       signOut,
       saveRole,

@@ -1,7 +1,7 @@
 import { parseISODate, toISODateOnly, formatDate } from './time';
 
 export const PERMIT_DATE_FIELD_LABEL = 'Expected permit date';
-export const PERMIT_DATE_HINT = 'Expected permit date (you can change this later).';
+export const PERMIT_DATE_HINT = 'You can change this later in Settings → Profile.';
 export const PERMIT_DATE_SETTINGS_HINT =
   'Used for your license eligibility date. You can update this when you get your permit.';
 
