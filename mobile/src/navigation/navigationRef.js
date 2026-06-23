@@ -11,7 +11,7 @@ export function navigateWhenReady(routeName, params, attempt = 0, { merge = fals
     }
     return;
   }
-  if (attempt >= 20) return;
+  if (attempt >= 50) return;
   setTimeout(() => navigateWhenReady(routeName, params, attempt + 1, { merge }), 100);
 }
 

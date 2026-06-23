@@ -83,13 +83,24 @@ describe('authCallback', () => {
 
   test('createSessionFromUrl exchanges PKCE code', async () => {
     mockExchangeCodeForSession.mockResolvedValue({
-      data: { session: { user: { id: 'auth-uuid' } } },
+      data: { session: { user: { id: 'auth-uuid' } }, redirectType: null },
       error: null,
     });
 
     const session = await createSessionFromUrl('boundfortheroad://auth/callback?code=abc123');
     expect(mockExchangeCodeForSession).toHaveBeenCalledWith('abc123');
     expect(session.user.id).toBe('auth-uuid');
+    expect(takePendingPasswordRecovery()).toBe(false);
+  });
+
+  test('createSessionFromUrl marks password recovery for PKCE recovery codes', async () => {
+    mockExchangeCodeForSession.mockResolvedValue({
+      data: { session: { user: { id: 'auth-uuid' } }, redirectType: 'recovery' },
+      error: null,
+    });
+
+    await createSessionFromUrl('boundfortheroad://auth/callback?code=recovery-code');
+    expect(takePendingPasswordRecovery()).toBe(true);
   });
 
   test('createSessionFromUrl sets session from access_token', async () => {

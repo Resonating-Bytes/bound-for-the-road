@@ -14,6 +14,12 @@ function markPendingPasswordRecovery() {
   pendingPasswordRecovery = true;
 }
 
+function maybeMarkPasswordRecovery(params, redirectType) {
+  if (redirectType === 'recovery' || params?.type === 'recovery') {
+    markPendingPasswordRecovery();
+  }
+}
+
 /** True when the URL is our Supabase auth redirect (OAuth, email confirm, password recovery, or auth error). */
 export function isAuthCallbackUrl(url) {
   if (!url) return false;
@@ -114,12 +120,8 @@ export async function resolveAuthCallback(url) {
   }
 
   try {
-    const { params: linkParams } = QueryParams.getQueryParams(url);
     const session = await createSessionFromUrl(url);
     if (session) {
-      if (linkParams.type === 'recovery') {
-        markPendingPasswordRecovery();
-      }
       return { type: 'session', session };
     }
     return { type: 'error', message: 'Could not complete sign-in from this link.' };
@@ -146,6 +148,7 @@ export async function createSessionFromUrl(url) {
   if (params.code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(params.code);
     if (error) throw error;
+    maybeMarkPasswordRecovery(params, data.redirectType);
     return data.session;
   }
 
@@ -155,6 +158,7 @@ export async function createSessionFromUrl(url) {
       refresh_token: params.refresh_token ?? '',
     });
     if (error) throw error;
+    maybeMarkPasswordRecovery(params);
     return data.session;
   }
 
@@ -164,6 +168,7 @@ export async function createSessionFromUrl(url) {
       type: params.type,
     });
     if (error) throw error;
+    maybeMarkPasswordRecovery(params);
     return data.session;
   }
 
