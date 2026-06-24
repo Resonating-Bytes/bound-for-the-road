@@ -11,12 +11,20 @@ function sleep(ms) {
 
 function waitForChannelSubscribe(channel, timeoutMs = 5000) {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('proximity channel subscribe timeout')), timeoutMs);
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error('proximity channel subscribe timeout'));
+    }, timeoutMs);
     channel.subscribe((status) => {
+      if (settled) return;
       if (status === 'SUBSCRIBED') {
+        settled = true;
         clearTimeout(timeout);
         resolve();
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        settled = true;
         clearTimeout(timeout);
         reject(new Error(`proximity channel ${status}`));
       }
@@ -96,7 +104,7 @@ export async function subscribeAdultProximityResponder(adultUserId, linkedTeenId
   }
 
   const supabase = getSupabase();
-  const channels = linkedTeenIds.map((teenUserId) => {
+  const channels = [...new Set(linkedTeenIds)].map((teenUserId) => {
     const channel = supabase.channel(proximityChannelName(teenUserId), {
       config: { broadcast: { ack: false, self: false } },
     });

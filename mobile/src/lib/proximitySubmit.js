@@ -29,7 +29,10 @@ export async function resolveTeenSubmitLocation(sessionId) {
     const { status } = await Location.getForegroundPermissionsAsync();
     if (status !== 'granted') return null;
     const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-    return { latitude: fix.coords.latitude, longitude: fix.coords.longitude };
+    const latitude = fix.coords.latitude;
+    const longitude = fix.coords.longitude;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    return { latitude, longitude };
   } catch {
     return null;
   }

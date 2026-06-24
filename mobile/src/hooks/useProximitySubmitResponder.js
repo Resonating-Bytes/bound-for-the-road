@@ -15,10 +15,16 @@ async function readAdultLocationIfAllowed() {
     if (status === 'undetermined') {
       ({ status } = await Location.requestForegroundPermissionsAsync());
     }
+    if (AppState.currentState !== 'active') return null;
     if (status !== 'granted') return null;
 
     const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-    return { latitude: fix.coords.latitude, longitude: fix.coords.longitude };
+    if (AppState.currentState !== 'active') return null;
+
+    const latitude = fix.coords.latitude;
+    const longitude = fix.coords.longitude;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    return { latitude, longitude };
   } catch {
     return null;
   }
@@ -30,28 +36,32 @@ async function readAdultLocationIfAllowed() {
  */
 export function useProximitySubmitResponder(linkedTeenIds, enabled = true) {
   const { userId } = useAuth();
+  const linkedTeenIdsKey = linkedTeenIds?.join('\0') ?? '';
 
   useEffect(() => {
     if (!enabled || !userId || !linkedTeenIds?.length || !isSupabaseConfigured()) {
       return undefined;
     }
 
+    const teenIds = linkedTeenIds;
     let unsub = () => {};
     let cancelled = false;
 
-    subscribeAdultProximityResponder(userId, linkedTeenIds, readAdultLocationIfAllowed).then(
-      (unsubscribe) => {
+    subscribeAdultProximityResponder(userId, teenIds, readAdultLocationIfAllowed)
+      .then((unsubscribe) => {
         if (cancelled) {
           unsubscribe();
         } else {
           unsub = unsubscribe;
         }
-      },
-    );
+      })
+      .catch((e) => {
+        console.warn('Proximity responder setup failed:', e.message ?? e);
+      });
 
     return () => {
       cancelled = true;
       unsub();
     };
-  }, [enabled, userId, linkedTeenIds]);
+  }, [enabled, userId, linkedTeenIdsKey]);
 }

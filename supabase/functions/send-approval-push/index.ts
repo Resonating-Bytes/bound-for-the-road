@@ -77,7 +77,9 @@ function resolveSessionSubmitRecipients(
 ): string[] {
   if (!linkedAdultIds.length) return [];
 
-  const nearby = (nearbyAdultIds ?? []).filter((id) => linkedAdultIds.includes(id));
+  const nearby = (Array.isArray(nearbyAdultIds) ? nearbyAdultIds : []).filter((id) =>
+    linkedAdultIds.includes(id),
+  );
   if (nearby.length) {
     return [nearby[0]];
   }
