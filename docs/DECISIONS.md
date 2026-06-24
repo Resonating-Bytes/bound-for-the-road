@@ -82,7 +82,7 @@ Full flow: [ONBOARDING.md](./ONBOARDING.md). MVP overrides:
 | Backend | Supabase (Postgres, RLS, Edge Functions) |
 | Linking | 6-digit code, 24 hr, single-use |
 | Save → Submit | Rename Save; adult approval + attestation |
-| Approval | Joined adult if joined; else any linked adult; no write-in names |
+| Approval | Joined adult if joined; else any linked adult; **push** narrows to active supervisor or nearby linked adults when known — [PROXIMITY.md](./PROXIMITY.md) | no write-in names |
 | Withdraw submission | Teen may withdraw to draft before approve |
 | Push | FCM/APNs via Expo Push API |
 | Lock screen | Live Activity (iOS) + foreground service (Android) |

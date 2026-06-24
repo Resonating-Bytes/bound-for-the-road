@@ -295,6 +295,20 @@ export function listLocationSamplesForSession(sessionId) {
     .all();
 }
 
+/** Most recent GPS sample for a session (by recordedAt), or null. */
+export function getLatestLocationSampleForSession(sessionId) {
+  const db = getDb();
+  return (
+    db
+      .select()
+      .from(sessionLocationSamples)
+      .where(eq(sessionLocationSamples.sessionId, sessionId))
+      .orderBy(desc(sessionLocationSamples.recordedAt))
+      .limit(1)
+      .get() ?? null
+  );
+}
+
 export function countLocationSamplesForSession(sessionId) {
   const db = getDb();
   const row = db

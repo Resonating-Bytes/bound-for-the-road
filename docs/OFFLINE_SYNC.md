@@ -24,7 +24,7 @@ The backend is a **relay and identity store**, not the session source of truth:
 
 Full API design: [BACKEND.md](./BACKEND.md).
 
-Local network join (mDNS/BLE) as push alternative → [WISHLIST.md](./WISHLIST.md).
+Local network join (mDNS/BLE) as push alternative → [WISHLIST.md](./WISHLIST.md). Push targeting rules → [PROXIMITY.md](./PROXIMITY.md).
 
 ## Outbox queue
 
