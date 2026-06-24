@@ -88,9 +88,9 @@ export async function collectAdultProximityResponses({
  * @param {string} adultUserId
  * @param {string[]} linkedTeenIds
  * @param {(teenUserId: string) => Promise<{ latitude: number, longitude: number } | null>} getLocation
- * @returns {() => void} unsubscribe
+ * @returns {Promise<() => void>} unsubscribe
  */
-export function subscribeAdultProximityResponder(adultUserId, linkedTeenIds, getLocation) {
+export async function subscribeAdultProximityResponder(adultUserId, linkedTeenIds, getLocation) {
   if (!isSupabaseConfigured() || !linkedTeenIds.length) {
     return () => {};
   }
@@ -123,9 +123,16 @@ export function subscribeAdultProximityResponder(adultUserId, linkedTeenIds, get
       }
     });
 
-    channel.subscribe();
     return channel;
   });
+
+  await Promise.all(
+    channels.map((channel) =>
+      waitForChannelSubscribe(channel).catch((e) => {
+        console.warn('Proximity responder subscribe failed:', e.message ?? e);
+      }),
+    ),
+  );
 
   return () => {
     for (const channel of channels) {

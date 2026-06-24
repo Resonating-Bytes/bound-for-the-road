@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import * as Location from 'expo-location';
 
@@ -30,16 +30,28 @@ async function readAdultLocationIfAllowed() {
  */
 export function useProximitySubmitResponder(linkedTeenIds, enabled = true) {
   const { userId } = useAuth();
-  const getLocationRef = useRef(readAdultLocationIfAllowed);
-  getLocationRef.current = readAdultLocationIfAllowed;
 
   useEffect(() => {
     if (!enabled || !userId || !linkedTeenIds?.length || !isSupabaseConfigured()) {
       return undefined;
     }
 
-    return subscribeAdultProximityResponder(userId, linkedTeenIds, () =>
-      getLocationRef.current(),
+    let unsub = () => {};
+    let cancelled = false;
+
+    subscribeAdultProximityResponder(userId, linkedTeenIds, readAdultLocationIfAllowed).then(
+      (unsubscribe) => {
+        if (cancelled) {
+          unsubscribe();
+        } else {
+          unsub = unsubscribe;
+        }
+      },
     );
+
+    return () => {
+      cancelled = true;
+      unsub();
+    };
   }, [enabled, userId, linkedTeenIds]);
 }

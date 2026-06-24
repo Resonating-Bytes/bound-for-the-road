@@ -29,7 +29,7 @@ export function resolveSessionSubmitPushRecipients({ linkedAdultIds, nearbyAdult
 
   const nearby = (nearbyAdultIds ?? []).filter((id) => linked.includes(id));
   if (nearby.length) {
-    return [...new Set(nearby)];
+    return [nearby[0]];
   }
 
   return linked;

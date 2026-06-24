@@ -9,7 +9,6 @@ import {
   PROXIMITY_RESPONSE_WAIT_MS,
 } from './proximityConfig';
 import { collectAdultProximityResponses } from './proximityRealtime';
-import { listLinkedAdultIdsForTeen } from './proximityPush';
 
 /**
  * Last known session GPS sample, or a one-shot current fix at submit.
