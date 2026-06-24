@@ -51,6 +51,7 @@ export async function pushSubmittedSessionToRemote(sessionId, session, submissio
     teenUserId: session.teenUserId,
     sessionId: session.id,
     linkedAdultIds,
+    submittedAt: submission.submittedAt,
   });
 
   await notifyApprovalPush(PUSH_EVENTS.SESSION_SUBMITTED, {

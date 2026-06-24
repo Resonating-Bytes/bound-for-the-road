@@ -96,6 +96,23 @@ describe('proximitySubmit', () => {
     expect(nearby).toEqual(['adult-b']);
   });
 
+  test('collectNearbyAdultIdsAtSubmit skips proximity when submit is too old for outbox replay', async () => {
+    getLatestLocationSampleForSession.mockReturnValue({
+      latitude: '41.88',
+      longitude: '-87.63',
+    });
+
+    const nearby = await collectNearbyAdultIdsAtSubmit({
+      teenUserId: 'teen-1',
+      sessionId: 'session-1',
+      linkedAdultIds: ['adult-a'],
+      submittedAt: new Date(Date.now() - 16 * 60 * 1000).toISOString(),
+    });
+
+    expect(nearby).toEqual([]);
+    expect(collectAdultProximityResponses).not.toHaveBeenCalled();
+  });
+
   test('collectNearbyAdultIdsAtSubmit returns empty when no teen location', async () => {
     getLatestLocationSampleForSession.mockReturnValue(null);
     Location.getForegroundPermissionsAsync.mockResolvedValue({ status: 'denied' });

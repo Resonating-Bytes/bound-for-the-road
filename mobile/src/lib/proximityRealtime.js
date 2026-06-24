@@ -110,7 +110,7 @@ export async function subscribeAdultProximityResponder(adultUserId, linkedTeenId
     });
 
     channel.on('broadcast', { event: PROXIMITY_BROADCAST_REQUEST }, async ({ payload }) => {
-      if (!payload || payload.teenUserId !== teenUserId) return;
+      if (!payload?.requestId || payload.teenUserId !== teenUserId) return;
 
       const coords = await getLocation();
       if (!coords) return;

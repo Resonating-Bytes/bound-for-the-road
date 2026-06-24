@@ -36,7 +36,7 @@ async function readAdultLocationIfAllowed() {
  */
 export function useProximitySubmitResponder(linkedTeenIds, enabled = true) {
   const { userId } = useAuth();
-  const linkedTeenIdsKey = linkedTeenIds?.join('\0') ?? '';
+  const linkedTeenIdsKey = linkedTeenIds?.slice().sort().join('\0') ?? '';
 
   useEffect(() => {
     if (!enabled || !userId || !linkedTeenIds?.length || !isSupabaseConfigured()) {

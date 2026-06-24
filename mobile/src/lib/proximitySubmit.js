@@ -7,6 +7,7 @@ import { pickClosestAdultWithinRadius } from './geo';
 import {
   PROXIMITY_PUSH_RADIUS_METERS,
   PROXIMITY_RESPONSE_WAIT_MS,
+  PROXIMITY_SUBMIT_MAX_AGE_MS,
 } from './proximityConfig';
 import { collectAdultProximityResponses } from './proximityRealtime';
 
@@ -44,14 +45,29 @@ export async function resolveTeenSubmitLocation(sessionId) {
  *
  * @returns {Promise<string[]>}
  */
-export async function collectNearbyAdultIdsAtSubmit({ teenUserId, sessionId, linkedAdultIds }) {
+export async function collectNearbyAdultIdsAtSubmit({
+  teenUserId,
+  sessionId,
+  linkedAdultIds,
+  submittedAt,
+}) {
   const mockId = process.env.EXPO_PUBLIC_PROXIMITY_MOCK_ADULT_ID?.trim();
   if (__DEV__ && mockId && linkedAdultIds.includes(mockId)) {
     return [mockId];
   }
 
-  if (!isSupabaseConfigured() || !linkedAdultIds.length) {
+  if (!isSupabaseConfigured() || !Array.isArray(linkedAdultIds) || !linkedAdultIds.length) {
     return [];
+  }
+
+  if (submittedAt) {
+    const submittedAtMs = Date.parse(submittedAt);
+    if (
+      !Number.isFinite(submittedAtMs) ||
+      Date.now() - submittedAtMs > PROXIMITY_SUBMIT_MAX_AGE_MS
+    ) {
+      return [];
+    }
   }
 
   const teenLocation = await resolveTeenSubmitLocation(sessionId);
