@@ -49,6 +49,7 @@ describe('proximitySubmit', () => {
     getLatestLocationSampleForSession.mockReturnValue({
       latitude: '41.0',
       longitude: '-87.0',
+      recordedAt: new Date().toISOString(),
     });
 
     const location = await resolveTeenSubmitLocation('session-1');
@@ -61,6 +62,18 @@ describe('proximitySubmit', () => {
 
     const location = await resolveTeenSubmitLocation('session-1');
     expect(location).toEqual({ latitude: 41.88, longitude: -87.63 });
+  });
+
+  test('resolveTeenSubmitLocation ignores stale session sample', async () => {
+    getLatestLocationSampleForSession.mockReturnValue({
+      latitude: '41.0',
+      longitude: '-87.0',
+      recordedAt: new Date(Date.now() - 16 * 60 * 1000).toISOString(),
+    });
+
+    const location = await resolveTeenSubmitLocation('session-1');
+    expect(location).toEqual({ latitude: 41.88, longitude: -87.63 });
+    expect(Location.getCurrentPositionAsync).toHaveBeenCalled();
   });
 
   test('collectNearbyAdultIdsAtSubmit returns dev mock when linked', async () => {
@@ -78,6 +91,7 @@ describe('proximitySubmit', () => {
     getLatestLocationSampleForSession.mockReturnValue({
       latitude: '41.88',
       longitude: '-87.63',
+      recordedAt: new Date().toISOString(),
     });
     collectAdultProximityResponses.mockResolvedValue(
       new Map([
@@ -100,6 +114,7 @@ describe('proximitySubmit', () => {
     getLatestLocationSampleForSession.mockReturnValue({
       latitude: '41.88',
       longitude: '-87.63',
+      recordedAt: new Date().toISOString(),
     });
 
     const nearby = await collectNearbyAdultIdsAtSubmit({

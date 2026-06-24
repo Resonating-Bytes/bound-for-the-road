@@ -21,7 +21,11 @@ export async function resolveTeenSubmitLocation(sessionId) {
   if (latest) {
     const latitude = Number(latest.latitude);
     const longitude = Number(latest.longitude);
-    if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+    const recordedAtMs = Date.parse(latest.recordedAt);
+    const sampleFresh =
+      Number.isFinite(recordedAtMs) &&
+      Date.now() - recordedAtMs <= PROXIMITY_SUBMIT_MAX_AGE_MS;
+    if (Number.isFinite(latitude) && Number.isFinite(longitude) && sampleFresh) {
       return { latitude, longitude };
     }
   }
@@ -54,12 +58,16 @@ export async function collectNearbyAdultIdsAtSubmit({
   linkedAdultIds,
   submittedAt,
 }) {
+  if (!Array.isArray(linkedAdultIds) || !linkedAdultIds.length) {
+    return [];
+  }
+
   const mockId = process.env.EXPO_PUBLIC_PROXIMITY_MOCK_ADULT_ID?.trim();
   if (__DEV__ && mockId && linkedAdultIds.includes(mockId)) {
     return [mockId];
   }
 
-  if (!isSupabaseConfigured() || !Array.isArray(linkedAdultIds) || !linkedAdultIds.length) {
+  if (!isSupabaseConfigured()) {
     return [];
   }
 
