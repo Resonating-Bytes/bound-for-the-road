@@ -6,9 +6,10 @@ import { getActiveLinksForUser } from '../db/queries';
  * @returns {string[]}
  */
 export function listLinkedAdultIdsForTeen(teenUserId) {
-  return getActiveLinksForUser(teenUserId)
+  const adultIds = getActiveLinksForUser(teenUserId)
     .filter((link) => link.teenUserId === teenUserId)
     .map((link) => link.adultUserId);
+  return [...new Set(adultIds)];
 }
 
 /**

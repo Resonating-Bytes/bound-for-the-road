@@ -75,16 +75,17 @@ function resolveSessionSubmitRecipients(
   linkedAdultIds: string[],
   nearbyAdultIds: string[] | undefined,
 ): string[] {
-  if (!linkedAdultIds.length) return [];
+  const linked = [...new Set(linkedAdultIds)];
+  if (!linked.length) return [];
 
   const nearby = (Array.isArray(nearbyAdultIds) ? nearbyAdultIds : []).filter((id) =>
-    linkedAdultIds.includes(id),
+    linked.includes(id),
   );
   if (nearby.length) {
     return [nearby[0]];
   }
 
-  return linkedAdultIds;
+  return linked;
 }
 
 async function sendExpoPush(messages: ExpoPushMessage[]) {

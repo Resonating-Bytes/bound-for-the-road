@@ -60,7 +60,7 @@ export async function collectAdultProximityResponses({
   channel.on('broadcast', { event: PROXIMITY_BROADCAST_RESPONSE }, ({ payload }) => {
     if (!payload || payload.requestId !== requestId) return;
     const adultUserId = payload.adultUserId;
-    if (!linkedAdultIds.includes(adultUserId)) return;
+    if (!adultUserId || !linkedAdultIds.includes(adultUserId)) return;
     const lat = Number(payload.latitude);
     const lon = Number(payload.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
@@ -112,7 +112,7 @@ export async function subscribeAdultProximityResponder(adultUserId, linkedTeenId
     channel.on('broadcast', { event: PROXIMITY_BROADCAST_REQUEST }, async ({ payload }) => {
       if (!payload?.requestId || payload.teenUserId !== teenUserId) return;
 
-      const coords = await getLocation();
+      const coords = await getLocation(teenUserId);
       if (!coords) return;
 
       try {

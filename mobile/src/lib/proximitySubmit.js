@@ -27,7 +27,10 @@ export async function resolveTeenSubmitLocation(sessionId) {
   }
 
   try {
-    const { status } = await Location.getForegroundPermissionsAsync();
+    let { status } = await Location.getForegroundPermissionsAsync();
+    if (status === 'undetermined') {
+      ({ status } = await Location.requestForegroundPermissionsAsync());
+    }
     if (status !== 'granted') return null;
     const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
     const latitude = fix.coords.latitude;
