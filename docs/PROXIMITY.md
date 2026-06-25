@@ -105,3 +105,13 @@ The Realtime request/response shape stays the same. The adult side injects locat
 | **Periodic upload** | Only if the app must respond while **fully killed** (no Realtime listener) | Would need stored last location — heavier privacy/ops cost; avoid unless required |
 
 Phase B should not require changing teen submit flow or push recipient rules — only swap how the adult resolves `getLocation`.
+
+### Known limitations (Phase A)
+
+| Limitation | Behavior |
+|------------|----------|
+| **Responder scope** | Hook runs on `AdultHomeScreen` only — adults on other screens or before `linkedTeenIds` loads may miss the Realtime window → fallback push to all linked |
+| **Submit latency** | ~4.5 s Realtime wait after RPC success blocks the approval push invoke (intentional for Phase A) |
+| **Permission vs wait window** | First submit with `undetermined` location permission can show an OS dialog longer than the wait window → proximity skipped, all linked notified |
+| **Foreground-only adults** | Backgrounded adults or those not subscribed miss the window → same fallback |
+| **15-minute max age** | Stale outbox replays and old GPS samples skip proximity (`PROXIMITY_SUBMIT_MAX_AGE_MS`) |
