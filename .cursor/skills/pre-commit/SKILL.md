@@ -1,11 +1,11 @@
 ---
 name: pre-commit
 description: >-
-  Run BoundForTheRoad pre-commit pre-flight before a mobile release commit.
-  Bumps app semver and CHANGELOG when required, runs tests and version checks,
-  then always ends with a commit message for all local changes. Use when the
-  user says run pre-commit, pre-commit, pre-flight, ship check, release prep, or
-  before merge checklist.
+  Run BoundForTheRoad pre-commit pre-flight before opening a PR. Bumps app semver
+  and CHANGELOG when required, runs tests and version checks, then always ends
+  with a commit message for all local changes. Use when the user says run
+  pre-commit, pre-commit, pre-flight, ship check, or release prep. Not for
+  post-harden wrap-up — see post-review skill.
 disable-model-invocation: true
 ---
 
@@ -14,12 +14,46 @@ disable-model-invocation: true
 **Scope:** Project-only — `.cursor/skills/pre-commit/` in this repo. Not global.
 For all repos, copy to `~/.cursor/skills/pre-commit/` (personal skill).
 
-Execute when the user asks to run pre-commit, pre-flight, ship check, release prep, or before-merge prep.
+Execute when the user asks to run pre-commit, pre-flight, ship check, or release prep — **before**
+commit, push, and opening the PR.
 
 **Always end the workflow** with a commit message for **all current local changes**
 (uncommitted + staged). User does not need to ask separately.
 
-**Do not run `git commit` unless the user's message contains the exact phrase `create a git commit`.**
+## PR lifecycle (where this skill fits)
+
+```
+make changes
+→ pre-commit          ← you are here (app version, CHANGELOG, tests)
+→ commit, push, open PR
+→ harden              (self-review loop + summarize + post-review)
+→ post-review
+→ final commit/push   (only if harden/post-review changed files)
+→ merge after CI
+```
+
+This skill runs **once per feature branch**, before the PR. **Post-review** runs
+after harden on the open PR — do **not** suggest pre-commit as the default next
+step after post-review. Re-run pre-commit only if harden/post-review introduced
+**new functional changes** that need another semver bump (unusual).
+
+## Git policy (mandatory)
+
+**No git commands unless the user explicitly asks** — including branch
+creation, checkout/switch, add, commit, push, fetch, merge, or rebase.
+
+The only exception: **read-only** inspection (`git status`, `git diff`,
+`git log`, `git rev-parse`, `git show`) when the user invoked **this**
+pre-commit skill (that invocation counts as explicit permission for those
+reads only). Never run read-only git for other tasks unless asked.
+
+- **Never** create or switch branches for the user. If they are on `main`,
+  **stop** and ask them to create or switch to a feature branch themselves.
+- **Never** run `git commit` unless the user's message contains the exact
+  phrase `create a git commit`.
+- **Never** run `git fetch` unless the user explicitly asks. Use the
+  existing `origin/main` ref; if it may be stale, say so and ask the user
+  to fetch.
 
 References:
 
@@ -35,7 +69,9 @@ References:
 - `run pre-commit checklist`
 - `ship check`
 - `release prep`
-- `before merge`
+
+Do **not** treat `before merge`, `harden`, or post-review wrap-up as pre-commit triggers —
+merge readiness after harden is [post-review](../post-review/SKILL.md).
 
 If the skill does not attach, reference it with `@pre-commit` or `@.cursor/skills/pre-commit/SKILL.md`.
 
@@ -47,7 +83,7 @@ Copy this checklist and mark items as you go:
 
 ```
 Pre-flight progress:
-- [ ] 0. Confirm branch (not `main`)
+- [ ] 0. Confirm branch (not `main` — ask user to branch if needed)
 - [ ] 1. Inspect changes
 - [ ] 2. Bump version + CHANGELOG (if required)
 - [ ] 3. Backend docs (if Supabase changed)
@@ -58,17 +94,22 @@ Pre-flight progress:
 
 ### 0. Confirm branch (not `main`)
 
-Run:
+Read-only check (permitted under this skill):
 
 ```bash
-git fetch origin
 git rev-parse --abbrev-ref HEAD
 ```
 
-- If the result is `main`, **stop** and tell the user to create or switch to a feature branch first (e.g. `git switch -c dev/feature-name`). Do not bump version, run release checks, or draft a ship message on `main`.
+- If the result is `main`, **stop the pre-commit workflow** and **ask the
+  user** to create or switch to a feature branch (they choose the name and
+  run `git switch -c …` or equivalent). Do **not** create or switch
+  branches yourself. Do not bump version, run release checks, or draft a
+  ship message while still on `main`.
 - If already on a feature branch, continue.
 
-**All version decisions use `origin/main` as the baseline** — not the parent commit, not the previous commit on this branch.
+**All version decisions use `origin/main` as the baseline** — not the parent
+commit, not the previous commit on this branch. Do not `git fetch` unless
+the user explicitly asked; note if `origin/main` may be stale.
 
 ### 1. Inspect changes (vs `origin/main`)
 
@@ -136,9 +177,11 @@ Fix failures before continuing. Common gotchas:
 From repo root:
 
 ```bash
-git fetch origin
 node scripts/check-version-bump.js --base origin/main --head HEAD
 ```
+
+Run only after the user has committed on a feature branch (otherwise CI
+check is skipped or meaningless). Do not fetch for them.
 
 This compares **committed** branch changes vs `origin/main` but reads `mobile/app.json`, `mobile/package.json`, and `CHANGELOG.md` from the **working tree** — so step 2 must update those files before this command.
 
@@ -181,11 +224,10 @@ Do not commit unless the user said `create a git commit`.
 
 ## Checks this workflow does NOT cover
 
-Post-merge operator steps (migrations in Supabase SQL editor, EAS build, TestFlight) live in RELEASE_CHECKLIST **After merge** — not pre-commit.
-
-Manual QA in Expo Go is optional; remind the user if the change is UI-heavy and they have not tested yet.
-
-Pushing branch or opening PR — user handles git remote.
+- Post-harden / post-review merge audit — [post-review](../post-review/SKILL.md)
+- Post-merge operator steps (migrations in Supabase SQL editor, EAS build, TestFlight) — RELEASE_CHECKLIST **After merge**
+- Manual QA in Expo Go — remind the user if the change is UI-heavy and they have not tested yet
+- Branch creation, `git fetch`, push, PR open — user handles all git writes and remotes
 
 ## Split modes
 
