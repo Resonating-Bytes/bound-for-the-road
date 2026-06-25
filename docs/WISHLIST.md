@@ -45,7 +45,11 @@ Show a map visualizing where the teen has driven across all sessions. Parents ca
 
 ## Local device communication
 
-- Investigate mDNS/Bonjour or Bluetooth LE for adult join when physically nearby. Would remove push delivery dependency for the "I'm with the driver" step and naturally satisfy proximity requirement. Requires native module work beyond Expo Go.
+- Investigate mDNS/Bonjour or Bluetooth LE for adult join when physically nearby. Would remove push delivery dependency for proximity and optional join-without-push flows. Requires native module work beyond Expo Go.
+
+## Adult join (backlog)
+
+- **“I'm with the driver”** — Adult claims supervisor on an active teen session (`activeSupervisorId`). Schema and approval hash fields exist; UI not shipped. May pair with LAN discovery above when dev build lands.
 
 ## Adult stop
 

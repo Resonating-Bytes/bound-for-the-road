@@ -31,9 +31,9 @@ Decisions: [DECISIONS.md](./DECISIONS.md)
 
 | Event | Recipients | Status |
 |-------|------------|--------|
-| Session started | All linked adults | Wishlist: proximity filter |
+| Session started | All linked adults | Wishlist: proximity filter — see [PROXIMITY.md](./PROXIMITY.md) |
 | Adult claimed "I'm with the driver" | Other adults (info) | Not implemented |
-| Session submitted | Eligible approver(s) | **Implemented** — `send-approval-push` → linked adults |
+| Session submitted | Eligible approver(s) | **Implemented** — `send-approval-push`; **proximity filter** via `nearbyAdultIds` (closest within radius), else all linked — [PROXIMITY.md](./PROXIMITY.md) |
 | Session approved | Teen | **Implemented** — `send-approval-push` → teen |
 | Session deleted | Active supervisor if joined | Optional |
 

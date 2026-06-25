@@ -1,10 +1,11 @@
 ---
 name: post-review
 description: >-
-  Run BoundForTheRoad post-review after a self-review loop on a moderate-complexity
-  PR. Audits branch commits, CHANGELOG coverage, and deferred review items; suggests
-  fixes or documents deferrals. Use when the user says run post-review, post-review,
-  harden, harden pass, or pre-merge review.
+  Run BoundForTheRoad post-review after harden (self-review loop) on an existing PR.
+  Audits branch commits, CHANGELOG coverage, and deferred review items; suggests
+  fixes or documents deferrals. App version was already bumped by pre-commit before
+  the PR. Use when the user says run post-review, post-review, harden, harden pass,
+  or pre-merge review.
 disable-model-invocation: true
 ---
 
@@ -13,13 +14,44 @@ disable-model-invocation: true
 **Scope:** Project-only — `.cursor/skills/post-review/` in this repo. Not global.
 For all repos, copy to `~/.cursor/skills/post-review/` (personal skill).
 
-Execute after a self-review loop (one or more agent/human review passes) and **before**
-`pre-commit` on moderate-complexity PRs.
+Execute on an **existing PR**, after **harden** (the self-review loop). **Pre-commit
+already ran** before the PR was opened — app version and `CHANGELOG` were bumped then.
 
-**Pair with:** [pre-commit](../pre-commit/SKILL.md) — post-review is qualitative merge
-readiness; pre-commit is version, tests, CI checks, and commit message.
+## PR lifecycle (where this skill fits)
+
+```
+make changes
+→ pre-commit          (app version, CHANGELOG, tests — see pre-commit skill)
+→ commit, push, open PR
+→ harden              (self-review loop + summarize + this skill)
+→ post-review         ← you are here
+→ final commit/push   (only if this pass or harden changed files)
+→ merge after CI
+```
+
+**Not** the order: post-review → pre-commit. Do **not** tell the user to run
+pre-commit at the end of post-review unless this pass made **new functional
+changes** that need a version bump (unusual — say so explicitly if true).
+
+**Related:** [pre-commit](../pre-commit/SKILL.md) runs **before** the PR; post-review
+is qualitative merge readiness **after** harden.
 
 **Do not run `git commit` unless the user's message contains the exact phrase `create a git commit`.**
+
+## Git policy (mandatory)
+
+**No git commands unless the user explicitly asks** — including branch
+creation, checkout/switch, add, commit, push, fetch, merge, or rebase.
+
+The only exception: **read-only** inspection (`git status`, `git diff`,
+`git log`, `git rev-parse`, `git show`) when the user invoked **this**
+post-review skill (that invocation counts as explicit permission for those
+reads only). Never run read-only git for other tasks unless asked.
+
+- **Never** create or switch branches for the user.
+- **Never** run `git fetch` unless the user explicitly asks. Use the
+  existing `origin/main` ref; if it may be stale, say so and ask the user
+  to fetch.
 
 References:
 
@@ -35,6 +67,9 @@ References:
 - `harden pass`
 - `pre-merge review` (alias)
 
+When the user says **harden**, run the self-review loop first, then this skill as the last step.
+Do not treat `harden` as a substitute for post-review when documenting next steps.
+
 If the skill does not attach, reference it with `@post-review` or `@.cursor/skills/post-review/SKILL.md`.
 
 User may pass optional hints: number of self-review rounds completed, known open items, or "commits only".
@@ -45,7 +80,6 @@ Copy this checklist and mark items as you go:
 
 ```
 Post-review progress:
-- [ ] 0. Confirm branch (not `main`)
 - [ ] 1. Inspect branch commits
 - [ ] 2. Verify CHANGELOG vs branch diff
 - [ ] 3. Triage deferred review items
@@ -53,29 +87,18 @@ Post-review progress:
 - [ ] 5. Report + next steps (required final step)
 ```
 
-### 0. Confirm branch (not `main`)
-
-Run:
-
-```bash
-git fetch origin
-git rev-parse --abbrev-ref HEAD
-```
-
-- If the result is `main`, **stop** and tell the user to switch to a feature branch.
-- If already on a feature branch, continue.
-
 **Use `origin/main` as the baseline** for changelog and diff coverage.
 
 ### 1. Inspect branch commits
 
 Check the contents of all local commits to make sure they are solid and worth keeping.
 
-Run:
+Run in parallel:
 
 ```bash
 git log origin/main..HEAD --oneline
 git log origin/main..HEAD --format="%h %s%n%b---"
+git status --short
 ```
 
 For each commit, note:
@@ -88,13 +111,15 @@ Suggest squash groupings when many small hardening commits tell one story, but d
 
 ### 2. Verify CHANGELOG vs branch diff
 
-Make sure the changelog covers all changes made in this branch.
+Make sure the changelog covers all changes made in this branch (or that exempt
+paths are intentionally omitted).
 
 Run:
 
 ```bash
 git diff --name-only origin/main
 git diff --stat origin/main
+git show origin/main:mobile/app.json
 ```
 
 Read the top `## [x.y.z] - YYYY-MM-DD` section in `CHANGELOG.md` (for the branch's app version if bumped).
@@ -103,14 +128,19 @@ Check:
 
 - Every **user-facing** change under `mobile/src/**`, `mobile/App.jsx`, `mobile/index.js`, `web/**`, and `supabase/**` has a bullet (or is intentionally omitted with reason)
 - Release date is **not earlier** than the section below it (newer versions should have same or later date)
-- Section version matches `mobile/app.json` `expo.version` when the branch bumps app version
+- Top `CHANGELOG.md` heading matches `mobile/app.json` `expo.version` and `mobile/package.json` `version` when the branch bumps app version
 - Dev-only changes (`.cursor/**`, skill files) usually **do not** need CHANGELOG bullets
 
 Fix gaps in `CHANGELOG.md` when obvious; otherwise list missing bullets for the user.
 
-### 3. Triage deferred review items
+**App version / bump:** By the time post-review runs, **pre-commit already bumped
+app version** and added the top `CHANGELOG` section before the PR. Verify coverage
+and consistency — do **not** bump version or add a new changelog section unless
+this pass introduces **new functional changes** not covered by the existing section
+(rare). If harden commits added bullets-worthy fixes, extend the **existing** top
+section; only re-run pre-commit if a semver bump is actually required.
 
-There are the items called out, but left open. Let me know if you feel any should be addressed now:
+### 3. Triage deferred review items
 
 For each open item from the self-review (or a list the user provides), classify:
 
@@ -118,7 +148,7 @@ For each open item from the self-review (or a list the user provides), classify:
 |---------|---------|
 | **Fix now** | Small, low-risk, blocks merge confidence |
 | **Defer** | Edge case, larger refactor, or acceptable known limitation |
-| **Document** | Defer code but add a line to `docs/AUTH.md`, PR description, or a short comment |
+| **Document** | Defer code but add a line to relevant docs, PR description, or a short comment |
 
 Default posture: fix hygiene (missing tests, changelog, broken commit messages); defer edge-case UX unless the user says otherwise.
 
@@ -143,23 +173,30 @@ Summarize:
 - Deferred items table (fix now vs defer vs document)
 - Test result if step 4 ran
 
-End with:
+If this pass changed any files, **always** end with a commit message (one fenced code block, summary line + `-` bullets) covering **only those local changes**. Do not wait for the user to ask.
 
-> When ready to ship: **run pre-commit** (version bump if needed, CI checks, commit message).
+Otherwise, when the PR looks merge-ready:
 
-Do **not** duplicate pre-commit's version bump rules or commit message unless the user also asked for a message in this pass.
+- **Push** if harden/post-review commits are local-only
+- **Wait for CI**, then merge
+- Do **not** suggest running pre-commit (already done before the PR)
+- Only mention re-running pre-commit if this pass added functional changes that need a semver bump
+
+Do **not** duplicate pre-commit's version bump rules. Do **not** tell the user to open a PR — post-review assumes one already exists.
 
 ## What this workflow does NOT cover
 
-- App semver bump or `check-version-bump.js` — **pre-commit**
-- Drafting the final commit message for all local changes — **pre-commit** (unless user asks here too)
-- Creating the GitHub PR or merging — operator steps in RELEASE_CHECKLIST
+- Initial app version bump before the PR — **pre-commit** (already ran)
+- `scripts/check-version-bump.js` — **pre-commit** (re-run only if this pass needs a new bump)
+- Commit message for the entire branch / all uncommitted work — post-review only drafts a message for files changed during this pass
+- Post-merge operator steps (Supabase migrations, EAS build, TestFlight) — RELEASE_CHECKLIST
+- Merging or push — user handles
 
 ## Split modes
 
 | User says | Do |
 |-----------|-----|
 | `post-review` (default) | Full workflow |
-| `post-review commits only` | Steps 0–1 + report |
-| `post-review changelog` | Steps 0–2 + report |
-| `post-review triage` | Steps 0, 3 + report (user supplies open items) |
+| `post-review commits only` | Steps 1 + report |
+| `post-review changelog` | Steps 1–2 + report |
+| `post-review triage` | Steps 1, 3 + report (user supplies open items) |

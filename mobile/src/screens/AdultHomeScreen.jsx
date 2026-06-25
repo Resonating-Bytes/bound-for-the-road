@@ -17,6 +17,7 @@ import { DriverProgressSummary } from '../components/DriverProgressSummary';
 import { ListRowChevron } from '../components/ListRowChevron';
 import { TeenSwitcher } from '../components/TeenSwitcher';
 import { useApprovalPushRefresh } from '../hooks/useApprovalPushRefresh';
+import { useProximitySubmitResponder } from '../hooks/useProximitySubmitResponder';
 import {
   fetchPendingSubmissionsForAdult,
   fetchApprovedSubmissionsForAdult,
@@ -107,6 +108,13 @@ export function AdultHomeScreen({ navigation }) {
     await refresh();
     setRefreshing(false);
   }
+
+  const linkedTeenIds = useMemo(
+    () => teenSummaries.map((teen) => teen.teenUserId),
+    [teenSummaries],
+  );
+
+  useProximitySubmitResponder(linkedTeenIds);
 
   const selectedTeen = useMemo(
     () => teenSummaries.find((teen) => teen.teenUserId === selectedTeenId) ?? null,

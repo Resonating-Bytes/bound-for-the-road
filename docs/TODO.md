@@ -1,6 +1,6 @@
 # Bound for the Road — Project TODO
 
-**Last updated:** 2026-06-20 · **App:** 1.5.10 · **Phase:** 2
+**Last updated:** 2026-06-20 · **App:** 1.5.11 · **Phase:** 2
 
 **Decisions:** [DECISIONS.md](./DECISIONS.md) — do not duplicate here.  
 **Screens:** [SCREENS.md](./SCREENS.md) · **Testing:** [TESTING.md](./TESTING.md)  
@@ -19,7 +19,7 @@
 ### 1. Auth + proximity (candidate)
 
 - [x] **Email + password sign-up / sign-in** — Supabase email auth for users without Google/Apple. See [AUTH.md](./AUTH.md).
-- [ ] **Nearby linked adults** — detect supervising adult on local network (mDNS/BLE per [WISHLIST.md](./WISHLIST.md)) to target push for session submit / join without notifying every linked adult
+- [x] **Nearby linked adults (Phase A)** — at session submit, teen last-known GPS + foreground adult location (Realtime); closest within radius gets push, else all linked. See [PROXIMITY.md](./PROXIMITY.md)
 
 ### 2. Location — background (after native dev build)
 
@@ -47,6 +47,7 @@
 - [ ] Deep links wired to push routes
 - [ ] Custom accent / header hex pickers (deferred)
 - [ ] **Weather conditions during session** — When foreground GPS is on, sample weather alongside location (API TBD). Track at least: clear, rain, high winds, snow, fog; expand if data allows. Active session: vertical stack — day/night icon, weather icon, road category label (heaviest, bottom). Review + optional export line (like road category). Local samples only unless we decide to sync later.
+- [ ] **Adult “I'm with the driver”** — Join active session, set `activeSupervisorId`; schema + hash exist. Deferred in favor of GPS proximity at submit — see [PROXIMITY.md](./PROXIMITY.md#backlog)
 
 ---
 

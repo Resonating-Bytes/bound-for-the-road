@@ -18,6 +18,7 @@ type PushRequestBody = {
   event?: PushEvent | string;
   sessionId?: string;
   requestHash?: string;
+  nearbyAdultIds?: string[];
 };
 
 type ExpoPushMessage = {
@@ -70,6 +71,23 @@ async function adultShortNameForTeen(
   return casualLabelForLinkedUser(supabaseAdmin, teenUserId, adultUserId, 'Supervisor');
 }
 
+function resolveSessionSubmitRecipients(
+  linkedAdultIds: string[],
+  nearbyAdultIds: string[] | undefined,
+): string[] {
+  const linked = [...new Set(linkedAdultIds)];
+  if (!linked.length) return [];
+
+  const nearby = (Array.isArray(nearbyAdultIds) ? nearbyAdultIds : []).filter((id) =>
+    linked.includes(id),
+  );
+  if (nearby.length) {
+    return [nearby[0]];
+  }
+
+  return linked;
+}
+
 async function sendExpoPush(messages: ExpoPushMessage[]) {
   if (!messages.length) return { ok: true, sent: 0 };
 
@@ -105,7 +123,7 @@ Deno.serve(async (req) => {
     }
 
     const body = (await req.json()) as PushRequestBody;
-    const { event, sessionId, requestHash } = body;
+    const { event, sessionId, requestHash, nearbyAdultIds } = body;
     if (!event || !sessionId || !requestHash) {
       return new Response(JSON.stringify({ error: 'invalid_body' }), {
         status: 400,
@@ -181,7 +199,8 @@ Deno.serve(async (req) => {
         .eq('status', 'active');
 
       if (linksError) throw linksError;
-      recipientIds = (links ?? []).map((row) => row.adult_user_id);
+      const linkedAdultIds = (links ?? []).map((row) => row.adult_user_id);
+      recipientIds = resolveSessionSubmitRecipients(linkedAdultIds, nearbyAdultIds);
 
       title = 'Session ready to approve';
       dataType = 'pending_approval';

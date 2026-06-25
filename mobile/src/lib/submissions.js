@@ -21,6 +21,8 @@ import {
 } from '../db/queries';
 import { generateId, nowISO } from '../utils/time';
 import { notifyApprovalPush, PUSH_EVENTS } from './approvalPush';
+import { collectNearbyAdultIdsAtSubmit } from './proximitySubmit';
+import { listLinkedAdultIdsForTeen } from './proximityPush';
 import { canUseRemoteWrite, getCachedCompatibility, assertRemoteWriteAllowed } from './compatibility';
 import { isNetworkOnline, isNetworkFailureError } from './network';
 import { legacyNightMinutes } from '../utils/dayNight';
@@ -43,9 +45,19 @@ export async function pushSubmittedSessionToRemote(sessionId, session, submissio
     });
     if (error) throw error;
   });
+
+  const linkedAdultIds = listLinkedAdultIdsForTeen(session.teenUserId);
+  const nearbyAdultIds = await collectNearbyAdultIdsAtSubmit({
+    teenUserId: session.teenUserId,
+    sessionId: session.id,
+    linkedAdultIds,
+    submittedAt: submission.submittedAt,
+  });
+
   await notifyApprovalPush(PUSH_EVENTS.SESSION_SUBMITTED, {
     sessionId: session.id,
     requestHash: submission.requestHash,
+    nearbyAdultIds,
   });
   markSubmissionOutboxSynced(sessionId);
   await fetchAndStoreTeenSyncWatermark(session.teenUserId, session.teenUserId);

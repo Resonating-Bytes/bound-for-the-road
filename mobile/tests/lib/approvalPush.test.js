@@ -21,6 +21,7 @@ describe('approvalPush', () => {
     await notifyApprovalPush(PUSH_EVENTS.SESSION_SUBMITTED, {
       sessionId: 'session-1',
       requestHash: 'hash-1',
+      nearbyAdultIds: ['adult-a'],
     });
     expect(mockInvoke).toHaveBeenCalledWith('send-approval-push', {
       body: {
@@ -28,6 +29,7 @@ describe('approvalPush', () => {
         sessionId: 'session-1',
         requestHash: 'hash-1',
         clientVersion: APP_VERSION,
+        nearbyAdultIds: ['adult-a'],
       },
     });
   });

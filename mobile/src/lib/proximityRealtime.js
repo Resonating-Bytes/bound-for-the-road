@@ -1,0 +1,150 @@
+import { getSupabase, isSupabaseConfigured } from './supabase';
+import {
+  PROXIMITY_BROADCAST_REQUEST,
+  PROXIMITY_BROADCAST_RESPONSE,
+  proximityChannelName,
+} from './proximityConfig';
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function waitForChannelSubscribe(channel, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error('proximity channel subscribe timeout'));
+    }, timeoutMs);
+    channel.subscribe((status) => {
+      if (settled) return;
+      if (status === 'SUBSCRIBED') {
+        settled = true;
+        clearTimeout(timeout);
+        resolve();
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        settled = true;
+        clearTimeout(timeout);
+        reject(new Error(`proximity channel ${status}`));
+      }
+    });
+  });
+}
+
+/**
+ * Teen: broadcast location check and collect linked adult responses.
+ *
+ * @returns {Map<string, { latitude: number, longitude: number }>}
+ */
+export async function collectAdultProximityResponses({
+  teenUserId,
+  requestId,
+  sessionId,
+  latitude,
+  longitude,
+  linkedAdultIds,
+  waitMs,
+}) {
+  if (!isSupabaseConfigured() || !linkedAdultIds.length) {
+    return new Map();
+  }
+
+  const supabase = getSupabase();
+  const channel = supabase.channel(proximityChannelName(teenUserId), {
+    config: { broadcast: { ack: false, self: false } },
+  });
+
+  const responses = new Map();
+
+  channel.on('broadcast', { event: PROXIMITY_BROADCAST_RESPONSE }, ({ payload }) => {
+    if (!payload || payload.requestId !== requestId) return;
+    const adultUserId = payload.adultUserId;
+    if (!adultUserId || !linkedAdultIds.includes(adultUserId)) return;
+    const lat = Number(payload.latitude);
+    const lon = Number(payload.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    responses.set(adultUserId, { latitude: lat, longitude: lon });
+  });
+
+  try {
+    await waitForChannelSubscribe(channel);
+    await channel.send({
+      type: 'broadcast',
+      event: PROXIMITY_BROADCAST_REQUEST,
+      payload: {
+        requestId,
+        sessionId,
+        teenUserId,
+        latitude,
+        longitude,
+      },
+    });
+    await sleep(waitMs);
+  } catch (e) {
+    console.warn('Proximity response collection failed:', e.message ?? e);
+  } finally {
+    supabase.removeChannel(channel);
+  }
+
+  return responses;
+}
+
+/**
+ * Adult (app foreground): respond to teen submit location checks for linked teens.
+ *
+ * @param {string} adultUserId
+ * @param {string[]} linkedTeenIds
+ * @param {(teenUserId: string) => Promise<{ latitude: number, longitude: number } | null>} getLocation
+ * @returns {Promise<() => void>} unsubscribe
+ */
+export async function subscribeAdultProximityResponder(adultUserId, linkedTeenIds, getLocation) {
+  if (!isSupabaseConfigured() || !linkedTeenIds.length) {
+    return () => {};
+  }
+
+  const supabase = getSupabase();
+  const channels = [...new Set(linkedTeenIds)].map((teenUserId) => {
+    const channel = supabase.channel(proximityChannelName(teenUserId), {
+      config: { broadcast: { ack: false, self: false } },
+    });
+
+    channel.on('broadcast', { event: PROXIMITY_BROADCAST_REQUEST }, async ({ payload }) => {
+      if (!payload?.requestId || payload.teenUserId !== teenUserId) return;
+
+      const coords = await getLocation(teenUserId);
+      if (!coords) return;
+
+      try {
+        await channel.send({
+          type: 'broadcast',
+          event: PROXIMITY_BROADCAST_RESPONSE,
+          payload: {
+            requestId: payload.requestId,
+            adultUserId,
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+          },
+        });
+      } catch (e) {
+        console.warn('Proximity response send failed:', e.message ?? e);
+      }
+    });
+
+    return channel;
+  });
+
+  await Promise.all(
+    channels.map((channel) =>
+      waitForChannelSubscribe(channel).catch((e) => {
+        console.warn('Proximity responder subscribe failed:', e.message ?? e);
+      }),
+    ),
+  );
+
+  return () => {
+    for (const channel of channels) {
+      supabase.removeChannel(channel);
+    }
+  };
+}

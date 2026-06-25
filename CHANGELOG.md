@@ -5,6 +5,31 @@ All notable changes to the mobile app and its Supabase backend are documented he
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 
+## [1.5.11] - 2026-06-22
+
+### Added
+
+- GPS + Realtime proximity at session submit — teen last-known location, foreground adult response, closest adult within 400 m gets approval push
+- Proximity client modules (`geo`, `proximityRealtime`, `proximitySubmit`, `proximityPush`, `useProximitySubmitResponder`)
+- `getLatestLocationSampleForSession` for teen submit location
+- `docs/PROXIMITY.md` — submit flow, recipient rules, background-location extension notes
+- Unit tests for geo, proximity push resolution, and proximity submit collection
+- Dev mock env `EXPO_PUBLIC_PROXIMITY_MOCK_ADULT_ID` for Expo Go proximity testing
+
+### Changed
+
+- `send-approval-push` edge function: optional `nearbyAdultIds` on `session_submitted` (intersected with links; fallback to all linked adults)
+- Adult dashboard listens on Realtime and responds with foreground location when a linked teen submits
+- `approvalPush` passes `nearbyAdultIds` to the edge function when proximity qualifies
+- Notifications and TODO docs updated for proximity Phase A; “I'm with the driver” deferred to backlog
+- Outbox submission replays older than 15 minutes skip proximity targeting (push falls back to all linked adults)
+- Stale session GPS samples older than 15 minutes are ignored for teen submit location
+
+### Fixed
+
+- Proximity Realtime responder awaits channel subscribe before handling requests
+- Location permission requested only when status is `undetermined` (no repeat OS prompt after grant or deny)
+
 ## [1.5.10] - 2026-06-22
 
 ### Added

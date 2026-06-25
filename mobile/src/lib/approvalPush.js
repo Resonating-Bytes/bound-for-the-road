@@ -8,12 +8,17 @@ export const PUSH_EVENTS = {
   SESSION_DISCARDED: 'session_withdrawn',
 };
 
-export async function notifyApprovalPush(event, { sessionId, requestHash }) {
+export async function notifyApprovalPush(event, { sessionId, requestHash, nearbyAdultIds } = {}) {
   if (!isSupabaseConfigured()) return;
+
+  const body = { event, sessionId, requestHash, clientVersion: APP_VERSION };
+  if (Array.isArray(nearbyAdultIds) && nearbyAdultIds.length) {
+    body.nearbyAdultIds = nearbyAdultIds;
+  }
 
   try {
     const { error } = await getSupabase().functions.invoke('send-approval-push', {
-      body: { event, sessionId, requestHash, clientVersion: APP_VERSION },
+      body,
     });
     if (error) {
       console.warn('Approval push invoke failed:', error.message);
