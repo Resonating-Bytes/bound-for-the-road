@@ -72,10 +72,13 @@ export async function affiliateInstructorWithLinkId(linkId) {
   }
 
   const school = mapSchoolRpc(data);
+  if (!school) {
+    throw new Error('Could not link to school.');
+  }
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (user?.id && school) {
+  if (user?.id) {
     upsertInstructorSchoolCache(user.id, school);
   }
   return school;

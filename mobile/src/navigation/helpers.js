@@ -1,4 +1,4 @@
-import { isInstructorSchoolOnboardingDone, isSupervisorNameComplete } from '../db/queries';
+import { isSupervisorNameComplete } from '../db/queries';
 import { isSupervisorRole } from '../utils/roles';
 
 export function getHomeRoute(role) {
@@ -34,8 +34,7 @@ export function getSetupInitialRoute(user) {
   if (user.role === 'adult') return 'OnboardingAdultName';
   if (user.role === 'instructor') {
     if (!isSupervisorNameComplete(user)) return 'OnboardingInstructorName';
-    if (!isInstructorSchoolOnboardingDone(user.id)) return 'OnboardingInstructorSchool';
-    return 'OnboardingInstructorName';
+    return 'OnboardingInstructorSchool';
   }
   return 'OnboardingName';
 }

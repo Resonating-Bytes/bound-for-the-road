@@ -198,11 +198,7 @@ export function InstructorHomeScreen({ navigation }) {
               }
               stickySectionHeadersEnabled={false}
               ListEmptyComponent={
-                <Text style={styles.emptyList}>
-                  {sortMode === 'newest_pending'
-                    ? 'No pending sessions right now.'
-                    : 'No linked students yet.'}
-                </Text>
+                <Text style={styles.emptyList}>No pending sessions right now.</Text>
               }
               renderSectionHeader={({ section: { title } }) => (
                 <Text style={styles.listSectionTitle}>{title}</Text>

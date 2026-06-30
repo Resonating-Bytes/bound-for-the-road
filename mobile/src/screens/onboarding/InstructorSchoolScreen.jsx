@@ -38,7 +38,6 @@ export function OnboardingInstructorSchoolScreen() {
         }
         if (school) {
           setAffiliatedSchool(school);
-          finishOnboarding();
         }
       } catch {
         // User can enter code manually or skip
