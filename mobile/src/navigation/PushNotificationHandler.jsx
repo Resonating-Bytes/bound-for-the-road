@@ -4,6 +4,7 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { registerPushToken } from '../lib/pushTokens';
 import { emitApprovalPushReceived } from '../lib/pushRefreshEvents';
 import { navigateFromPushPayload } from './navigationRef';
+import { isSupervisorRole } from '../utils/roles';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -26,7 +27,7 @@ export function PushNotificationHandler({ userId, role }) {
       const teenOnly = data.type === 'session_approved' || data.type === 'session_declined';
       const adultOnly = data.type === 'pending_approval' || data.type === 'submission_withdrawn';
       if (teenOnly && role !== 'teen') return;
-      if (adultOnly && role !== 'adult') return;
+      if (adultOnly && !isSupervisorRole(role)) return;
       if (teenOnly || adultOnly) {
         emitApprovalPushReceived(data);
       }

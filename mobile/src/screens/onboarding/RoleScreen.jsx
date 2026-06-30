@@ -11,7 +11,13 @@ export function OnboardingRoleScreen({ navigation }) {
 
   async function chooseRole(role) {
     await saveRole(role);
-    navigation.replace(role === 'adult' ? 'OnboardingAdultName' : 'OnboardingName');
+    if (role === 'adult') {
+      navigation.replace('OnboardingAdultName');
+    } else if (role === 'instructor') {
+      navigation.replace('OnboardingInstructorName');
+    } else {
+      navigation.replace('OnboardingName');
+    }
   }
 
   return (
@@ -20,24 +26,28 @@ export function OnboardingRoleScreen({ navigation }) {
         <Text style={shared.title}>Who are you?</Text>
         <Text style={shared.hint}>This choice is saved to your account and cannot be changed later.</Text>
 
-        <View style={styles.choicesLayer} pointerEvents="box-none">
-          <View style={[styles.choiceSlot, styles.teenSlot]}>
-            <Pressable
-              style={[shared.button, accent.button, styles.choiceButton]}
-              onPress={() => chooseRole('teen')}
-            >
-              <Text style={[shared.buttonText, accent.buttonText]}>I&apos;m a teen driver</Text>
-            </Pressable>
-          </View>
+        <View style={styles.choices}>
+          <Pressable
+            style={[shared.button, accent.button, styles.choiceButton]}
+            onPress={() => chooseRole('teen')}
+          >
+            <Text style={[shared.buttonText, accent.buttonText]}>I&apos;m a teen driver</Text>
+          </Pressable>
 
-          <View style={[styles.choiceSlot, styles.adultSlot]}>
-            <Pressable
-              style={[shared.button, accent.button, styles.choiceButton]}
-              onPress={() => chooseRole('adult')}
-            >
-              <Text style={[shared.buttonText, accent.buttonText]}>I&apos;m a supervising adult</Text>
-            </Pressable>
-          </View>
+          <Pressable
+            style={[shared.button, accent.button, styles.choiceButton]}
+            onPress={() => chooseRole('adult')}
+          >
+            <Text style={[shared.buttonText, accent.buttonText]}>I&apos;m a supervising adult</Text>
+          </Pressable>
+
+          <Pressable
+            style={[shared.button, accent.button, styles.choiceButton]}
+            onPress={() => chooseRole('instructor')}
+          >
+            <Text style={[shared.buttonText, accent.buttonText]}>I&apos;m a driving instructor</Text>
+            <Text style={styles.choiceSubtitle}>Classroom or behind-the-wheel programs</Text>
+          </Pressable>
         </View>
       </View>
     </Screen>
@@ -46,25 +56,20 @@ export function OnboardingRoleScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   root: {
-    position: 'relative',
+    paddingTop: 8,
   },
-  choicesLayer: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  choiceSlot: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  teenSlot: {
-    top: '28%',
-  },
-  adultSlot: {
-    top: '56%',
+  choices: {
+    marginTop: 24,
+    gap: 16,
   },
   choiceButton: {
-    width: 280,
-    maxWidth: '78%',
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  choiceSubtitle: {
+    marginTop: 4,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '400',
   },
 });

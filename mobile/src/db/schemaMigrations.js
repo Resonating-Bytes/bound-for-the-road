@@ -1,7 +1,7 @@
 import { MIGRATION_STATEMENTS } from './migrations';
 import { firstTokenFromLegalName } from '../utils/names';
 
-export const LOCAL_DB_VERSION = 8;
+export const LOCAL_DB_VERSION = 9;
 
 function execSql(sqlite, sql) {
   if (typeof sqlite.execSync === 'function') {
@@ -165,6 +165,20 @@ const MIGRATIONS = [
       if (!sessionColumns.some((col) => col.name === 'time_invalid')) {
         execSql(sqlite, 'ALTER TABLE sessions ADD COLUMN time_invalid INTEGER NOT NULL DEFAULT 0');
       }
+    },
+  },
+  {
+    version: 9,
+    up(sqlite) {
+      execSql(
+        sqlite,
+        `CREATE TABLE IF NOT EXISTS instructor_school_cache (
+          instructor_user_id TEXT PRIMARY KEY NOT NULL,
+          school_id TEXT NOT NULL,
+          school_name TEXT NOT NULL,
+          synced_at TEXT NOT NULL
+        )`,
+      );
     },
   },
 ];

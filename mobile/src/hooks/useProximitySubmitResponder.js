@@ -31,7 +31,7 @@ async function readAdultLocationIfAllowed() {
 }
 
 /**
- * When the adult dashboard is mounted, listen for teen submit proximity checks
+ * When a supervisor dashboard is mounted, listen for teen submit proximity checks
  * and respond with current location if the app is in the foreground.
  */
 export function useProximitySubmitResponder(linkedTeenIds, enabled = true) {

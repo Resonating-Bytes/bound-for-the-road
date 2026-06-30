@@ -13,10 +13,10 @@ Until background GPS and LAN discovery ship, proximity at submit uses:
 | Source | Role |
 |--------|------|
 | **Teen location** | Last foreground GPS sample from the session, or a one-shot fix at submit |
-| **Adult location** | If the adult app is **open (foreground)** on the dashboard, request current location when the teen submits. First time only, the OS shows its location permission dialog; after grant or deny, no in-app or OS prompt on later submits |
-| **Supabase Realtime** | Teen broadcasts a location check; adults respond on `proximity:teen:{teenUserId}` |
+| **Adult location** | If the supervisor app is **open (foreground)** on the dashboard, request current location when the teen submits. First time only, the OS shows its location permission dialog; after grant or deny, no in-app or OS prompt on later submits |
+| **Supabase Realtime** | Teen broadcasts a location check; supervisors respond on `proximity:teen:{teenUserId}` |
 
-Instructor GPS proximity (driving schools) is a **separate** concept — see [DRIVING_SCHOOLS.md](./DRIVING_SCHOOLS.md#approval-proximity-device-to-device).
+Instructor vs parent push priority at submit: [DRIVING_SCHOOLS.md](./DRIVING_SCHOOLS.md#approval-proximity-instructors--parents).
 
 ---
 
@@ -24,19 +24,29 @@ Instructor GPS proximity (driving schools) is a **separate** concept — see [DR
 
 Applied on the server (`send-approval-push`) and mirrored in `mobile/src/lib/proximityPush.js`:
 
-1. **Closest nearby linked adult** from client (`nearbyAdultIds` — at most one id, intersected with links)
-2. Else **all linked adults** (fallback — no teen location, no responses, or none within radius)
+1. **Single nearby linked supervisor** from client (`nearbyAdultIds` — at most one id, intersected with links). Client picks using **instructor-over-parent** rules below.
+2. Else **all linked supervisors** (fallback — no teen location, no responses, or none within radius)
 
 Client sends optional `nearbyAdultIds` on the push invoke. Server always intersects with active links; never trusts unlinked ids.
+
+**Proximity pick (client, `pickProximityPushRecipient`):**
+
+| Condition | Push recipient |
+|-----------|----------------|
+| Any **instructor** in **30 m** | **Closest instructor** (beats parents even if a parent is closer) |
+| No instructor in radius, parent(s) in **30 m** | **Closest parent** |
+| Nobody in radius | Omit `nearbyAdultIds` → server pushes to **all** linked supervisors |
+
+Instructors and parents share the same Realtime round and `links.adult_user_id` column. Instructor dashboard runs the same foreground responder hook as adults.
 
 Withdraw / approve events unchanged (teen or approver targeted).
 
 ### Submit flow (teen client)
 
 1. Resolve teen location (`resolveTeenSubmitLocation` — last session sample or one-shot GPS).
-2. If no location → skip proximity collection; push falls back to all linked adults.
-3. Broadcast on Realtime; wait **4.5s** for linked adults with the app open to respond.
-4. Closest adult within **400 m** of the teen → single id in `nearbyAdultIds`; else omit (server pushes to all).
+2. If no location → skip proximity collection; push falls back to all linked supervisors.
+3. Broadcast on Realtime; wait **4.5s** for linked supervisors with the app open to respond.
+4. Apply instructor priority + **30 m** radius → single id in `nearbyAdultIds`; else omit (server pushes to all).
 
 ---
 
@@ -45,11 +55,11 @@ Withdraw / approve events unchanged (teen or approver targeted).
 | Module | Role |
 |--------|------|
 | `proximityConfig.js` | Radius, wait time, channel/event names |
-| `geo.js` | Haversine distance |
+| `geo.js` | Haversine distance, `pickProximityPushRecipient` (instructor priority) |
 | `proximityRealtime.js` | Realtime broadcast request/response |
-| `proximitySubmit.js` | Teen submit location + collect nearby adults |
-| `useProximitySubmitResponder.js` | Adult dashboard listener + foreground GPS |
-| `proximityPush.js` | `resolveSessionSubmitPushRecipients`, `listLinkedAdultIdsForTeen` |
+| `proximitySubmit.js` | Teen submit location + collect nearby supervisors |
+| `useProximitySubmitResponder.js` | Supervisor dashboard listener + foreground GPS (adult + instructor home) |
+| `proximityPush.js` | `resolveSessionSubmitPushRecipients`, `listLinkedAdultIdsForTeen`, `fetchLinkedSupervisorRoles` |
 | `approvalPush.js` | Passes `nearbyAdultIds` to edge function |
 | `submissions.js` | Proximity collection before `notifyApprovalPush` |
 

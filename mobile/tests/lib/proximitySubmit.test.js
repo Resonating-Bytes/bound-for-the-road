@@ -16,6 +16,18 @@ jest.mock('../../src/lib/proximityRealtime', () => ({
   collectAdultProximityResponses: jest.fn(),
 }));
 
+jest.mock('../../src/lib/proximityPush', () => {
+  const actual = jest.requireActual('../../src/lib/proximityPush');
+  return {
+    ...actual,
+    fetchLinkedSupervisorRoles: jest.fn(async (ids) =>
+      Object.fromEntries(
+        ids.map((id) => [id, id.startsWith('inst') ? 'instructor' : 'adult']),
+      ),
+    ),
+  };
+});
+
 import * as Location from 'expo-location';
 import { getLatestLocationSampleForSession } from '../../src/db/queries';
 import { collectAdultProximityResponses } from '../../src/lib/proximityRealtime';
@@ -108,6 +120,28 @@ describe('proximitySubmit', () => {
     });
 
     expect(nearby).toEqual(['adult-b']);
+  });
+
+  test('collectNearbyAdultIdsAtSubmit prefers instructor over closer parent', async () => {
+    getLatestLocationSampleForSession.mockReturnValue({
+      latitude: '41.88',
+      longitude: '-87.63',
+      recordedAt: new Date().toISOString(),
+    });
+    collectAdultProximityResponses.mockResolvedValue(
+      new Map([
+        ['adult-b', { latitude: 41.8801, longitude: -87.63 }],
+        ['inst-1', { latitude: 41.88025, longitude: -87.63 }],
+      ]),
+    );
+
+    const nearby = await collectNearbyAdultIdsAtSubmit({
+      teenUserId: 'teen-1',
+      sessionId: 'session-1',
+      linkedAdultIds: ['adult-b', 'inst-1'],
+    });
+
+    expect(nearby).toEqual(['inst-1']);
   });
 
   test('collectNearbyAdultIdsAtSubmit skips proximity when submit is too old for outbox replay', async () => {

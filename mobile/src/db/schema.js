@@ -84,6 +84,14 @@ export const userAliases = sqliteTable('user_aliases', {
   syncStatus: text('sync_status').notNull().default('synced'),
 });
 
+/** Cached instructor ↔ school affiliation from Supabase. */
+export const instructorSchoolCache = sqliteTable('instructor_school_cache', {
+  instructorUserId: text('instructor_user_id').primaryKey(),
+  schoolId: text('school_id').notNull(),
+  schoolName: text('school_name').notNull(),
+  syncedAt: text('synced_at').notNull(),
+});
+
 /** Foreground GPS samples during active sessions — local only, not synced. */
 export const sessionLocationSamples = sqliteTable('session_location_samples', {
   id: text('id').primaryKey(),

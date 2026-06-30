@@ -13,6 +13,7 @@ import {
   hasActiveLink,
   setLinkInviteDeferred,
   maybeMarkRoleChosenFromRemote,
+  setInstructorSchoolOnboardingDone,
 } from '../db/queries';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase';
 import { signInWithGoogleOAuth } from '../lib/googleAuth';
@@ -402,6 +403,12 @@ export function AuthProvider({ children }) {
     [userId, user?.role],
   );
 
+  const completeInstructorSchoolOnboarding = useCallback(() => {
+    if (!userId) return;
+    setInstructorSchoolOnboardingDone(userId, true);
+    setUser(getUserById(userId));
+  }, [userId]);
+
   const deleteAllData = useCallback(async () => {
     isSigningOutRef.current = true;
     const deletingUserId = userId;
@@ -510,6 +517,7 @@ export function AuthProvider({ children }) {
       signOut,
       saveRole,
       saveProfile,
+      completeInstructorSchoolOnboarding,
       deleteAllData,
       deleteMyAccount,
       refreshUser: () => refreshUser(userId),
@@ -536,6 +544,7 @@ export function AuthProvider({ children }) {
       signOut,
       saveRole,
       saveProfile,
+      completeInstructorSchoolOnboarding,
       deleteAllData,
       deleteMyAccount,
       refreshUser,

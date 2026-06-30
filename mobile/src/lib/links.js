@@ -111,8 +111,8 @@ export async function acceptLinkInvite(code) {
     if (message.includes('invalid_or_expired_code')) {
       throw new Error('Invalid or expired code. Ask the driver to share a new one.');
     }
-    if (message.includes('adult_role_required')) {
-      throw new Error('Only supervising adult accounts can accept invite codes.');
+    if (message.includes('adult_role_required') || message.includes('supervisor_role_required')) {
+      throw new Error('Only supervising adult or instructor accounts can accept invite codes.');
     }
     throw new Error(message);
   }
@@ -152,7 +152,7 @@ export async function fetchLinkedPartners(userId) {
     const partnerId = link.teenUserId === userId ? link.adultUserId : link.teenUserId;
     const { data, error } = await supabase
       .from('users')
-      .select('legal_name, display_name')
+      .select('legal_name, display_name, role')
       .eq('id', partnerId)
       .maybeSingle();
 
@@ -163,6 +163,7 @@ export async function fetchLinkedPartners(userId) {
         : firstTokenFromLegalName(legalName);
     const nickname = getLocalNickname(userId, partnerId);
     const name = casualLabel({ nickname, displayName, fallback: 'Linked account' });
+    const partnerRole = !error && data?.role ? data.role : null;
 
     partners.push({
       linkId: link.id,
@@ -171,6 +172,7 @@ export async function fetchLinkedPartners(userId) {
       displayName,
       nickname,
       name,
+      partnerRole,
     });
   }
   return partners;

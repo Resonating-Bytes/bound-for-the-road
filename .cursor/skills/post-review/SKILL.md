@@ -25,8 +25,8 @@ make changes
 → commit, push, open PR
 → harden              (self-review loop + summarize + this skill)
 → post-review         ← you are here
-→ final commit/push   (only if this pass or harden changed files)
-→ merge after CI
+→ commit              (only if this pass changed files — user says "create a git commit")
+→ merge after CI      (user handles push/merge)
 ```
 
 **Not** the order: post-review → pre-commit. Do **not** tell the user to run
@@ -83,8 +83,8 @@ Post-review progress:
 - [ ] 1. Inspect branch commits
 - [ ] 2. Verify CHANGELOG vs branch diff
 - [ ] 3. Triage deferred review items
-- [ ] 4. Run tests (if fixes made)
-- [ ] 5. Report + next steps (required final step)
+- [ ] 4. Run tests
+- [ ] 5. Commit message (only if this pass changed files)
 ```
 
 **Use `origin/main` as the baseline** for changelog and diff coverage.
@@ -154,49 +154,41 @@ Default posture: fix hygiene (missing tests, changelog, broken commit messages);
 
 If the user supplied a numbered optional list, respond with the same numbers and a one-line verdict each.
 
-### 4. Run tests (if fixes made)
+### 4. Run tests
 
-Only when step 2 or 3 changed code:
+**Default: always run** — cheap insurance before merge.
 
 ```bash
 cd mobile && npm test
 ```
 
-Skip if this pass was audit-only.
+Run when **any** of these is true (almost always on a real PR branch):
 
-### 5. Report + next steps (always last)
+- The branch has **local commits** ahead of `origin/main`
+- Steps 2 or 3 **changed files** on disk (changelog fixes, deferred “fix now” items, etc.)
+- You are unsure whether files changed — run anyway
 
-Summarize:
+Skip **only** when this pass was purely read-only audit **and** `git status` is clean **and** there are no commits on the branch ahead of `origin/main` (rare for post-review).
 
-- Commit audit (count, keep/squash/reword recommendations)
-- CHANGELOG coverage (complete / gaps fixed / gaps remaining)
-- Deferred items table (fix now vs defer vs document)
-- Test result if step 4 ran
+### 5. Commit message (only if this pass changed files)
 
-If this pass changed any files, **always** end with a commit message (one fenced code block, summary line + `-` bullets) covering **only those local changes**. Do not wait for the user to ask.
+If steps 2–4 (or triage fixes) left **uncommitted local changes**, end with a commit message in one fenced code block (summary line + `-` bullets) covering **only those changes**. Do not wait for the user to ask.
 
-Otherwise, when the PR looks merge-ready:
-
-- **Push** if harden/post-review commits are local-only
-- **Wait for CI**, then merge
-- Do **not** suggest running pre-commit (already done before the PR)
-- Only mention re-running pre-commit if this pass added functional changes that need a semver bump
-
-Do **not** duplicate pre-commit's version bump rules. Do **not** tell the user to open a PR — post-review assumes one already exists.
+If there are **no** uncommitted changes from this pass, **nothing to do here** — no commit message, no push/merge/CI instructions.
 
 ## What this workflow does NOT cover
 
 - Initial app version bump before the PR — **pre-commit** (already ran)
 - `scripts/check-version-bump.js` — **pre-commit** (re-run only if this pass needs a new bump)
-- Commit message for the entire branch / all uncommitted work — post-review only drafts a message for files changed during this pass
+- Commit message for files changed **during this pass** only — step 5; not for the whole branch unless the user asks
 - Post-merge operator steps (Supabase migrations, EAS build, TestFlight) — RELEASE_CHECKLIST
-- Merging or push — user handles
+- Push, merge, or CI — user handles
 
 ## Split modes
 
 | User says | Do |
 |-----------|-----|
 | `post-review` (default) | Full workflow |
-| `post-review commits only` | Steps 1 + report |
-| `post-review changelog` | Steps 1–2 + report |
-| `post-review triage` | Steps 1, 3 + report (user supplies open items) |
+| `post-review commits only` | Steps 1 + brief audit summary |
+| `post-review changelog` | Steps 1–2 + brief summary |
+| `post-review triage` | Steps 1, 3 + brief summary (user supplies open items) |

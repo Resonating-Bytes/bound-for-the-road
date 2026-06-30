@@ -1,6 +1,6 @@
 import { eq, and, or, isNull, desc, asc, sql, inArray } from 'drizzle-orm';
 import { getDb } from './client';
-import { users, sessions, outbox, links, settings, submissions, approvals, userAliases, sessionLocationSamples } from './schema';
+import { users, sessions, outbox, links, settings, submissions, approvals, userAliases, sessionLocationSamples, instructorSchoolCache } from './schema';
 import { generateId, nowISO, durationMinutes } from '../utils/time';
 import { computeDayNightMinutes } from '../utils/dayNight';
 import { computeRoadCategoryMinutes } from '../utils/roadCategory';
@@ -114,7 +114,9 @@ export function deleteAllUserData(userId) {
   db.delete(userAliases).where(or(eq(userAliases.ownerUserId, userId), eq(userAliases.targetUserId, userId))).run();
   db.delete(settings).where(eq(settings.key, roleChosenKey(userId))).run();
   db.delete(settings).where(eq(settings.key, linkInviteDeferredKey(userId))).run();
+  db.delete(settings).where(eq(settings.key, instructorSchoolOnboardingKey(userId))).run();
   db.delete(settings).where(eq(settings.key, exportIncludeRoadCategoryKey(userId))).run();
+  db.delete(instructorSchoolCache).where(eq(instructorSchoolCache.instructorUserId, userId)).run();
   db.delete(users).where(eq(users.id, userId)).run();
   clearHeaderThemePreference(userId);
   clearAdultSelectedTeen(userId);
@@ -932,15 +934,49 @@ export function isProfileComplete(user) {
   );
 }
 
-export function isAdultProfileComplete(user) {
+export function isSupervisorNameComplete(user) {
   return Boolean(
-    user?.role === 'adult' && hasLegalName(user) && hasDisplayName(user),
+    (user?.role === 'adult' || user?.role === 'instructor') &&
+      hasLegalName(user) &&
+      hasDisplayName(user),
+  );
+}
+
+export function isAdultProfileComplete(user) {
+  return Boolean(user?.role === 'adult' && isSupervisorNameComplete(user));
+}
+
+function instructorSchoolOnboardingKey(userId) {
+  return `instructor_school_onboarding_done_${userId}`;
+}
+
+export function isInstructorSchoolOnboardingDone(userId) {
+  if (!userId) return false;
+  return getSettingValue(instructorSchoolOnboardingKey(userId)) === '1';
+}
+
+export function setInstructorSchoolOnboardingDone(userId, done = true) {
+  if (!userId) return;
+  if (done) {
+    setSettingValue(instructorSchoolOnboardingKey(userId), '1');
+  } else {
+    const db = getDb();
+    db.delete(settings).where(eq(settings.key, instructorSchoolOnboardingKey(userId))).run();
+  }
+}
+
+export function isInstructorProfileComplete(user) {
+  return Boolean(
+    user?.role === 'instructor' &&
+      isSupervisorNameComplete(user) &&
+      isInstructorSchoolOnboardingDone(user.id),
   );
 }
 
 export function isProfileCompleteForRole(user) {
   if (!user?.role) return false;
   if (user.role === 'adult') return isAdultProfileComplete(user);
+  if (user.role === 'instructor') return isInstructorProfileComplete(user);
   return isProfileComplete(user);
 }
 
@@ -1022,7 +1058,7 @@ export function maybeMarkRoleChosenFromRemote(userId, remoteProfile) {
   const hasName = Boolean(
     remoteProfile.display_name?.trim() || remoteProfile.legal_name?.trim(),
   );
-  if (role === 'adult' && hasName) {
+  if ((role === 'adult' || role === 'instructor') && hasName) {
     setRoleChosen(userId);
     return;
   }
@@ -1138,5 +1174,51 @@ export function markUserAliasSynced(ownerUserId, targetUserId) {
     .where(
       and(eq(userAliases.ownerUserId, ownerUserId), eq(userAliases.targetUserId, targetUserId)),
     )
+    .run();
+}
+
+export function getInstructorSchoolCache(instructorUserId) {
+  if (!instructorUserId) return null;
+  const db = getDb();
+  const row = db
+    .select()
+    .from(instructorSchoolCache)
+    .where(eq(instructorSchoolCache.instructorUserId, instructorUserId))
+    .get();
+  if (!row) return null;
+  return {
+    schoolId: row.schoolId,
+    schoolName: row.schoolName,
+    syncedAt: row.syncedAt,
+  };
+}
+
+export function upsertInstructorSchoolCache(instructorUserId, { schoolId, schoolName }) {
+  const db = getDb();
+  const syncedAt = nowISO();
+  const existing = db
+    .select()
+    .from(instructorSchoolCache)
+    .where(eq(instructorSchoolCache.instructorUserId, instructorUserId))
+    .get();
+  const row = {
+    instructorUserId,
+    schoolId,
+    schoolName,
+    syncedAt,
+  };
+  if (existing) {
+    db.update(instructorSchoolCache).set(row).where(eq(instructorSchoolCache.instructorUserId, instructorUserId)).run();
+  } else {
+    db.insert(instructorSchoolCache).values(row).run();
+  }
+  return row;
+}
+
+export function clearInstructorSchoolCache(instructorUserId) {
+  if (!instructorUserId) return;
+  const db = getDb();
+  db.delete(instructorSchoolCache)
+    .where(eq(instructorSchoolCache.instructorUserId, instructorUserId))
     .run();
 }

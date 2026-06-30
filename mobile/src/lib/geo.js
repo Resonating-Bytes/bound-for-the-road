@@ -51,3 +51,34 @@ export function pickClosestAdultWithinRadius(
 
   return closestId;
 }
+
+/**
+ * Pick one linked supervisor for proximity push.
+ * Instructors in radius beat parents regardless of distance; else closest parent in radius.
+ *
+ * @param {Map<string, { latitude: number, longitude: number }>} responses
+ * @param {Record<string, string>} roleByUserId — `adult` | `instructor`
+ * @returns {string | null}
+ */
+export function pickProximityPushRecipient(
+  teenLat,
+  teenLon,
+  responses,
+  linkedSupervisorIds,
+  roleByUserId,
+  radiusMeters,
+) {
+  const instructorIds = linkedSupervisorIds.filter((id) => roleByUserId[id] === 'instructor');
+  const parentIds = linkedSupervisorIds.filter((id) => roleByUserId[id] !== 'instructor');
+
+  const closestInstructor = pickClosestAdultWithinRadius(
+    teenLat,
+    teenLon,
+    responses,
+    instructorIds,
+    radiusMeters,
+  );
+  if (closestInstructor) return closestInstructor;
+
+  return pickClosestAdultWithinRadius(teenLat, teenLon, responses, parentIds, radiusMeters);
+}

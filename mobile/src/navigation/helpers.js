@@ -1,5 +1,14 @@
+import {
+  isAdultProfileComplete,
+  isInstructorSchoolOnboardingDone,
+  isSupervisorNameComplete,
+} from '../db/queries';
+import { isSupervisorRole } from '../utils/roles';
+
 export function getHomeRoute(role) {
-  return role === 'adult' ? 'AdultHome' : 'Dashboard';
+  if (role === 'adult') return 'AdultHome';
+  if (role === 'instructor') return 'InstructorHome';
+  return 'Dashboard';
 }
 
 export function resetToHome(navigation, role) {
@@ -24,12 +33,23 @@ export function navigateBackOrHome(navigation, { linked, role }) {
   }
 }
 
+export function getSetupInitialRoute(user) {
+  if (!user?.role) return 'OnboardingRole';
+  if (user.role === 'adult') return 'OnboardingAdultName';
+  if (user.role === 'instructor') {
+    if (!isSupervisorNameComplete(user)) return 'OnboardingInstructorName';
+    if (!isInstructorSchoolOnboardingDone(user.id)) return 'OnboardingInstructorSchool';
+    return 'OnboardingInstructorName';
+  }
+  return 'OnboardingName';
+}
+
 export function getInitialMainRoute({ role, requiresLink, linked, linkInviteDeferred = false }) {
   if (requiresLink && !linked) {
     if (role === 'teen' && linkInviteDeferred) {
       return 'Dashboard';
     }
-    return role === 'adult' ? 'LinkAdult' : 'LinkTeen';
+    return isSupervisorRole(role) ? 'LinkAdult' : 'LinkTeen';
   }
   return getHomeRoute(role);
 }

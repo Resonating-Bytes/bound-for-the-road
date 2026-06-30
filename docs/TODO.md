@@ -1,6 +1,6 @@
 # Bound for the Road — Project TODO
 
-**Last updated:** 2026-06-20 · **App:** 1.5.11 · **Phase:** 2
+**Last updated:** 2026-06-23 · **App:** 1.5.12 · **Phase:** 2
 
 **Decisions:** [DECISIONS.md](./DECISIONS.md) — do not duplicate here.  
 **Screens:** [SCREENS.md](./SCREENS.md) · **Testing:** [TESTING.md](./TESTING.md)  
@@ -16,12 +16,15 @@
 
 ## Next up (priority)
 
-### 1. Auth + proximity (candidate)
+### 1. Driving schools + instructor
 
-- [x] **Email + password sign-up / sign-in** — Supabase email auth for users without Google/Apple. See [AUTH.md](./AUTH.md).
-- [x] **Nearby linked adults (Phase A)** — at session submit, teen last-known GPS + foreground adult location (Realtime); closest within radius gets push, else all linked. See [PROXIMITY.md](./PROXIMITY.md)
+- [~] **Instructor role + school registry** — phased per [DRIVING_SCHOOLS.md](./DRIVING_SCHOOLS.md) (role/link → push routing → school picker → ratings → web admin → billing)
 
-### 2. Location — background (after native dev build)
+### 2. Native dev build (unblocks background location)
+
+- [ ] **iOS development build** — Apple Developer enrollment; see [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md#development-build-bound-for-the-road-branding)
+
+### 3. Location — background (after native dev build)
 
 - [ ] Background track, stall detection, route heat map — dev client + Live Activity / Android foreground service
 
@@ -41,13 +44,15 @@
 - [ ] Sign in with Apple (after iOS dev build)
 - [x] **Email + password sign-up / sign-in** — Supabase email auth as fallback for users without Google or Apple. See [AUTH.md](./AUTH.md).
 - [ ] **Custom SMTP for auth emails** — Configure Resend, SendGrid, SES, etc. in Supabase (confirm + password-reset). Using Supabase built-in defaults for dev until then. [SUPABASE_SETUP.md](./SUPABASE_SETUP.md#6b-email-sign-in-app)
-- [ ] **Instructor role + driving schools** — Third role (BTW instructor), school registry + paid listing, teen/adult ratings, proximity instructor push, parent backup approve (no push), contact ROI dashboard, subscription grace/lapse, referral credits (qualifying = instructor-approved session). **Spec:** [DRIVING_SCHOOLS.md](./DRIVING_SCHOOLS.md)
+- [~] **Instructor role + driving schools** — phased implementation; **[open questions](./DRIVING_SCHOOLS_QUESTIONS.md)** · [spec](./DRIVING_SCHOOLS.md)
 - [ ] Maestro E2E happy path (dev/production build)
 - [ ] Live Activity (iOS) + Android foreground service
 - [ ] Deep links wired to push routes
-- [ ] Custom accent / header hex pickers (deferred)
 - [ ] **Weather conditions during session** — When foreground GPS is on, sample weather alongside location (API TBD). Track at least: clear, rain, high winds, snow, fog; expand if data allows. Active session: vertical stack — day/night icon, weather icon, road category label (heaviest, bottom). Review + optional export line (like road category). Local samples only unless we decide to sync later.
 - [ ] **Adult “I'm with the driver”** — Join active session, set `activeSupervisorId`; schema + hash exist. Deferred in favor of GPS proximity at submit — see [PROXIMITY.md](./PROXIMITY.md#backlog)
+- [ ] **Contact us (Settings → About)** — In-app feedback form: category (**Report a bug** / **Request a feature** / **General feedback**), required message text field, optional email if they want a reply. Entry point: **Settings → About** (or sub-screen). Delivery TBD (support email, webhook, Supabase table).
+- [ ] **Active session — “you can leave the app” hint** — Short note at the top of the active session screen: they don’t need to keep the app open during the drive. **Ship after** background location tracking **and** lock screen widget (Live Activity / Android foreground service) — otherwise the hint would be misleading.
+- [ ] **Localization (i18n)** — Externalize all user-facing strings so the app can swap languages. Language picker in **onboarding**; change later in **Settings → Profile**. Initial language list TBD (e.g. English + Spanish).
 
 ---
 
