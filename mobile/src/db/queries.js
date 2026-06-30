@@ -1194,6 +1194,8 @@ export function getInstructorSchoolCache(instructorUserId) {
 }
 
 export function upsertInstructorSchoolCache(instructorUserId, { schoolId, schoolName }) {
+  const normalizedName = schoolName?.trim();
+  if (!instructorUserId || !schoolId || !normalizedName) return null;
   const db = getDb();
   const syncedAt = nowISO();
   const existing = db
@@ -1204,7 +1206,7 @@ export function upsertInstructorSchoolCache(instructorUserId, { schoolId, school
   const row = {
     instructorUserId,
     schoolId,
-    schoolName,
+    schoolName: normalizedName,
     syncedAt,
   };
   if (existing) {

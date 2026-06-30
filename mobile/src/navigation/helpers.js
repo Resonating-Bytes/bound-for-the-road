@@ -1,8 +1,4 @@
-import {
-  isAdultProfileComplete,
-  isInstructorSchoolOnboardingDone,
-  isSupervisorNameComplete,
-} from '../db/queries';
+import { isInstructorSchoolOnboardingDone, isSupervisorNameComplete } from '../db/queries';
 import { isSupervisorRole } from '../utils/roles';
 
 export function getHomeRoute(role) {

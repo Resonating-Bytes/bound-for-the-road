@@ -7,10 +7,12 @@ import {
 } from '../db/queries';
 
 function mapSchoolRpc(data) {
-  if (!data) return null;
+  const schoolId = data?.school_id;
+  const schoolName = data?.school_name?.trim();
+  if (!schoolId || !schoolName) return null;
   return {
-    schoolId: data.school_id,
-    schoolName: data.school_name,
+    schoolId,
+    schoolName,
     onboardingLinkId: data.onboarding_link_id,
   };
 }

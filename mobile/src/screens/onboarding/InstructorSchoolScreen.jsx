@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
+import { getInstructorSchoolCache } from '../../db/queries';
 import { Screen } from '../../components/Screen';
 import { formatInviteCode, normalizeInviteCode } from '../../lib/links';
 import {
@@ -11,7 +12,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { shared, themeAccentStyles } from './sharedStyles';
 
 export function OnboardingInstructorSchoolScreen() {
-  const { completeInstructorSchoolOnboarding } = useAuth();
+  const { completeInstructorSchoolOnboarding, userId } = useAuth();
   const { theme } = useTheme();
   const accent = themeAccentStyles(theme);
   const [code, setCode] = useState('');
@@ -27,8 +28,14 @@ export function OnboardingInstructorSchoolScreen() {
     let cancelled = false;
     (async () => {
       try {
-        const school = await tryAutoAffiliateInstructor();
+        let school = await tryAutoAffiliateInstructor();
         if (cancelled) return;
+        if (!school && userId) {
+          const cached = getInstructorSchoolCache(userId);
+          if (cached) {
+            school = { schoolId: cached.schoolId, schoolName: cached.schoolName };
+          }
+        }
         if (school) {
           setAffiliatedSchool(school);
           finishOnboarding();
@@ -42,7 +49,7 @@ export function OnboardingInstructorSchoolScreen() {
     return () => {
       cancelled = true;
     };
-  }, [finishOnboarding]);
+  }, [finishOnboarding, userId]);
 
   async function handleAffiliate() {
     const normalized = normalizeInviteCode(code);

@@ -39,11 +39,7 @@ export function LinkedAccountsSection({
   );
 
   const emptyLabel =
-    role === 'teen'
-      ? 'No linked adults yet.'
-      : role === 'instructor'
-        ? 'No linked teen drivers yet.'
-        : 'No linked teen drivers yet.';
+    role === 'teen' ? 'No linked adults yet.' : 'No linked teen drivers yet.';
 
   return (
     <View style={styles.section}>
