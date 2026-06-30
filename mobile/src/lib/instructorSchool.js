@@ -68,6 +68,9 @@ export async function affiliateInstructorWithLinkId(linkId) {
     if (message.includes('already_affiliated')) {
       throw new Error('You are already linked to a driving school.');
     }
+    if (message.includes('instructor_role_required')) {
+      throw new Error('Your instructor account is still setting up. Try again in a moment.');
+    }
     throw new Error(message);
   }
 

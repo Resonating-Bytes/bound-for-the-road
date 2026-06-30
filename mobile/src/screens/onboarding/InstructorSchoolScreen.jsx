@@ -24,23 +24,32 @@ export function OnboardingInstructorSchoolScreen() {
     completeInstructorSchoolOnboarding();
   }, [completeInstructorSchoolOnboarding]);
 
+  const readCachedSchool = useCallback(() => {
+    if (!userId) return null;
+    const cached = getInstructorSchoolCache(userId);
+    if (!cached) return null;
+    return { schoolId: cached.schoolId, schoolName: cached.schoolName };
+  }, [userId]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         let school = await tryAutoAffiliateInstructor();
         if (cancelled) return;
-        if (!school && userId) {
-          const cached = getInstructorSchoolCache(userId);
-          if (cached) {
-            school = { schoolId: cached.schoolId, schoolName: cached.schoolName };
-          }
+        if (!school) {
+          school = readCachedSchool();
         }
         if (school) {
           setAffiliatedSchool(school);
         }
       } catch {
-        // User can enter code manually or skip
+        if (!cancelled) {
+          const school = readCachedSchool();
+          if (school) {
+            setAffiliatedSchool(school);
+          }
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -48,7 +57,7 @@ export function OnboardingInstructorSchoolScreen() {
     return () => {
       cancelled = true;
     };
-  }, [finishOnboarding, userId]);
+  }, [readCachedSchool]);
 
   async function handleAffiliate() {
     const normalized = normalizeInviteCode(code);

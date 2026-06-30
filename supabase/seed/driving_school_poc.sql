@@ -14,7 +14,7 @@ INSERT INTO public.driving_schools (
 VALUES (
   'Best Driving School',
   'owner@best-driving.example',
-  '123456',
+  '847291',
   '(555) 010-2000',
   '123 Main St, Savoy, IL',
   'info@best-driving.example',

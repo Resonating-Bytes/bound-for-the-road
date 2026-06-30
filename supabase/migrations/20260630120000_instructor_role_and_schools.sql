@@ -323,3 +323,7 @@ CREATE POLICY driving_schools_select_affiliated ON public.driving_schools
 CREATE POLICY school_admins_select_own ON public.school_admins
   FOR SELECT TO authenticated
   USING (user_id = auth.uid());
+
+INSERT INTO public.app_config (key, value)
+VALUES ('backend_revision', '20260630120000')
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
