@@ -11,7 +11,7 @@ import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { Screen } from '../components/Screen';
 
-import { getInitialMainRoute, getMainNavigatorKey } from './helpers';
+import { getInitialMainRoute, getMainNavigatorKey, getSetupInitialRoute } from './helpers';
 import { isLinkInviteDeferred } from '../db/queries';
 import { navigationRef } from './navigationRef';
 import { PushNotificationHandler } from './PushNotificationHandler';
@@ -26,8 +26,7 @@ const TeenStack = createNativeStackNavigator();
 
 const AdultStack = createNativeStackNavigator();
 
-
-
+const InstructorStack = createNativeStackNavigator();
 function AuthNavigator({ initialRouteName = 'SignIn' }) {
 
   return (
@@ -88,6 +87,20 @@ function SetupNavigator({ initialRouteName }) {
 
         getComponent={() => require('../screens/onboarding/AdultNameScreen').OnboardingAdultNameScreen}
 
+      />
+
+      <SetupStack.Screen
+        name="OnboardingInstructorName"
+        getComponent={() =>
+          require('../screens/onboarding/InstructorNameScreen').OnboardingInstructorNameScreen
+        }
+      />
+
+      <SetupStack.Screen
+        name="OnboardingInstructorSchool"
+        getComponent={() =>
+          require('../screens/onboarding/InstructorSchoolScreen').OnboardingInstructorSchoolScreen
+        }
       />
 
       <SetupStack.Screen
@@ -292,6 +305,71 @@ function AdultNavigator({ navigatorKey, initialRouteName }) {
 
 
 
+function InstructorNavigator({ navigatorKey, initialRouteName }) {
+  return (
+    <InstructorStack.Navigator
+      key={navigatorKey}
+      initialRouteName={initialRouteName}
+      screenOptions={{ headerShown: false }}
+    >
+      <InstructorStack.Screen
+        name="InstructorHome"
+        getComponent={() => require('../screens/InstructorHomeScreen').InstructorHomeScreen}
+      />
+
+      <InstructorStack.Screen
+        name="ApproveSession"
+        getComponent={() => require('../screens/ApproveSessionScreen').ApproveSessionScreen}
+      />
+
+      <InstructorStack.Screen
+        name="LinkAdult"
+        getComponent={() => require('../screens/linking/LinkAdultScreen').LinkAdultScreen}
+      />
+
+      <InstructorStack.Screen
+        name="Settings"
+        getComponent={() => require('../screens/SettingsScreen').SettingsScreen}
+      />
+
+      <InstructorStack.Screen
+        name="SettingsProfile"
+        getComponent={() => require('../screens/settings/SettingsProfileScreen').SettingsProfileScreen}
+      />
+
+      <InstructorStack.Screen
+        name="SettingsAppearance"
+        getComponent={() =>
+          require('../screens/settings/SettingsAppearanceScreen').SettingsAppearanceScreen
+        }
+      />
+
+      <InstructorStack.Screen
+        name="SettingsAppUpdates"
+        getComponent={() =>
+          require('../screens/settings/SettingsAppUpdatesScreen').SettingsAppUpdatesScreen
+        }
+      />
+
+      <InstructorStack.Screen
+        name="SettingsLinkedAccounts"
+        getComponent={() =>
+          require('../screens/settings/SettingsLinkedAccountsScreen').SettingsLinkedAccountsScreen
+        }
+      />
+
+      <InstructorStack.Screen
+        name="SettingsLinkedAccountDetail"
+        getComponent={() =>
+          require('../screens/settings/SettingsLinkedAccountDetailScreen').SettingsLinkedAccountDetailScreen
+        }
+      />
+    </InstructorStack.Navigator>
+  );
+}
+
+
+
 export function RootNavigator() {
   const { ready, userId, user, roleChosen, profileComplete, linked, requiresLink, passwordRecoveryPending } =
     useAuth();
@@ -314,12 +392,7 @@ export function RootNavigator() {
     content = <AuthNavigator key={authInitial} initialRouteName={authInitial} />;
   } else if (!roleChosen || !profileComplete) {
     containerKey = `setup-${userId}`;
-    const setupInitial =
-      roleChosen && user?.role
-        ? user.role === 'adult'
-          ? 'OnboardingAdultName'
-          : 'OnboardingName'
-        : 'OnboardingRole';
+    const setupInitial = roleChosen && user?.role ? getSetupInitialRoute(user) : 'OnboardingRole';
     content = <SetupNavigator key={containerKey} initialRouteName={setupInitial} />;
   } else {
     const linkInviteDeferred = isLinkInviteDeferred(userId);
@@ -336,7 +409,9 @@ export function RootNavigator() {
       linkInviteDeferred,
     });
     content =
-      user?.role === 'adult' ? (
+      user?.role === 'instructor' ? (
+        <InstructorNavigator navigatorKey={containerKey} initialRouteName={initialRouteName} />
+      ) : user?.role === 'adult' ? (
         <AdultNavigator navigatorKey={containerKey} initialRouteName={initialRouteName} />
       ) : (
         <TeenNavigator navigatorKey={containerKey} initialRouteName={initialRouteName} />

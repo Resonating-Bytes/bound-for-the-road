@@ -5,6 +5,21 @@ All notable changes to the mobile app and its Supabase backend are documented he
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 App version uses [Semantic Versioning](https://semver.org/) (`mobile/app.json`).
 
+## [1.5.12] - 2026-06-23
+
+### Added
+
+- **Driving instructor** role — onboarding (name, 6-digit school code or auto-affiliate), instructor home dashboard with student-grouped pending sessions, school name header
+- Instructor ↔ teen linking via Settings (same invite code as adults); **Instructor** badge on teen linked-accounts list
+- Supabase: `driving_schools`, `instructor_school`, `school_admins`; instructor affiliation RPCs (`get_instructor_school`, `try_auto_affiliate_instructor`, `affiliate_instructor_with_link_id`); POC seed (`supabase/seed/driving_school_poc.sql`)
+- `instructorSchool` client module, local `instructor_school_cache`, instructor profile/onboarding queries and tests
+
+### Changed
+
+- Proximity push radius **30 m** (was 400 m); **instructor in radius beats closest parent** for `session_submitted` push; instructors respond on Realtime from instructor home
+- `accept_link_invite` allows instructor role (same `links` table)
+- Driving schools + proximity docs updated for Phase 1–2
+
 ## [1.5.11] - 2026-06-22
 
 ### Added

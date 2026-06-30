@@ -3,13 +3,14 @@ import * as Location from 'expo-location';
 import { generateId } from '../utils/time';
 import { getLatestLocationSampleForSession } from '../db/queries';
 import { isSupabaseConfigured } from './supabase';
-import { pickClosestAdultWithinRadius } from './geo';
+import { pickProximityPushRecipient } from './geo';
 import {
   PROXIMITY_PUSH_RADIUS_METERS,
   PROXIMITY_RESPONSE_WAIT_MS,
   PROXIMITY_SUBMIT_MAX_AGE_MS,
 } from './proximityConfig';
 import { collectAdultProximityResponses } from './proximityRealtime';
+import { fetchLinkedSupervisorRoles } from './proximityPush';
 
 /**
  * Last known session GPS sample, or a one-shot current fix at submit.
@@ -47,8 +48,8 @@ export async function resolveTeenSubmitLocation(sessionId) {
 }
 
 /**
- * Closest linked adult who responded and is within radius of the teen submit location.
- * Returns [] when proximity cannot run or no adult qualifies — caller should push to all linked.
+ * Closest linked supervisor who responded and is within radius, with instructor priority.
+ * Returns [] when proximity cannot run or no supervisor qualifies — caller should push to all linked.
  *
  * @returns {Promise<string[]>}
  */
@@ -97,13 +98,22 @@ export async function collectNearbyAdultIdsAtSubmit({
     waitMs: PROXIMITY_RESPONSE_WAIT_MS,
   });
 
-  const closest = pickClosestAdultWithinRadius(
+  let roleByUserId;
+  try {
+    roleByUserId = await fetchLinkedSupervisorRoles(linkedAdultIds);
+  } catch (e) {
+    console.warn('Proximity role lookup failed:', e.message ?? e);
+    roleByUserId = Object.fromEntries(linkedAdultIds.map((id) => [id, 'adult']));
+  }
+
+  const recipient = pickProximityPushRecipient(
     teenLocation.latitude,
     teenLocation.longitude,
     responses,
     linkedAdultIds,
+    roleByUserId,
     PROXIMITY_PUSH_RADIUS_METERS,
   );
 
-  return closest ? [closest] : [];
+  return recipient ? [recipient] : [];
 }

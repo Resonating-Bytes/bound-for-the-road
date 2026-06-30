@@ -90,13 +90,15 @@ Additional screens:
 
 | Screen | Role | Purpose |
 |--------|------|---------|
-| Role selection | Both | Teen vs adult |
+| Role selection | Both | Teen vs adult vs **instructor** |
 | Adult onboarding | Adult | Name only |
+| Instructor onboarding | Instructor | Name → enter teen invite code (same as adult link) |
 | Invite code | Teen | Generate 6-digit code |
-| Enter code | Adult | Accept link |
+| Enter code | Adult / Instructor | Accept link |
 | Waiting for link | Both | Gate until linked |
 | Adult dashboard | Adult | Selected teen context, pending approvals (see below) |
-| Approval | Adult | Summary + attestation + Approve |
+| **Instructor dashboard** | Instructor | **School name header**; all students listed with pending sessions nested under each name (see below) |
+| Approval | Adult / Instructor | Summary + attestation + Approve / send back |
 | Active session (adult) | Adult | "I'm with the driver", live stats |
 
 Teen Save button label → **Submit for approval**.
@@ -122,6 +124,20 @@ Teen dashboard stays focused on progress. **Settings → Linked accounts**: list
 ### Adult Settings — linked accounts
 
 Linked teens are managed in **Settings** (list, remove, link another teen) — not on the adult dashboard. Multi-teen **switcher** on the dashboard is deferred until session/approval UI ships.
+
+### Instructor dashboard — student-grouped approvals
+
+**Not** the adult layout (no teen switcher, no progress summary). See [DRIVING_SCHOOLS.md](./DRIVING_SCHOOLS.md#instructor-dashboard-v1--decided).
+
+| Element | Behavior |
+|---------|----------|
+| **Header** | Affiliated **school name** (or “Instructor dashboard” if none yet) |
+| **List** | Every linked student; **pending sessions nested under** that student’s name (**newest session first** under each student, both sort modes) |
+| **Sort** | **Alphabetical** (all students A→Z) or **Newest pending** (students with pending first, by latest submit); **sessions under each student always newest first** |
+| **Row tap** | Opens **Approve session** (same screen as adult) |
+| **Empty** | No linked students → empty state + enter invite code |
+
+Instructor **Settings** mirrors adult where applicable (linked accounts, sign out); school affiliation managed via web invite (later phase).
 
 ---
 

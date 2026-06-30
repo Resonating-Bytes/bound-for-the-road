@@ -1,4 +1,5 @@
 import { createNavigationContainerRef } from '@react-navigation/native';
+import { isSupervisorRole } from '../utils/roles';
 
 export const navigationRef = createNavigationContainerRef();
 
@@ -22,7 +23,7 @@ export function navigateToSignInNotice(notice) {
 export function navigateFromPushPayload(data, role) {
   if (!navigationRef.isReady() || !data?.type) return false;
 
-  if (data.type === 'pending_approval' && data.requestHash && role === 'adult') {
+  if (data.type === 'pending_approval' && data.requestHash && isSupervisorRole(role)) {
     navigationRef.navigate('ApproveSession', { requestHash: data.requestHash });
     return true;
   }

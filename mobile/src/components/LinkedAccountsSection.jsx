@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { fetchLinkedPartners } from '../lib/links';
 import { ListRowChevron } from './ListRowChevron';
 import { useTheme } from '../context/ThemeContext';
+import { isInstructorRole } from '../utils/roles';
 
 export function LinkedAccountsSection({
   userId,
@@ -37,7 +38,8 @@ export function LinkedAccountsSection({
     }, [loadPartners]),
   );
 
-  const emptyLabel = role === 'teen' ? 'No linked adults yet.' : 'No linked teen drivers yet.';
+  const emptyLabel =
+    role === 'teen' ? 'No linked adults yet.' : 'No linked teen drivers yet.';
 
   return (
     <View style={styles.section}>
@@ -56,9 +58,16 @@ export function LinkedAccountsSection({
               accessibilityLabel={`${partner.name}, ${partner.legalName}`}
             >
               <View style={styles.rowText}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {partner.name}
-                </Text>
+                <View style={styles.nameRow}>
+                  <Text style={styles.name} numberOfLines={1}>
+                    {partner.name}
+                  </Text>
+                  {role === 'teen' && isInstructorRole(partner.partnerRole) ? (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>Instructor</Text>
+                    </View>
+                  ) : null}
+                </View>
                 <Text style={styles.legalName} numberOfLines={1}>
                   {partner.legalName}
                 </Text>
@@ -115,10 +124,27 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   name: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1a2b3c',
+    flexShrink: 1,
+  },
+  badge: {
+    backgroundColor: '#e0f2fe',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#0369a1',
   },
   legalName: {
     fontSize: 13,

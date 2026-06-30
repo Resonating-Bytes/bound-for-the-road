@@ -17,7 +17,7 @@ import { BACKEND_CAPABILITIES } from '../../src/config/compatibility';
 
 describe('compatibility', () => {
   const compatibleRemote = {
-    backend_revision: '20260629120000',
+    backend_revision: '20260630120000',
     min_app_version: '1.0.0',
     latest_app_version: '1.5.1',
     payload_schema_version: '2',

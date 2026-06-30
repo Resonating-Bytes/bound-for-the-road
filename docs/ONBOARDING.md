@@ -75,6 +75,13 @@ Shown to every new user immediately after first sign-in.
 
 After Screen 5 (Phase 2+): profile saved → linking (Part 2). **MVP:** profile saved → dashboard.
 
+**Driving schools (when Phase 3 ships):** before or with school picker — optional **ZIP** field:
+
+- Hint: *Optional. Used to show driving schools near you if you enter it.*
+- Not required to continue; school list still works via state browse and name search without it.
+
+**Instructor (Phase 1+):** **Driving instructor** → name → **6-digit school code** (skipped if email auto-matches school owner) → dashboard. Link teens in **Settings**. See [DRIVING_SCHOOLS.md](./DRIVING_SCHOOLS.md#static-school-code-poc--small-schools).
+
 ---
 
 ### Adult onboarding (1 screen)

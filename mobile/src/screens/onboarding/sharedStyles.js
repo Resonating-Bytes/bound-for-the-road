@@ -26,6 +26,16 @@ export const shared = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.5 },
   buttonText: { fontSize: 16, fontWeight: '600' },
+  secondaryButton: {
+    marginTop: 12,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
+  secondaryButtonText: { fontSize: 16, fontWeight: '600', color: '#1a2b3c' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   card: {
     backgroundColor: '#fff',
     borderRadius: 10,

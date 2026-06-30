@@ -32,7 +32,7 @@ export function LinkAdultScreen({ navigation }) {
       if (userId && link?.teenUserId) {
         writeSelectedTeenId(userId, link.teenUserId);
       }
-      resetToHome(navigation, 'adult');
+      resetToHome(navigation, user?.role ?? 'adult');
       Alert.alert('Linked', "You're now connected.");
     } catch (e) {
       Alert.alert('Could not link', e.message ?? 'Try again.');

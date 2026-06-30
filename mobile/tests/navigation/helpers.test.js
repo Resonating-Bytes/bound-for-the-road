@@ -4,6 +4,7 @@ describe('navigation helpers', () => {
   test('getHomeRoute returns role home screens', () => {
     expect(getHomeRoute('teen')).toBe('Dashboard');
     expect(getHomeRoute('adult')).toBe('AdultHome');
+    expect(getHomeRoute('instructor')).toBe('InstructorHome');
   });
 
   test('getInitialMainRoute gates on link requirement', () => {
@@ -14,6 +15,12 @@ describe('navigation helpers', () => {
     expect(getInitialMainRoute({ role: 'teen', requiresLink: true, linked: true })).toBe('Dashboard');
     expect(getInitialMainRoute({ role: 'adult', requiresLink: true, linked: false })).toBe('LinkAdult');
     expect(getInitialMainRoute({ role: 'adult', requiresLink: true, linked: true })).toBe('AdultHome');
+    expect(getInitialMainRoute({ role: 'instructor', requiresLink: true, linked: false })).toBe(
+      'LinkAdult',
+    );
+    expect(getInitialMainRoute({ role: 'instructor', requiresLink: true, linked: true })).toBe(
+      'InstructorHome',
+    );
   });
 
   test('getMainNavigatorKey resets stack when link state changes', () => {

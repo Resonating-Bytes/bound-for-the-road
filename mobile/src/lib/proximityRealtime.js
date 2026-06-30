@@ -91,7 +91,7 @@ export async function collectAdultProximityResponses({
 }
 
 /**
- * Adult (app foreground): respond to teen submit location checks for linked teens.
+ * Linked supervisor (adult or instructor): respond to teen submit location checks when app is foreground.
  *
  * @param {string} adultUserId
  * @param {string[]} linkedTeenIds

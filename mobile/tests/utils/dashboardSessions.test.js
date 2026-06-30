@@ -1,4 +1,4 @@
-import { groupSessionsForDashboard, groupAdultDashboardSections } from '../../src/utils/dashboardSessions';
+import { groupSessionsForDashboard, groupAdultDashboardSections, groupInstructorDashboard } from '../../src/utils/dashboardSessions';
 import { INVALID_SESSIONS_SECTION_TITLE } from '../../src/utils/sessionValidation';
 
 describe('groupSessionsForDashboard', () => {
@@ -73,5 +73,36 @@ describe('groupAdultDashboardSections', () => {
     const sections = groupAdultDashboardSections(pending, approved);
     expect(sections.map((section) => section.title)).toEqual(['Pending approval', 'Approved']);
     expect(sections[0].data.map((row) => row.requestHash)).toEqual(['p2', 'p1']);
+  });
+});
+
+describe('groupInstructorDashboard', () => {
+  const students = [
+    { teenUserId: 't1', name: 'Zoe' },
+    { teenUserId: 't2', name: 'Alex' },
+  ];
+
+  const pendingByTeenId = {
+    t1: [
+      { requestHash: 'z1', submittedAt: '2026-06-01T10:00:00.000Z' },
+      { requestHash: 'z2', submittedAt: '2026-06-03T10:00:00.000Z' },
+    ],
+    t2: [{ requestHash: 'a1', submittedAt: '2026-06-02T10:00:00.000Z' }],
+  };
+
+  test('alphabetical includes all students', () => {
+    const groups = groupInstructorDashboard(students, pendingByTeenId, 'alphabetical');
+    expect(groups.map((g) => g.teenUserId)).toEqual(['t2', 't1']);
+    expect(groups[1].pending.map((row) => row.requestHash)).toEqual(['z2', 'z1']);
+  });
+
+  test('newest pending hides students without pending and sorts by latest submit', () => {
+    const groups = groupInstructorDashboard(
+      students,
+      { t1: pendingByTeenId.t1 },
+      'newest_pending',
+    );
+    expect(groups).toHaveLength(1);
+    expect(groups[0].teenUserId).toBe('t1');
   });
 });
